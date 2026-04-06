@@ -1,0 +1,16 @@
+{
+  "name": "tend",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "build:shared": "npm run build -w packages/shared",
+    "build:mcp": "npm run build -w packages/mcp-server",
+    "build:agent": "npm run build -w packages/agent",
+    "dev:mcp": "npm run dev -w packages/mcp-server",
+    "dev:dashboard": "npm run dev -w packages/frontend",
+    "dev:agent": "npm run dev -w packages/agent"
+  }
+}

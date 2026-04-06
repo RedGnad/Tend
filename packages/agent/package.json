@@ -1,0 +1,20 @@
+{
+  "name": "@tend/agent",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./build/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node build/index.js"
+  },
+  "dependencies": {
+    "@tend/shared": "*",
+    "ai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.39.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
