@@ -4,7 +4,7 @@
  * Launch $TEND token on Bags.fm
  *
  * Usage:
- *   npx tsx packages/shared/src/scripts/launch-tend.ts
+ *   npx tsx --env-file=.env packages/shared/src/scripts/launch-tend.ts
  *
  * Requires env vars: BAGS_API_KEY, SOLANA_RPC_URL, TEND_PRIVATE_KEY
  *
@@ -14,6 +14,7 @@
  *   3. Launch token on bonding curve with initial buy
  */
 
+import "dotenv/config";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import { BagsClient } from "../bags-client.js";
 import { loadKeypair, generateKeypair } from "../solana.js";
@@ -58,9 +59,9 @@ async function main() {
     description:
       "Fee-sharing as a service. Tend transforms Bags.fm fee-sharing into a payment rail for autonomous AI services. Holders govern which services are available and their default allocations.",
     imageUrl:
-      "https://raw.githubusercontent.com/user/tend/main/assets/tend-logo.png",
+      "https://raw.githubusercontent.com/RedGnad/Tend/main/assets/tend-logo.png",
     twitter: "TendProtocol",
-    website: "https://tend.fm",
+    website: "https://github.com/RedGnad/Tend",
   });
 
   console.log(`   Token mint: ${tokenInfo.tokenMint}`);

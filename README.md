@@ -1,73 +1,94 @@
-# Tend — Fee-sharing as a service
+# Tend
 
-> Transform Bags.fm fee-sharing into a payment rail for autonomous AI services.
+**Fee-sharing as a service for Bags.fm**
 
-Tend is an MCP Server for Claude Desktop that lets creators manage AI services on their Bags.fm tokens through natural language. Instead of fee-sharing just splitting revenue between humans, it becomes an automatic payment protocol for autonomous services — buyback bots, analytics engines, growth agents, and more.
-
-## How it works
+Tend transforms Bags.fm fee-sharing into an automatic payment rail for AI services. Creators allocate a percentage of their token's trading fees to autonomous services — buyback bots, analytics engines, growth agents — that execute on-chain without human intervention.
 
 ```
-Trading Fees → Tend Orchestrator → Creator (X%) + Buyback Bot (Y%) + Analytics (Z%)
+Trading Volume → 1% Fee → Tend Orchestrator → Creator 60% + Buyback Bot 20% + Analytics 10% + Growth 10%
+                                                              ↓                    ↓              ↓
+                                                         Claims fees          Monitors         Engages
+                                                         Buys back token      Generates        community
+                                                         Creates buy pressure reports           AI-powered
 ```
 
-1. **Launch a token** on Bags.fm
-2. **Tell Claude**: "Add the buyback bot to my token with 20% allocation"
-3. **Tend configures** fee-sharing splits on-chain via Bags SDK
-4. **AI services** claim fees & execute autonomously (buybacks, analytics, etc.)
+## Why
+
+Every Bags.fm token generates trading fees split among claimers. Today that's just humans manually claiming SOL. Tend makes fees **work** — services earn fees proportional to the value they create, and they execute autonomously. No subscriptions, no upfront cost. Services earn only when your token has volume.
+
+## What's included
+
+### MCP Server — 17 tools for Claude Desktop
+
+The first and deepest MCP integration for Bags.fm. Tell Claude what you want in natural language:
+
+```
+"Add the buyback bot to my token with 20% allocation"
+"What's the fee breakdown for token ABC123?"
+"Emergency stop all services"
+"Launch a new token with buyback bot pre-configured"
+```
+
+| Group | Tools |
+|-------|-------|
+| **Services** | `list_available_services` `add_service_to_token` `remove_service_from_token` `service_status` |
+| **Token** | `token_health` `fee_breakdown` `holder_analysis` `before_after_comparison` |
+| **Manage** | `configure_strategy` `set_allocation` `claim_fees` `emergency_stop` |
+| **Portfolio** | `all_managed_tokens` `total_revenue` `service_performance` |
+| **Launch** | `launch_token` `top_tokens_by_fees` |
+
+### Dashboard — self-service UI
+
+Next.js 15 dark-mode dashboard with wallet connect. Manage services, view fee flows, track activity — all backed by live Bags API data.
+
+- Wallet-gated token management
+- Real-time fee distribution visualization
+- Live activity feed (claim events from Bags API)
+- Service marketplace with 4 available + 2 coming soon
+- Top tokens leaderboard by lifetime fees
+- Per-token detail with on-chain claim stats
+
+### Agent Runtime — autonomous services
+
+Background processes that claim fees and execute strategies automatically.
+
+| Service | Default | What it does |
+|---------|---------|-------------|
+| **Buyback Bot** | 15% | Claims fees, swaps SOL for token, creates buy pressure |
+| **Fee Compounder** | 10% | Claims fees, reinvests into liquidity positions |
+| **Analytics Engine** | 5% | Monitors holders, fees, price action, generates reports |
+| **Growth Agent** | 20% | AI-powered community engagement and marketing |
+| Market Maker | 25% | *Coming soon* |
+| Community Rewards | 15% | *Coming soon* |
 
 ## Architecture
 
 ```
 packages/
 ├── shared/          # Types, Bags SDK wrapper, Solana utils
-├── mcp-server/      # 17 MCP tools (Claude Desktop interface)
-├── agent/           # Autonomous service runtime (buyback bot, fee claimer)
-└── frontend/        # Next.js dashboard (dark mode, fee flow viz)
+│   └── bags-client  # Wraps all Bags SDK interactions (fee-share, claims, trades, launch)
+├── mcp-server/      # 17 MCP tools + prompts + resources (STDIO transport)
+│   ├── tools/       # 4 tool groups (services, token, manage, portfolio, launch)
+│   ├── state/       # StateManager + service registry + wallet pool
+│   └── services/    # Fee-share orchestrator (translates service config → on-chain tx)
+├── agent/           # Buyback bot (5m interval) + fee claimer (30m interval)
+└── frontend/        # Next.js 15, Tailwind v4, Recharts, Solana wallet adapter
+    ├── components/  # TokenManager, FeeFlow, ServiceCards, ActivityFeed, Leaderboard
+    └── api/         # 7 API routes (tokens, health, services, activity, leaderboard)
 ```
 
-## MCP Tools (17)
-
-| Group | Tools | Description |
-|-------|-------|-------------|
-| **Services** | `list_available_services`, `add_service_to_token`, `remove_service_from_token`, `service_status` | Manage AI services on tokens |
-| **Token** | `token_health`, `fee_breakdown`, `holder_analysis`, `before_after_comparison` | Token analytics & monitoring |
-| **Manage** | `configure_strategy`, `set_allocation`, `claim_fees`, `emergency_stop` | Fine-tune & control services |
-| **Portfolio** | `all_managed_tokens`, `total_revenue`, `service_performance` | Cross-token portfolio view |
-| **Launch** | `launch_token`, `top_tokens_by_fees` | Launch tokens with services pre-configured |
-
-## Available Services
-
-| Service | Default BPS | Description |
-|---------|-------------|-------------|
-| **Buyback Bot** | 15% | Claims fees → buys back the token → buy pressure |
-| **Fee Compounder** | 10% | Claims fees → reinvests into liquidity |
-| **Analytics Engine** | 5% | Monitors holders, fees, price → health reports |
-| **Growth Agent** | 20% | AI-powered community engagement & marketing |
-| Market Maker | 25% | *Coming soon* |
-| Community Rewards | 15% | *Coming soon* |
-
-## Setup
-
-### 1. Install
+## Quick start
 
 ```bash
-git clone https://github.com/user/tend.git
-cd tend
+git clone https://github.com/RedGnad/Tend.git
+cd Tend
 npm install
+cp .env.example .env
+# Fill in BAGS_API_KEY, SOLANA_RPC_URL, TEND_PRIVATE_KEY
 npm run build
 ```
 
-### 2. Environment
-
-```bash
-cp .env.example .env
-# Fill in:
-# BAGS_API_KEY      — from https://dev.bags.fm
-# SOLANA_RPC_URL    — Helius free tier: https://helius.dev
-# TEND_PRIVATE_KEY  — base58 Solana private key
-```
-
-### 3. Claude Desktop
+### Claude Desktop (MCP)
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
@@ -76,53 +97,47 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "tend": {
       "command": "node",
-      "args": ["/path/to/tend/packages/mcp-server/build/index.js"],
+      "args": ["<path>/packages/mcp-server/build/index.js"],
       "env": {
-        "BAGS_API_KEY": "your-key",
-        "SOLANA_RPC_URL": "https://mainnet.helius-rpc.com/?api-key=your-key",
-        "TEND_PRIVATE_KEY": "your-base58-key"
+        "BAGS_API_KEY": "...",
+        "SOLANA_RPC_URL": "...",
+        "TEND_PRIVATE_KEY": "..."
       }
     }
   }
 }
 ```
 
-### 4. Start the Agent
-
-```bash
-npm run dev:agent
-```
-
-### 5. Dashboard
+### Dashboard
 
 ```bash
 npm run dev:dashboard
-# Open http://localhost:3000
+# http://localhost:3000
 ```
 
-## Example Conversations
+### Agent
 
-> "Show me available Tend services"
-
-> "Add the buyback bot to token ABC123... with 20% allocation"
-
-> "What's the health of my token?"
-
-> "Show me the fee breakdown"
-
-> "Emergency stop all services on my token"
-
-> "Launch a new token called MyToken with buyback bot at 15%"
+```bash
+npm run dev:agent
+# Buyback bot runs every 5 min, fee claimer every 30 min
+```
 
 ## Stack
 
-- **MCP**: `@modelcontextprotocol/sdk` (STDIO transport)
+- **MCP**: `@modelcontextprotocol/sdk` v1.29 (STDIO)
 - **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk` v1.3.5
-- **Frontend**: Next.js 15, Tailwind CSS v4
-- **Agent**: Node.js scheduler (buyback every 5m, claims every 30m)
+- **Frontend**: Next.js 15, Tailwind CSS v4, Recharts
+- **Runtime**: Node.js, TypeScript, npm workspaces
 
-## Built for
+## Tracks
 
-[Bags Hackathon](https://bags.fm/hackathon) — $1M prize pool
+Built for [Bags Hackathon](https://bags.fm/hackathon) ($4M developer fund)
 
-Tracks: AI Agents, Claude Skills, Fee Sharing, DeFi
+- **Claude Skills** — First MCP server for Bags.fm (17 tools)
+- **Fee Sharing** — Fee-sharing as a programmable payment rail
+- **AI Agents** — Autonomous buyback bot and fee claimer
+- **Bags API** — Deep integration across all SDK modules
+
+## License
+
+MIT
