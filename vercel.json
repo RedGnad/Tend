@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build:shared && npm run build -w packages/frontend",
+  "outputDirectory": "packages/frontend/.next",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "env": {
+    "NEXT_IGNORE_INCORRECT_LOCKFILE": "1"
+  }
+}
