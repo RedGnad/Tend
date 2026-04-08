@@ -60,7 +60,7 @@ async function main() {
       "Fee-sharing as a service. Tend transforms Bags.fm fee-sharing into a payment rail for autonomous AI services. Holders govern which services are available and their default allocations.",
     imageUrl:
       "https://raw.githubusercontent.com/RedGnad/Tend/main/assets/tend-logo.png",
-    twitter: "TendProtocol",
+    twitter: "https://x.com/TendProtocol",
     website: "https://github.com/RedGnad/Tend",
   });
 
@@ -100,7 +100,7 @@ async function main() {
   const initialBuyLamports = 10_000_000; // 0.01 SOL initial buy
 
   const launchSig = await bags.launchToken({
-    metadataUrl: tokenInfo.tokenLaunch.uri!,
+    metadataUrl: tokenInfo.tokenMetadata,
     tokenMint: new PublicKey(tokenInfo.tokenMint),
     initialBuyLamports,
     configKey: new PublicKey(configResult.configKey),

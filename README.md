@@ -138,6 +138,16 @@ Built for [Bags Hackathon](https://bags.fm/hackathon) ($4M developer fund)
 - **AI Agents** — Autonomous buyback bot and fee claimer
 - **Bags API** — Deep integration across all SDK modules
 
+## $TEND Token
+
+Live on Bags.fm: [`6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
+
+Fee-sharing config (dog-fooding Tend):
+- Creator: 40%
+- Buyback Bot: 20%
+- Community Fund: 20%
+- Dev Fund: 20%
+
 ## License
 
 MIT
