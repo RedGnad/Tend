@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { SolanaProvider } from "@/components/wallet-provider";
-import { Sidebar } from "@/components/sidebar";
+import { LayoutShell } from "@/components/layout-shell";
 
 export const metadata: Metadata = {
   title: "Tend — Fee-sharing as a service",
@@ -16,12 +16,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="preconnect" href="https://api.fontshare.com" crossOrigin="anonymous" />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=clash-display@400,500,600,700&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://api.fontshare.com/v2/css?f[]=satoshi@300,400,500,700&display=swap"
+          rel="stylesheet"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-screen antialiased">
         <SolanaProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 p-8 overflow-auto">{children}</main>
-          </div>
+          <LayoutShell>{children}</LayoutShell>
         </SolanaProvider>
       </body>
     </html>
