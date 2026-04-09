@@ -77,7 +77,13 @@ export function registerManageTools(
           allocations
         );
 
-        const token = state.getManagedToken(tokenMint)!;
+        const token = state.getManagedToken(tokenMint);
+        if (!token) {
+          return {
+            content: [{ type: "text" as const, text: `Error: Token ${tokenMint} not found after rebalance` }],
+            isError: true,
+          };
+        }
         const breakdown = token.services.map(
           (s) =>
             `  ${s.serviceId}: ${s.bps} BPS (${(s.bps / 100).toFixed(1)}%)`

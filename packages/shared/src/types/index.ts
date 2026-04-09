@@ -66,4 +66,5 @@ export interface TendState {
   managedTokens: Record<string, ManagedToken>;
   walletPool: WalletEntry[];
   snapshots: FeeSnapshot[];
+  serviceWallets?: Record<string, string>; // pubkey -> secret (base58)
 }

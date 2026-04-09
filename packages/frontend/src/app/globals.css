@@ -156,3 +156,54 @@ body::after {
   color: var(--text-muted);
   border: 1px solid var(--border);
 }
+
+/* Wallet adapter overrides */
+.wallet-adapter-wrapper .wallet-adapter-button {
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary)) !important;
+  border-radius: 0.5rem !important;
+  font-family: inherit !important;
+  font-size: 0.875rem !important;
+  height: auto !important;
+  padding: 0.625rem 1rem !important;
+  width: 100%;
+}
+
+.wallet-adapter-wrapper .wallet-adapter-button:hover {
+  filter: brightness(1.1);
+}
+
+.wallet-adapter-wrapper .wallet-adapter-button-trigger {
+  background: linear-gradient(135deg, var(--accent), var(--accent-secondary)) !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 1rem !important;
+}
+
+.wallet-adapter-modal-title {
+  color: var(--text) !important;
+}
+
+.wallet-adapter-modal-list li {
+  background: var(--bg) !important;
+  border-radius: 0.5rem !important;
+}
+
+.wallet-adapter-modal-list li:hover {
+  background: var(--bg-card-hover) !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+  background: transparent !important;
+  color: var(--text) !important;
+}
+
+.wallet-adapter-modal-button-close {
+  background: var(--bg) !important;
+}
+
+.wallet-adapter-modal-overlay {
+  background: rgba(0, 0, 0, 0.7) !important;
+}

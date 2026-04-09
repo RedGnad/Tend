@@ -1,71 +1,79 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ManagedToken } from "@tend/shared";
+
+interface NetworkStats {
+  topTokens: number;
+  totalFees: string;
+}
 
 export function StatsBar() {
-  const [tokens, setTokens] = useState<ManagedToken[]>([]);
+  const [stats, setStats] = useState<NetworkStats | null>(null);
 
   useEffect(() => {
-    fetch("/api/tokens")
-      .then((r) => r.json())
-      .then((d) => setTokens(d.tokens ?? []))
+    fetch("/api/leaderboard")
+      .then((r) => {
+        if (!r.ok) throw new Error("Failed to fetch");
+        return r.json();
+      })
+      .then((d) => {
+        const tokens = d.tokens ?? [];
+        const totalFees = tokens.reduce(
+          (sum: number, t: { lifetimeFees: string }) =>
+            sum + Number(t.lifetimeFees),
+          0
+        );
+        setStats({
+          topTokens: tokens.length,
+          totalFees: (totalFees / 1_000_000_000).toFixed(2),
+        });
+      })
       .catch(() => {});
   }, []);
 
-  const totalServices = tokens.reduce(
-    (sum, t) => sum + t.services.length,
-    0
-  );
-  const totalServiceBps = tokens.reduce(
-    (sum, t) => sum + t.totalServiceBps,
-    0
-  );
-
-  const stats = [
+  const items = [
     {
-      label: "Managed Tokens",
-      value: tokens.length.toString(),
-      accent: false,
+      label: "Bags.fm Tokens",
+      value: stats ? `${stats.topTokens}+` : "...",
+      sub: "With fee-sharing",
     },
     {
-      label: "Active Services",
-      value: totalServices.toString(),
-      accent: false,
+      label: "Total Fees Generated",
+      value: stats ? `${stats.totalFees} SOL` : "...",
+      sub: "Across top tokens",
     },
     {
-      label: "Fee Allocation",
-      value:
-        totalServiceBps > 0
-          ? (totalServiceBps / 100).toFixed(1) + "%"
-          : "--",
-      accent: totalServiceBps > 0,
+      label: "Available Services",
+      value: "4",
+      sub: "Buyback, Analytics, ...",
     },
     {
       label: "Protocol",
       value: "LIVE",
       accent: true,
       pulse: true,
+      sub: "Solana Mainnet",
     },
   ];
 
   return (
     <div className="grid grid-cols-4 gap-4">
-      {stats.map((stat) => (
+      {items.map((stat) => (
         <div key={stat.label} className="card !p-4">
           <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-2">
             {stat.label}
           </p>
           <div className="flex items-center gap-2">
-            {stat.pulse && <div className="pulse-dot" />}
+            {"pulse" in stat && stat.pulse && <div className="pulse-dot" />}
             <p
               className={`text-2xl font-bold stat-value ${
-                stat.accent ? "text-[var(--accent)]" : ""
+                "accent" in stat && stat.accent ? "text-[var(--accent)]" : ""
               }`}
             >
               {stat.value}
             </p>
           </div>
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">{stat.sub}</p>
         </div>
       ))}
     </div>

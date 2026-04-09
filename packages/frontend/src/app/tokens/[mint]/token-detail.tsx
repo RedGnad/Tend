@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { ServiceCard } from "@/components/service-card";
-import { FeeFlow } from "@/components/fee-flow";
 import { ActivityFeed } from "@/components/activity-feed";
 import { AddServiceModal } from "@/components/add-service-modal";
 import type { ManagedToken } from "@tend/shared";
 
 interface TokenHealth {
   tokenMint: string;
+  tokenName: string | null;
+  tokenSymbol: string | null;
   lifetimeFees: number;
   totalClaimed: number;
   unclaimedEstimate: number;
@@ -19,11 +20,10 @@ interface TokenHealth {
     isAdmin?: boolean;
     provider: string | null;
   }>;
-  claimStats: Array<{
-    username: string;
-    royaltyBps: number;
-    totalClaimed: string;
+  recentClaims: Array<{
+    amount: string | number;
     wallet: string;
+    timestamp: number;
   }>;
   managed: ManagedToken | null;
 }
@@ -37,14 +37,20 @@ export function TokenDetail({ mint }: { mint: string }) {
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchHealth = async () => {
+    setError(null);
     try {
       const res = await fetch(`/api/tokens/${mint}/health`);
       if (res.ok) {
         setHealth(await res.json());
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Token not found on Bags.fm");
       }
     } catch {
-      // Silent
+      setError("Failed to connect to Bags.fm API");
     } finally {
       setLoading(false);
     }
@@ -68,13 +74,32 @@ export function TokenDetail({ mint }: { mint: string }) {
     return (
       <div className="max-w-6xl mx-auto">
         <div className="card text-center py-16">
-          <p className="text-[var(--text-muted)]">Failed to load token data</p>
+          <p className="text-red-400 mb-2">{error || "Failed to load token data"}</p>
+          <a href="/" className="text-xs text-[var(--accent)] hover:underline">
+            ← Back to dashboard
+          </a>
         </div>
       </div>
     );
   }
 
   const managed = health.managed;
+
+  // Aggregate claimed amounts per wallet from claim events
+  const claimedByWallet: Record<string, number> = {};
+  for (const e of health.recentClaims) {
+    claimedByWallet[e.wallet] =
+      (claimedByWallet[e.wallet] || 0) + Number(e.amount);
+  }
+
+  const feeDistribution = health.creators.map((c) => ({
+    wallet: c.wallet,
+    username: c.username,
+    bps: c.royaltyBps,
+    claimed: claimedByWallet[c.wallet]
+      ? String(claimedByWallet[c.wallet])
+      : null as string | null,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto fade-in">
@@ -89,12 +114,17 @@ export function TokenDetail({ mint }: { mint: string }) {
         </div>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold font-mono">
-              {mint.slice(0, 16)}...
+            <h2 className="text-xl font-bold">
+              {health.tokenName
+                ? `${health.tokenName} ($${health.tokenSymbol})`
+                : mint.slice(0, 16) + "..."}
             </h2>
+            {health.tokenName && (
+              <p className="text-xs text-[var(--text-muted)] font-mono">{mint}</p>
+            )}
             <div className="flex items-center gap-3 mt-1">
               <a
-                href={`https://bags.fm/token/${mint}`}
+                href={`https://bags.fm/${mint}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-xs text-[var(--accent)] hover:underline"
@@ -121,17 +151,14 @@ export function TokenDetail({ mint }: { mint: string }) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="card">
           <p className="text-xs text-[var(--text-muted)] mb-1">Lifetime Fees</p>
           <p className="text-2xl font-bold">
             {formatSol(health.lifetimeFees)}
           </p>
-        </div>
-        <div className="card">
-          <p className="text-xs text-[var(--text-muted)] mb-1">Total Claimed</p>
-          <p className="text-2xl font-bold">
-            {formatSol(health.totalClaimed)}
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+            1% of all trading volume
           </p>
         </div>
         <div className="card">
@@ -139,68 +166,103 @@ export function TokenDetail({ mint }: { mint: string }) {
           <p className="text-2xl font-bold gradient-text">
             {formatSol(health.unclaimedEstimate)}
           </p>
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+            Available to claim now
+          </p>
         </div>
         <div className="card">
-          <p className="text-xs text-[var(--text-muted)] mb-1">
-            Active Services
-          </p>
-          <p className="text-2xl font-bold">
-            {managed?.services.length ?? 0}
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-[var(--text-muted)]">Services</p>
+            <p className="text-xs text-[var(--text-muted)]">Claimers</p>
+          </div>
+          <div className="flex items-center justify-between">
+            <p className="text-2xl font-bold">{managed?.services.length ?? 0}</p>
+            <p className="text-2xl font-bold text-[var(--accent)]">{feeDistribution.length}</p>
+          </div>
+          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+            {formatSol(health.totalClaimed)} claimed total
           </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left */}
-        <div className="col-span-2 space-y-6">
-          {/* Fee flow */}
-          {managed && managed.services.length > 0 && (
-            <FeeFlow token={managed} />
-          )}
-
-          {/* Creators / claimers */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Fee distribution */}
           <div className="card">
             <h3 className="text-sm font-semibold mb-3">
               Fee Distribution (on-chain)
             </h3>
-            <div className="space-y-2">
-              {health.claimStats.map((c, i) => {
-                const isTend = managed?.services.some(
-                  (s) => s.claimerWallet === c.wallet
-                );
-                const tendService = managed?.services.find(
-                  (s) => s.claimerWallet === c.wallet
-                );
-                return (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between text-xs py-2 border-b border-[var(--border)] last:border-0"
-                  >
-                    <div className="flex items-center gap-2">
-                      {isTend && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/20 text-[var(--accent)]">
-                          TEND
-                        </span>
-                      )}
-                      <span>
-                        {isTend
-                          ? tendService?.serviceId
-                          : c.username || c.wallet.slice(0, 8) + "..."}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <span className="font-mono">
-                        {c.royaltyBps} BPS (
-                        {(c.royaltyBps / 100).toFixed(1)}%)
-                      </span>
-                      <span className="text-[var(--text-muted)]">
-                        {formatSol(c.totalClaimed)} claimed
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            {feeDistribution.length > 0 ? (
+              <>
+                {/* Visual bar */}
+                <div className="flex h-3 rounded-full overflow-hidden mb-4">
+                  {feeDistribution.map((c, i) => {
+                    const isTend = managed?.services.some(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    const colors = [
+                      "bg-[var(--accent)]",
+                      "bg-[var(--accent-secondary)]",
+                      "bg-purple-500",
+                      "bg-amber-500",
+                      "bg-rose-500",
+                    ];
+                    return (
+                      <div
+                        key={i}
+                        className={`${isTend ? "bg-[var(--accent)]" : colors[i % colors.length]} transition-all`}
+                        style={{ width: `${(c.bps / 100)}%` }}
+                        title={`${c.username || c.wallet.slice(0, 8)} — ${c.bps} BPS`}
+                      />
+                    );
+                  })}
+                </div>
+                <div className="space-y-2">
+                  {feeDistribution.map((c, i) => {
+                    const isTend = managed?.services.some(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    const tendService = managed?.services.find(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    return (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between text-xs py-2 border-b border-[var(--border)] last:border-0"
+                      >
+                        <div className="flex items-center gap-2">
+                          {isTend && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--accent)]/20 text-[var(--accent)]">
+                              TEND
+                            </span>
+                          )}
+                          <span>
+                            {isTend
+                              ? tendService?.serviceId
+                              : c.username || c.wallet.slice(0, 8) + "..."}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="font-mono">
+                            {c.bps} BPS ({(c.bps / 100).toFixed(1)}%)
+                          </span>
+                          {c.claimed !== null && (
+                            <span className="text-[var(--text-muted)]">
+                              {formatSol(c.claimed)} claimed
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="text-xs text-[var(--text-muted)] py-4 text-center">
+                No fee-share config found. This token may not have claimers set up yet.
+              </p>
+            )}
           </div>
 
           {/* Services */}
@@ -241,6 +303,33 @@ export function TokenDetail({ mint }: { mint: string }) {
               ))}
             </div>
           </div>
+
+          {/* How it works — show when no services */}
+          {(!managed || managed.services.length === 0) && (
+            <div className="card">
+              <h3 className="text-sm font-semibold mb-3">How Tend works</h3>
+              <div className="space-y-3 text-xs text-[var(--text-muted)]">
+                <div className="flex gap-2">
+                  <span className="text-[var(--accent)] font-bold shrink-0">1.</span>
+                  <span>Add an AI service (buyback bot, analytics, etc.) to this token</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-[var(--accent)] font-bold shrink-0">2.</span>
+                  <span>Tend allocates a % of trading fees (BPS) to the service wallet</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-[var(--accent)] font-bold shrink-0">3.</span>
+                  <span>The service auto-claims fees and executes its strategy on-chain</span>
+                </div>
+              </div>
+              <a
+                href="/services"
+                className="block mt-4 text-xs text-[var(--accent)] hover:underline"
+              >
+                Browse available services →
+              </a>
+            </div>
+          )}
         </div>
       </div>
 

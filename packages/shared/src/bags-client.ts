@@ -46,9 +46,9 @@ export class BagsClient {
 
   // ──── Fee Share Admin ────
 
-  async getAdminTokenMints(): Promise<string[]> {
+  async getAdminTokenMints(wallet?: PublicKey): Promise<string[]> {
     return this.sdk.feeShareAdmin.getAdminTokenMints(
-      this.keypair.publicKey
+      wallet ?? this.keypair.publicKey
     );
   }
 
@@ -107,6 +107,30 @@ export class BagsClient {
       signatures.push(sig);
     }
     return signatures;
+  }
+
+  async prepareUpdateFeeShareConfig(
+    tokenMint: string,
+    claimers: Array<{ wallet: string; bps: number }>,
+    payer: PublicKey
+  ): Promise<Array<{ transaction: string; blockhash: string }>> {
+    const feeClaimers = claimers.map((c) => ({
+      user: new PublicKey(c.wallet),
+      userBps: c.bps,
+    }));
+
+    const txResults =
+      await this.sdk.feeShareAdmin.getUpdateConfigTransactions({
+        feeClaimers,
+        payer,
+        baseMint: new PublicKey(tokenMint),
+      });
+
+    // Serialize transactions as base64 for frontend signing
+    return txResults.map(({ transaction, blockhash }) => ({
+      transaction: Buffer.from(transaction.serialize()).toString("base64"),
+      blockhash: blockhash.blockhash,
+    }));
   }
 
   async createFeeShareConfig(
@@ -180,16 +204,63 @@ export class BagsClient {
 
     const signatures: string[] = [];
     for (const tx of txs) {
-      // Legacy Transaction — need to sign differently
-      tx.sign(kp);
+      // Legacy Transaction — partialSign to preserve Bags backend's pre-signature
+      tx.partialSign(kp);
       const sig = await this.connection.sendRawTransaction(tx.serialize(), {
-        skipPreflight: false,
-        maxRetries: 3,
+        skipPreflight: true,
+        maxRetries: 5,
       });
       await this.connection.confirmTransaction(sig, "confirmed");
       signatures.push(sig);
     }
     return signatures;
+  }
+
+  // ──── Token Metadata ────
+
+  private static readonly METADATA_PROGRAM = new PublicKey(
+    "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+  );
+
+  async getTokenMetadata(
+    tokenMint: string
+  ): Promise<{ name: string; symbol: string; uri: string } | null> {
+    const mintPk = new PublicKey(tokenMint);
+    const [pda] = PublicKey.findProgramAddressSync(
+      [
+        Buffer.from("metadata"),
+        BagsClient.METADATA_PROGRAM.toBuffer(),
+        mintPk.toBuffer(),
+      ],
+      BagsClient.METADATA_PROGRAM
+    );
+
+    const accInfo = await this.connection.getAccountInfo(pda);
+    if (!accInfo) return null;
+
+    const data = accInfo.data;
+    const nameLen = data.readUInt32LE(65);
+    const name = data
+      .slice(69, 69 + nameLen)
+      .toString("utf-8")
+      .replace(/\0/g, "")
+      .trim();
+    const symbolStart = 69 + nameLen;
+    const symbolLen = data.readUInt32LE(symbolStart);
+    const symbol = data
+      .slice(symbolStart + 4, symbolStart + 4 + symbolLen)
+      .toString("utf-8")
+      .replace(/\0/g, "")
+      .trim();
+    const uriStart = symbolStart + 4 + symbolLen;
+    const uriLen = data.readUInt32LE(uriStart);
+    const uri = data
+      .slice(uriStart + 4, uriStart + 4 + uriLen)
+      .toString("utf-8")
+      .replace(/\0/g, "")
+      .trim();
+
+    return { name, symbol, uri };
   }
 
   // ──── Analytics / State ────

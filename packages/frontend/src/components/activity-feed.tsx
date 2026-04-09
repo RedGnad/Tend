@@ -27,6 +27,7 @@ function timeAgo(ts: number): string {
 export function ActivityFeed() {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchEvents = async () => {
     try {
@@ -34,9 +35,10 @@ export function ActivityFeed() {
       if (res.ok) {
         const data = await res.json();
         setEvents(data.events ?? []);
+        setError(false);
       }
     } catch {
-      // Silent fail
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -65,10 +67,21 @@ export function ActivityFeed() {
           </p>
         )}
 
-        {!loading && events.length === 0 && (
-          <p className="text-xs text-[var(--text-muted)] text-center py-4">
-            No activity yet. Add services to tokens to see claims here.
+        {!loading && error && (
+          <p className="text-xs text-red-400 text-center py-4">
+            Failed to load activity
           </p>
+        )}
+
+        {!loading && !error && events.length === 0 && (
+          <div className="text-center py-4">
+            <p className="text-xs text-[var(--text-muted)]">
+              No claims yet
+            </p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-1">
+              Fee claims from Tend services will appear here in real-time
+            </p>
+          </div>
         )}
 
         {events.map((event, i) => (

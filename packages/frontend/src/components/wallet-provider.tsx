@@ -1,23 +1,15 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
-import {
-  ConnectionProvider,
-  WalletProvider,
-} from "@solana/wallet-adapter-react";
+import dynamic from "next/dynamic";
+import type { ReactNode } from "react";
 
-const RPC_URL =
-  process.env.NEXT_PUBLIC_SOLANA_RPC_URL ||
-  "https://api.mainnet-beta.solana.com";
+// Load wallet providers client-side only (they access window/document).
+// Root layout doesn't remount on navigation, so this is stable.
+const WalletProviderInner = dynamic(
+  () => import("./wallet-provider-inner").then((m) => m.WalletProviderInner),
+  { ssr: false }
+);
 
 export function SolanaProvider({ children }: { children: ReactNode }) {
-  const wallets = useMemo(() => [], []);
-
-  return (
-    <ConnectionProvider endpoint={RPC_URL}>
-      <WalletProvider wallets={wallets} autoConnect>
-        {children}
-      </WalletProvider>
-    </ConnectionProvider>
-  );
+  return <WalletProviderInner>{children}</WalletProviderInner>;
 }

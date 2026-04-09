@@ -2,235 +2,376 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
-import type { ManagedToken } from "@tend/shared";
-import { ServiceCard } from "./service-card";
-import { FeeFlow } from "./fee-flow";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { AddServiceModal } from "./add-service-modal";
+import { ExploreToken } from "./explore-token";
+import type { ManagedToken } from "@tend/shared";
 
-interface TokenData {
-  tokens: ManagedToken[];
-  adminMints: string[];
+interface AdminToken {
+  tokenMint: string;
+  lifetimeFees: string;
+  claimers: Array<{
+    wallet: string;
+    username: string;
+    bps: number;
+    totalClaimed: string;
+  }>;
+  managed: ManagedToken | null;
+}
+
+function formatSol(lamports: string | number): string {
+  const sol = Number(lamports) / 1_000_000_000;
+  if (sol >= 1000) return (sol / 1000).toFixed(1) + "K SOL";
+  if (sol >= 1) return sol.toFixed(2) + " SOL";
+  if (sol > 0) return sol.toFixed(4) + " SOL";
+  return "0 SOL";
 }
 
 export function TokenManager() {
   const { publicKey, connected } = useWallet();
-  const [data, setData] = useState<TokenData>({ tokens: [], adminMints: [] });
+  const { setVisible } = useWalletModal();
+  const [tokens, setTokens] = useState<AdminToken[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState<string | null>(null);
-  const [tokenMintInput, setTokenMintInput] = useState("");
-  const [removing, setRemoving] = useState<string | null>(null);
 
   const fetchTokens = useCallback(async () => {
+    if (!publicKey) return;
     setLoading(true);
+    setError(null);
     try {
-      const wallet = publicKey?.toBase58() ?? "";
-      const res = await fetch(`/api/tokens?wallet=${wallet}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
+      const res = await fetch(`/api/tokens?wallet=${publicKey.toBase58()}`);
+      if (!res.ok) throw new Error("Failed to load");
+      const data = await res.json();
+      setTokens(data.adminTokens ?? []);
     } catch {
-      // Silent
+      setError("Failed to load your tokens");
     } finally {
       setLoading(false);
     }
   }, [publicKey]);
 
   useEffect(() => {
-    fetchTokens();
-  }, [fetchTokens]);
-
-  const handleRemoveService = async (
-    tokenMint: string,
-    serviceId: string
-  ) => {
-    setRemoving(`${tokenMint}:${serviceId}`);
-    try {
-      const res = await fetch("/api/services/remove", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenMint, serviceId }),
-      });
-      if (res.ok) {
-        await fetchTokens();
-      }
-    } catch {
-      // Silent
-    } finally {
-      setRemoving(null);
+    if (connected && publicKey) {
+      fetchTokens();
+    } else {
+      setTokens([]);
     }
-  };
+  }, [connected, publicKey, fetchTokens]);
 
+  // ─── Not connected ───
   if (!connected) {
     return (
-      <div className="card text-center py-16 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent)]/5 to-transparent pointer-events-none" />
-        <div className="relative z-10">
-          <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center text-3xl mx-auto mb-5">
-            ⚡
-          </div>
-          <h3 className="text-xl font-bold mb-2">Connect your wallet</h3>
-          <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto leading-relaxed">
-            Connect your Solana wallet to manage AI services on your Bags.fm
-            tokens. Fee-sharing becomes a payment rail for autonomous services.
-          </p>
-          <div className="flex items-center justify-center gap-6 mt-6 text-xs text-[var(--text-muted)]">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
-              On-chain
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-secondary)]" />
-              Non-custodial
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
-              Revocable anytime
-            </span>
+      <div className="space-y-6">
+        <div className="card text-center py-14 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent)]/5 to-transparent pointer-events-none" />
+          <div className="relative z-10">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center text-2xl mx-auto mb-4">
+              ⚡
+            </div>
+            <h3 className="text-xl font-bold mb-2">
+              Attach AI services to your tokens
+            </h3>
+            <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto leading-relaxed mb-5">
+              Connect your wallet to manage fee-sharing on your Bags.fm tokens.
+              Add buyback bots, analytics engines, and growth agents that earn
+              fees and work autonomously.
+            </p>
+            <button
+              onClick={() => setVisible(true)}
+              className="gradient-btn px-8 py-3 rounded-xl text-sm font-semibold"
+            >
+              Connect Wallet
+            </button>
+            <div className="flex items-center justify-center gap-6 mt-5 text-xs text-[var(--text-muted)]">
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
+                On-chain
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-secondary)]" />
+                Non-custodial
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--warning)]" />
+                Revocable
+              </span>
+            </div>
           </div>
         </div>
+        <ExploreToken />
       </div>
     );
   }
 
+  // ─── Loading ───
+  if (loading && tokens.length === 0) {
+    return (
+      <div className="card text-center py-12">
+        <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm text-[var(--text-muted)]">
+          Loading your tokens...
+        </p>
+      </div>
+    );
+  }
+
+  // ─── Error ───
+  if (error) {
+    return (
+      <div className="card text-center py-12">
+        <p className="text-sm text-red-400 mb-3">{error}</p>
+        <button
+          onClick={fetchTokens}
+          className="text-xs text-[var(--accent)] hover:underline"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // ─── No admin tokens ───
+  if (tokens.length === 0) {
+    return (
+      <div className="space-y-6">
+        <div className="card text-center py-10">
+          <p className="text-lg font-semibold mb-2">No admin tokens found</p>
+          <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto">
+            You don&apos;t have fee-share admin rights on any Bags.fm token.
+            Launch a token on{" "}
+            <a
+              href="https://bags.fm"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--accent)] hover:underline"
+            >
+              bags.fm
+            </a>{" "}
+            or explore any token below.
+          </p>
+        </div>
+        <ExploreToken />
+      </div>
+    );
+  }
+
+  // ─── Connected with tokens ───
   return (
     <div className="space-y-6">
-      {/* Add token by mint */}
-      <div className="card">
-        <h3 className="text-sm font-semibold mb-3">Manage a Token</h3>
-        <div className="flex gap-3">
-          <input
-            type="text"
-            placeholder="Enter token mint address..."
-            value={tokenMintInput}
-            onChange={(e) => setTokenMintInput(e.target.value)}
-            className="flex-1 bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2 text-sm font-mono text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
-          />
-          <button
-            onClick={() => {
-              if (tokenMintInput.trim()) {
-                setShowAddModal(tokenMintInput.trim());
-              }
-            }}
-            disabled={!tokenMintInput.trim()}
-            className="px-6 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-40"
-            style={{
-              background:
-                "linear-gradient(135deg, var(--accent), var(--accent-secondary))",
-              color: "white",
-            }}
-          >
-            Add Service
-          </button>
-        </div>
-
-        {data.adminMints.length > 0 && (
-          <div className="mt-3">
-            <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-2">
-              Your admin tokens
-            </p>
-            <div className="flex flex-wrap gap-2">
-              {data.adminMints.map((mint) => (
-                <button
-                  key={mint}
-                  onClick={() => {
-                    setTokenMintInput(mint);
-                    setShowAddModal(mint);
-                  }}
-                  className="text-xs font-mono px-3 py-1.5 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
-                >
-                  {mint.slice(0, 8)}...{mint.slice(-4)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-[var(--text-muted)]">
+          Your Tokens ({tokens.length})
+        </h3>
+        <button
+          onClick={fetchTokens}
+          className="text-xs text-[var(--text-muted)] hover:text-white transition-colors"
+        >
+          Refresh
+        </button>
       </div>
 
-      {/* Managed tokens list */}
-      {loading && data.tokens.length === 0 && (
-        <div className="card text-center py-8">
-          <p className="text-sm text-[var(--text-muted)]">
-            Loading tokens...
-          </p>
-        </div>
-      )}
+      {tokens.map((token) => {
+        const totalBps = token.claimers.reduce((sum, c) => sum + c.bps, 0);
+        const serviceCount = token.managed?.services.length ?? 0;
 
-      {data.tokens.length === 0 && !loading && (
-        <div className="card text-center py-12">
-          <p className="text-lg font-semibold mb-2">No tokens managed yet</p>
-          <p className="text-sm text-[var(--text-muted)]">
-            Enter a token mint address above and add your first AI service.
-          </p>
-        </div>
-      )}
-
-      {data.tokens.map((token) => (
-        <div
-          key={token.tokenMint}
-          className="space-y-4 pb-6 border-b border-[var(--border)] last:border-0"
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold">
+        return (
+          <div key={token.tokenMint} className="card space-y-4">
+            {/* Token header */}
+            <div className="flex items-start justify-between">
+              <div>
                 <a
                   href={`/tokens/${token.tokenMint}`}
-                  className="hover:text-[var(--accent)] transition-colors"
+                  className="text-lg font-bold hover:text-[var(--accent)] transition-colors"
                 >
-                  {token.tokenMint.slice(0, 12)}...
+                  {token.tokenMint.slice(0, 6)}...{token.tokenMint.slice(-4)}
                 </a>
-              </h3>
-              <p className="text-xs text-[var(--text-muted)]">
-                {token.services.length} service(s) | Creator:{" "}
-                {(token.creatorBps / 100).toFixed(1)}%
-              </p>
-            </div>
-            <button
-              onClick={() => setShowAddModal(token.tokenMint)}
-              className="text-xs px-4 py-2 rounded-lg border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-colors"
-            >
-              + Add Service
-            </button>
-          </div>
-
-          <FeeFlow token={token} />
-
-          <div className="grid grid-cols-2 gap-4">
-            {token.services.map((service) => (
-              <div key={service.serviceId} className="relative group">
-                <ServiceCard service={service} />
-                <button
-                  onClick={() =>
-                    handleRemoveService(token.tokenMint, service.serviceId)
-                  }
-                  disabled={
-                    removing ===
-                    `${token.tokenMint}:${service.serviceId}`
-                  }
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 text-xs px-2 py-1 rounded bg-[var(--danger)]/20 text-[var(--danger)] hover:bg-[var(--danger)]/30 transition-all"
+                <div className="flex items-center gap-4 mt-1 text-xs text-[var(--text-muted)]">
+                  <span>Lifetime fees: {formatSol(token.lifetimeFees)}</span>
+                  {serviceCount > 0 && (
+                    <span className="text-[var(--accent)]">
+                      {serviceCount} service{serviceCount > 1 ? "s" : ""} active
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <a
+                  href={`/tokens/${token.tokenMint}`}
+                  className="px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border)] hover:border-[var(--accent)] transition-colors"
                 >
-                  {removing ===
-                  `${token.tokenMint}:${service.serviceId}`
-                    ? "..."
-                    : "Remove"}
+                  Details
+                </a>
+                <button
+                  onClick={() => setShowAddModal(token.tokenMint)}
+                  className="gradient-btn px-4 py-2 rounded-lg text-xs font-semibold"
+                >
+                  + Add Service
                 </button>
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
+            </div>
 
-      {/* Add service modal */}
+            {/* Fee distribution bar */}
+            {token.claimers.length > 0 && (
+              <div>
+                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-2">
+                  Fee Split
+                </p>
+                <div className="flex h-4 rounded-full overflow-hidden mb-3">
+                  {token.claimers.map((c, i) => {
+                    const isTend = token.managed?.services.some(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    const tendService = token.managed?.services.find(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    const colors = [
+                      "bg-slate-500",
+                      "bg-[var(--accent-secondary)]",
+                      "bg-purple-500",
+                      "bg-amber-500",
+                      "bg-rose-500",
+                    ];
+                    return (
+                      <div
+                        key={i}
+                        className={`${isTend ? "bg-[var(--accent)]" : colors[i % colors.length]} transition-all relative group`}
+                        style={{
+                          width: `${(c.bps / (totalBps || 10000)) * 100}%`,
+                        }}
+                        title={`${isTend ? tendService?.serviceId : c.username || c.wallet.slice(0, 8)} — ${c.bps} BPS (${(c.bps / 100).toFixed(1)}%)`}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                  {token.claimers.map((c, i) => {
+                    const isTend = token.managed?.services.some(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    const tendService = token.managed?.services.find(
+                      (s) => s.claimerWallet === c.wallet
+                    );
+                    const colors = [
+                      "bg-slate-500",
+                      "bg-[var(--accent-secondary)]",
+                      "bg-purple-500",
+                      "bg-amber-500",
+                      "bg-rose-500",
+                    ];
+                    return (
+                      <div key={i} className="flex items-center gap-1.5 text-xs">
+                        <span
+                          className={`w-2.5 h-2.5 rounded-full ${isTend ? "bg-[var(--accent)]" : colors[i % colors.length]}`}
+                        />
+                        <span className={isTend ? "text-[var(--accent)] font-medium" : "text-[var(--text-muted)]"}>
+                          {isTend
+                            ? tendService?.serviceId
+                            : c.username || c.wallet.slice(0, 8) + "..."}
+                        </span>
+                        <span className="font-mono text-[var(--text-muted)]">
+                          {(c.bps / 100).toFixed(1)}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Active services detail */}
+            {token.managed && token.managed.services.length > 0 && (
+              <div className="border-t border-[var(--border)] pt-3">
+                <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wide mb-2">
+                  Active Services
+                </p>
+                <div className="space-y-2">
+                  {token.managed.services.map((s) => (
+                    <div
+                      key={s.serviceId}
+                      className="flex items-center justify-between py-2 px-3 rounded-lg bg-[var(--bg)] text-xs"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
+                        <span className="font-medium">{s.serviceId}</span>
+                        <span className="text-[var(--text-muted)] font-mono">
+                          {s.bps} BPS
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-[var(--text-muted)]">
+                        <span>
+                          {Number(s.stats.totalFeesClaimed) > 0
+                            ? formatSol(s.stats.totalFeesClaimed) + " claimed"
+                            : "Waiting for fees"}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            s.status === "active"
+                              ? "bg-[var(--accent)]/15 text-[var(--accent)]"
+                              : "bg-red-500/15 text-red-400"
+                          }`}
+                        >
+                          {s.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No services CTA */}
+            {(!token.managed || token.managed.services.length === 0) && (
+              <div className="border-t border-[var(--border)] pt-3 text-center">
+                <p className="text-xs text-[var(--text-muted)] mb-2">
+                  No AI services yet. Add one to start earning automated returns.
+                </p>
+                <button
+                  onClick={() => setShowAddModal(token.tokenMint)}
+                  className="text-xs text-[var(--accent)] hover:underline"
+                >
+                  Browse services →
+                </button>
+              </div>
+            )}
+
+            {/* Links */}
+            <div className="flex items-center gap-3 text-xs border-t border-[var(--border)] pt-3">
+              <a
+                href={`https://bags.fm/${token.tokenMint}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--accent)] hover:underline"
+              >
+                Bags.fm
+              </a>
+              <a
+                href={`https://solscan.io/token/${token.tokenMint}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--text-muted)] hover:text-white transition-colors"
+              >
+                Solscan
+              </a>
+            </div>
+          </div>
+        );
+      })}
+
+      <ExploreToken />
+
       {showAddModal && (
         <AddServiceModal
           tokenMint={showAddModal}
           existingServiceIds={
-            data.tokens
+            tokens
               .find((t) => t.tokenMint === showAddModal)
-              ?.services.map((s) => s.serviceId) ?? []
+              ?.managed?.services.map((s) => s.serviceId) ?? []
           }
           availableBps={
-            data.tokens.find((t) => t.tokenMint === showAddModal)
+            tokens.find((t) => t.tokenMint === showAddModal)?.managed
               ?.creatorBps ?? 10_000
           }
           onClose={() => setShowAddModal(null)}

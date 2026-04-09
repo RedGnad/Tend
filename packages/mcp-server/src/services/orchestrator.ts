@@ -82,16 +82,23 @@ export class FeeShareOrchestrator {
       },
     };
 
-    // Build the full claimers array
-    await this.state.addService(tokenMint, service);
-    token = this.state.getManagedToken(tokenMint)!;
+    // Build claimers array with the new service included
+    const pendingToken = {
+      ...token,
+      services: [...token.services, service],
+      totalServiceBps: token.totalServiceBps + allocatedBps,
+      creatorBps: token.creatorBps - allocatedBps,
+    };
+    const claimers = this.buildClaimersArray(pendingToken);
 
-    // Sync fee config on-chain
-    const claimers = this.buildClaimersArray(token);
+    // Sync fee config on-chain FIRST — if this fails, state is untouched
     const signatures = await this.bags.updateFeeShareConfig(
       tokenMint,
       claimers
     );
+
+    // Only persist to state after on-chain success
+    await this.state.addService(tokenMint, service);
 
     return { service, signatures };
   }
@@ -100,19 +107,31 @@ export class FeeShareOrchestrator {
     tokenMint: string,
     serviceId: string
   ): Promise<{ removed: ActiveService; signatures: string[] }> {
-    const removed = await this.state.removeService(tokenMint, serviceId);
-    if (!removed)
+    const token = this.state.getManagedToken(tokenMint);
+    if (!token) throw new Error(`Token ${tokenMint} not managed`);
+
+    const serviceToRemove = token.services.find((s) => s.serviceId === serviceId);
+    if (!serviceToRemove)
       throw new Error(`Service "${serviceId}" not found on token ${tokenMint}`);
 
-    const token = this.state.getManagedToken(tokenMint);
-    if (!token) throw new Error("Token no longer managed");
+    // Build claimers without the service to remove
+    const pendingToken = {
+      ...token,
+      services: token.services.filter((s) => s.serviceId !== serviceId),
+      totalServiceBps: token.totalServiceBps - serviceToRemove.bps,
+      creatorBps: token.creatorBps + serviceToRemove.bps,
+    };
+    const claimers = this.buildClaimersArray(pendingToken);
 
-    // Sync fee config on-chain
-    const claimers = this.buildClaimersArray(token);
+    // Sync on-chain FIRST
     const signatures = await this.bags.updateFeeShareConfig(
       tokenMint,
       claimers
     );
+
+    // Only remove from state after on-chain success
+    const removed = await this.state.removeService(tokenMint, serviceId);
+    if (!removed) throw new Error("State inconsistency after on-chain update");
 
     return { removed, signatures };
   }
@@ -120,17 +139,28 @@ export class FeeShareOrchestrator {
   async emergencyStop(
     tokenMint: string
   ): Promise<{ removed: ActiveService[]; signatures: string[] }> {
-    const removedServices = await this.state.removeAllServices(tokenMint);
-    if (removedServices.length === 0) {
+    const token = this.state.getManagedToken(tokenMint);
+    if (!token || token.services.length === 0) {
       throw new Error("No services to remove");
     }
 
-    const token = this.state.getManagedToken(tokenMint)!;
-    const claimers = this.buildClaimersArray(token);
+    // Build claimers with all services removed (admin gets 100%)
+    const pendingToken = {
+      ...token,
+      services: [],
+      totalServiceBps: 0,
+      creatorBps: TOTAL_BPS,
+    };
+    const claimers = this.buildClaimersArray(pendingToken);
+
+    // Sync on-chain FIRST
     const signatures = await this.bags.updateFeeShareConfig(
       tokenMint,
       claimers
     );
+
+    // Only remove from state after on-chain success
+    const removedServices = await this.state.removeAllServices(tokenMint);
 
     return { removed: removedServices, signatures };
   }
@@ -161,18 +191,26 @@ export class FeeShareOrchestrator {
       throw new Error(`Total service BPS ${totalNewBps} exceeds ${TOTAL_BPS}`);
     }
 
-    // Apply new allocations
-    for (const alloc of allocations) {
-      const service = token.services.find((s) => s.serviceId === alloc.serviceId)!;
-      service.bps = alloc.bps;
-    }
-    token.totalServiceBps = token.services.reduce((sum, s) => sum + s.bps, 0);
-    token.creatorBps = TOTAL_BPS - token.totalServiceBps;
-    await this.state.updateManagedToken(token);
+    // Build pending token with new allocations (don't mutate yet)
+    const pendingServices = token.services.map((s) => {
+      const alloc = allocations.find((a) => a.serviceId === s.serviceId);
+      return alloc ? { ...s, bps: alloc.bps } : s;
+    });
+    const pendingToken = {
+      ...token,
+      services: pendingServices,
+      totalServiceBps: pendingServices.reduce((sum, s) => sum + s.bps, 0),
+      creatorBps: TOTAL_BPS - pendingServices.reduce((sum, s) => sum + s.bps, 0),
+    };
+    const claimers = this.buildClaimersArray(pendingToken);
 
-    // Sync on-chain
-    const claimers = this.buildClaimersArray(token);
-    return this.bags.updateFeeShareConfig(tokenMint, claimers);
+    // Sync on-chain FIRST
+    const signatures = await this.bags.updateFeeShareConfig(tokenMint, claimers);
+
+    // Only persist to state after on-chain success
+    await this.state.updateManagedToken(pendingToken);
+
+    return signatures;
   }
 
   async claimServiceFees(

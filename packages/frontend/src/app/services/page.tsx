@@ -1,3 +1,9 @@
+"use client";
+
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useRouter } from "next/navigation";
+
 const SERVICES = [
   {
     id: "buyback-bot",
@@ -86,6 +92,18 @@ const SERVICES = [
 ];
 
 export default function ServicesPage() {
+  const { connected } = useWallet();
+  const { setVisible } = useWalletModal();
+  const router = useRouter();
+
+  const handleAddService = () => {
+    if (connected) {
+      router.push("/");
+    } else {
+      setVisible(true);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto fade-in">
       <div className="mb-8">
@@ -171,13 +189,17 @@ export default function ServicesPage() {
               </div>
             </div>
 
-            {service.status === "available" && (
-              <a
-                href="/"
-                className="mt-3 pt-3 border-t border-[var(--border)] text-center text-xs text-[var(--accent)] hover:text-white transition-colors block"
+            {service.status === "available" ? (
+              <button
+                onClick={handleAddService}
+                className="mt-3 pt-3 border-t border-[var(--border)] text-center text-xs text-[var(--accent)] hover:text-white transition-colors"
               >
-                Add to your token →
-              </a>
+                {connected ? "Add to your token →" : "Connect wallet to add →"}
+              </button>
+            ) : (
+              <div className="mt-3 pt-3 border-t border-[var(--border)] text-center text-xs text-[var(--text-muted)]">
+                Coming soon
+              </div>
             )}
           </div>
         ))}

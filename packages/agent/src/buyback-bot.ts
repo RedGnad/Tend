@@ -1,12 +1,12 @@
-import { Keypair, PublicKey } from "@solana/web3.js";
+import { PublicKey } from "@solana/web3.js";
 import type { BagsClient, ActiveService } from "@tend/shared";
-import { WSOL_MINT_STR, loadKeypair, formatSol, lamportsToSol } from "@tend/shared";
+import { WSOL_MINT_STR, loadKeypair, formatSol } from "@tend/shared";
 import { getServiceWallet } from "./state-reader.js";
 import { log, logError } from "./logger.js";
 
 // Default config
-const DEFAULT_MIN_CLAIM_LAMPORTS = 10_000_000; // 0.01 SOL
-const MIN_SOL_FOR_TX_FEES = 5_000_000; // 0.005 SOL
+const DEFAULT_MIN_CLAIM_LAMPORTS = 1_000_000; // 0.001 SOL
+const SWAP_FEE_BUFFER_LAMPORTS = 100_000; // 0.0001 SOL reserved for swap tx fees
 
 export interface BuybackResult {
   tokenMint: string;
@@ -14,7 +14,7 @@ export interface BuybackResult {
   claimAmount: number;
   swapped: boolean;
   swapSignature?: string;
-  tokensBought?: string;
+  tokensBought?: number;
   error?: string;
 }
 
@@ -83,33 +83,54 @@ export async function runBuyback(
       `[buyback] Claimed ${formatSol(totalClaimable)} in ${claimSigs.length} tx(s)`
     );
 
-    // Check balance for swap
-    const balance = await bags.connection.getBalance(serviceWallet);
-    const swapAmount = balance - MIN_SOL_FOR_TX_FEES;
+    // Swap the claimed amount minus a small buffer for tx fees
+    const swapAmount = totalClaimable - SWAP_FEE_BUFFER_LAMPORTS;
 
     if (swapAmount <= 0) {
-      log(`[buyback] Insufficient balance for swap after fees`);
+      log(`[buyback] Claimed amount too small to swap after fee buffer`);
       return result;
     }
+
+    // Get token balance before swap to measure bought amount
+    const mintPk = new PublicKey(tokenMint);
+    const tokenAccountsBefore = await bags.connection.getParsedTokenAccountsByOwner(
+      serviceWallet,
+      { mint: mintPk }
+    );
+    const tokensBefore = tokenAccountsBefore.value.length > 0
+      ? tokenAccountsBefore.value[0].account.data.parsed.info.tokenAmount.uiAmount ?? 0
+      : 0;
 
     // Execute buyback: SOL → token
     log(
       `[buyback] Swapping ${formatSol(swapAmount)} SOL → ${tokenMint.slice(0, 8)}...`
     );
 
-    const { signature, result: swapResult } = await bags.executeSwap(
+    const { signature } = await bags.executeSwap(
       WSOL_MINT_STR,
       tokenMint,
       swapAmount,
       serviceKeypair
     );
 
+    // Confirm the swap
+    await bags.connection.confirmTransaction(signature, "confirmed");
+
+    // Measure tokens received
+    const tokenAccountsAfter = await bags.connection.getParsedTokenAccountsByOwner(
+      serviceWallet,
+      { mint: mintPk }
+    );
+    const tokensAfter = tokenAccountsAfter.value.length > 0
+      ? tokenAccountsAfter.value[0].account.data.parsed.info.tokenAmount.uiAmount ?? 0
+      : 0;
+
     result.swapped = true;
     result.swapSignature = signature;
-    result.tokensBought = swapResult.transaction ? "confirmed" : "pending";
+    result.tokensBought = tokensAfter - tokensBefore;
 
     log(
-      `[buyback] Buyback complete! sig=${signature.slice(0, 16)}...`
+      `[buyback] Buyback complete! ${result.tokensBought.toFixed(2)} tokens bought, sig=${signature.slice(0, 16)}...`
     );
   } catch (err) {
     result.error = err instanceof Error ? err.message : String(err);

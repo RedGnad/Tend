@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useWallet } from "@solana/wallet-adapter-react";
 
 const SERVICES = [
   {
@@ -53,6 +54,8 @@ interface Props {
   onAdded: () => void;
 }
 
+type Step = "select" | "configure" | "signing" | "confirming";
+
 export function AddServiceModal({
   tokenMint,
   existingServiceIds,
@@ -60,34 +63,77 @@ export function AddServiceModal({
   onClose,
   onAdded,
 }: Props) {
+  const { publicKey, signTransaction } = useWallet();
   const [selectedService, setSelectedService] = useState<string | null>(null);
   const [bps, setBps] = useState(1500);
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<Step>("select");
   const [error, setError] = useState<string | null>(null);
 
   const service = SERVICES.find((s) => s.id === selectedService);
 
   const handleAdd = async () => {
-    if (!selectedService) return;
-    setLoading(true);
+    if (!selectedService || !publicKey || !signTransaction) return;
+
     setError(null);
+    setStep("signing");
 
     try {
-      const res = await fetch("/api/services/add", {
+      // Step 1: Backend builds unsigned transactions
+      const prepRes = await fetch("/api/services/prepare", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tokenMint, serviceId: selectedService, bps }),
+        body: JSON.stringify({
+          tokenMint,
+          serviceId: selectedService,
+          bps,
+          payerWallet: publicKey.toBase58(),
+        }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const prepData = await prepRes.json();
+      if (!prepRes.ok) throw new Error(prepData.error);
+      if (!prepData.transactions?.length) throw new Error("No transactions returned");
+
+      // Step 2: Sign each transaction with wallet
+      const { VersionedTransaction } = await import("@solana/web3.js");
+      const signedTransactions: string[] = [];
+      for (const { transaction: txBase64 } of prepData.transactions) {
+        const txBytes = Uint8Array.from(atob(txBase64), (c) => c.charCodeAt(0));
+        const tx = VersionedTransaction.deserialize(txBytes);
+        const signed = await signTransaction(tx);
+        const serialized = signed.serialize();
+        signedTransactions.push(btoa(String.fromCharCode(...serialized)));
+      }
+
+      setStep("confirming");
+
+      // Step 3: Backend submits signed transactions on-chain
+      const submitRes = await fetch("/api/services/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signedTransactions,
+          tokenMint,
+          serviceId: selectedService,
+          bps,
+          serviceWallet: prepData.serviceWallet,
+          payerWallet: publicKey.toBase58(),
+        }),
+      });
+
+      const submitData = await submitRes.json();
+      if (!submitRes.ok) throw new Error(submitData.error);
 
       onAdded();
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add service");
-    } finally {
-      setLoading(false);
+      const msg = err instanceof Error ? err.message : "Transaction failed";
+      if (msg.includes("User rejected")) {
+        setStep("configure");
+      } else {
+        setError(msg);
+        setStep("configure");
+      }
     }
   };
 
@@ -106,8 +152,7 @@ export function AddServiceModal({
         </div>
 
         <div className="p-6">
-          {!selectedService ? (
-            /* Service selection */
+          {step === "select" && !selectedService ? (
             <div className="space-y-3">
               <p className="text-xs text-[var(--text-muted)] mb-4">
                 Available BPS: {availableBps} ({(availableBps / 100).toFixed(1)}
@@ -125,6 +170,7 @@ export function AddServiceModal({
                       if (!disabled) {
                         setSelectedService(s.id);
                         setBps(Math.min(s.defaultBps, availableBps));
+                        setStep("configure");
                       }
                     }}
                     disabled={disabled}
@@ -163,11 +209,30 @@ export function AddServiceModal({
                 );
               })}
             </div>
+          ) : step === "signing" ? (
+            <div className="text-center py-12">
+              <div className="w-12 h-12 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="font-semibold">Sign in your wallet</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                Approve the transaction in Phantom
+              </p>
+            </div>
+          ) : step === "confirming" ? (
+            <div className="text-center py-12">
+              <div className="w-12 h-12 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+              <p className="font-semibold">Confirming on-chain</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                Waiting for Solana confirmation...
+              </p>
+            </div>
           ) : (
             /* BPS configuration */
             <div className="space-y-6">
               <button
-                onClick={() => setSelectedService(null)}
+                onClick={() => {
+                  setSelectedService(null);
+                  setStep("select");
+                }}
                 className="text-xs text-[var(--text-muted)] hover:text-white"
               >
                 ← Back to services
@@ -238,22 +303,24 @@ export function AddServiceModal({
               </div>
 
               {error && (
-                <p className="text-xs text-[var(--danger)]">{error}</p>
+                <div className="px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-xs text-red-400">
+                  {error}
+                </div>
               )}
 
-              <button
-                onClick={handleAdd}
-                disabled={loading}
-                className="w-full py-3 rounded-xl font-semibold text-sm transition-colors"
-                style={{
-                  background: loading
-                    ? "var(--border)"
-                    : `linear-gradient(135deg, var(--accent), var(--accent-secondary))`,
-                  color: "white",
-                }}
-              >
-                {loading ? "Adding service on-chain..." : "Add Service"}
-              </button>
+              {!publicKey ? (
+                <p className="text-xs text-[var(--text-muted)] text-center">
+                  Connect your wallet to add a service
+                </p>
+              ) : (
+                <button
+                  onClick={handleAdd}
+                  disabled={step !== "configure"}
+                  className="w-full py-3 rounded-xl font-semibold text-sm gradient-btn disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Sign & Add Service
+                </button>
+              )}
             </div>
           )}
         </div>

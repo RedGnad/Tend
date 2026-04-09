@@ -100,7 +100,7 @@ export function registerPortfolioTools(
           totalLifetimeFees += lifetimeFees;
 
           const serviceFees = token.services.reduce(
-            (sum, s) => sum + Number(s.stats.totalFeesClaimed),
+            (sum, s) => sum + (Number(s.stats.totalFeesClaimed) || 0),
             0
           );
           totalServiceFees += serviceFees;

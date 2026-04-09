@@ -20,12 +20,16 @@ function formatSol(lamports: number): string {
 export function Leaderboard() {
   const [tokens, setTokens] = useState<LeaderboardToken[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     fetch("/api/leaderboard")
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error();
+        return r.json();
+      })
       .then((d) => setTokens(d.tokens ?? []))
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -47,7 +51,13 @@ export function Leaderboard() {
         </div>
       )}
 
-      {!loading && tokens.length === 0 && (
+      {!loading && error && (
+        <p className="text-xs text-red-400 text-center py-6">
+          Failed to load leaderboard
+        </p>
+      )}
+
+      {!loading && !error && tokens.length === 0 && (
         <p className="text-xs text-[var(--text-muted)] text-center py-6">
           No data available
         </p>

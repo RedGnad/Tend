@@ -201,7 +201,7 @@ export function registerLaunchTools(
             ? `$${(t.tokenInfo.mcap / 1000).toFixed(1)}K`
             : "N/A";
 
-          return `  ${i + 1}. ${name} ($${symbol}) — Fees: ${formatSol(t.lifetimeFees)} | MCap: ${mcap} | Price: ${price}`;
+          return `  ${i + 1}. ${name} ($${symbol}) — Mint: ${t.token} | Fees: ${formatSol(t.lifetimeFees)} | MCap: ${mcap} | Price: ${price}`;
         });
 
         return {

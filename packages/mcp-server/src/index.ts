@@ -3,7 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { BagsClient, loadKeypair, createConnection } from "@tend/shared";
+import { BagsClient, loadKeypair } from "@tend/shared";
 import { StateManager } from "./state/index.js";
 import { FeeShareOrchestrator } from "./services/orchestrator.js";
 import { registerServiceTools } from "./tools/services.js";

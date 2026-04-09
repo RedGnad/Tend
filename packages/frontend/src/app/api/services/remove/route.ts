@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBagsClient } from "@/lib/bags-server";
 import { loadTendState } from "@/lib/state";
-import { writeFile } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 
@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     const signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
 
     // Persist
+    await mkdir(join(homedir(), ".tend"), { recursive: true });
     await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
 
     return NextResponse.json({

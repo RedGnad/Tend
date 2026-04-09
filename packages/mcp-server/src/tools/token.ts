@@ -17,30 +17,58 @@ export function registerTokenTools(
     },
     async ({ tokenMint }) => {
       try {
-        const [lifetimeFees, creators, claimStats, recentClaims] =
+        const [lifetimeFees, creators, claimEvents, metadata] =
           await Promise.all([
-            bags.getTokenLifetimeFees(tokenMint),
-            bags.getTokenCreators(tokenMint),
-            bags.getTokenClaimStats(tokenMint),
-            bags.getTokenClaimEvents(tokenMint, { limit: 10 }),
+            bags.getTokenLifetimeFees(tokenMint).catch(() => 0),
+            bags.getTokenCreators(tokenMint).catch(() => []),
+            bags.getTokenClaimEvents(tokenMint, { limit: 100 }).catch(() => []),
+            bags.getTokenMetadata(tokenMint).catch(() => null),
           ]);
 
         const managed = state.getManagedToken(tokenMint);
         const tendServices = managed ? managed.services.length : 0;
 
-        const totalClaimed = claimStats.reduce(
-          (sum, c) => sum + Number(c.totalClaimed),
-          0
-        );
-        const unclaimedEstimate = lifetimeFees - totalClaimed;
+        // Get actual claimable amounts per wallet for accurate unclaimed figure
+        const { PublicKey } = await import("@solana/web3.js");
+        const claimableByWallet: Record<string, number> = {};
+        let totalUnclaimed = 0;
+        for (const c of creators) {
+          if (c.wallet && c.royaltyBps > 0) {
+            try {
+              const positions = await bags.getClaimablePositions(
+                new PublicKey(c.wallet)
+              );
+              const tokenPositions = positions.filter(
+                (p: { baseMint: string }) => p.baseMint === tokenMint
+              );
+              const claimable = tokenPositions.reduce(
+                (s: number, p: { totalClaimableLamportsUserShare: number }) =>
+                  s + p.totalClaimableLamportsUserShare,
+                0
+              );
+              claimableByWallet[c.wallet] = claimable;
+              totalUnclaimed += claimable;
+            } catch {
+              // Skip if position check fails
+            }
+          }
+        }
+        const totalClaimed = lifetimeFees - totalUnclaimed;
+
+        const tokenLabel = metadata
+          ? `${metadata.name} ($${metadata.symbol})`
+          : tokenMint.slice(0, 8) + "...";
 
         const creatorLines = creators.map(
-          (c) =>
-            `  ${c.username || "Unknown"} (${c.provider ?? "wallet"}) — ${c.royaltyBps} BPS${c.isAdmin ? " [ADMIN]" : ""}`
+          (c: { username?: string; provider?: string | null; royaltyBps: number; isAdmin?: boolean; wallet?: string }) => {
+            const claimable = c.wallet ? claimableByWallet[c.wallet] : undefined;
+            const claimableStr = claimable !== undefined ? ` | Claimable: ${formatSol(claimable)}` : "";
+            return `  ${c.username || c.wallet?.slice(0, 8) || "Unknown"} (${c.provider ?? "wallet"}) — ${c.royaltyBps} BPS (${(c.royaltyBps / 100).toFixed(1)}%)${c.isAdmin ? " [ADMIN]" : ""}${claimableStr}`;
+          }
         );
 
-        const claimLines = recentClaims.slice(0, 5).map(
-          (e) =>
+        const claimLines = claimEvents.slice(0, 5).map(
+          (e: { amount: string | number; wallet: string; timestamp: number }) =>
             `  ${formatSol(e.amount)} by ${e.wallet.slice(0, 8)}... at ${new Date(e.timestamp * 1000).toISOString()}`
         );
 
@@ -49,14 +77,15 @@ export function registerTokenTools(
             {
               type: "text" as const,
               text: [
-                `=== Token Health: ${tokenMint.slice(0, 8)}... ===`,
+                `=== Token Health: ${tokenLabel} ===`,
+                `Mint: ${tokenMint}`,
                 "",
                 `Lifetime Fees: ${formatSol(lifetimeFees)}`,
                 `Total Claimed: ${formatSol(totalClaimed)}`,
-                `Unclaimed (est): ${formatSol(unclaimedEstimate)}`,
+                `Unclaimed: ${formatSol(totalUnclaimed)}`,
                 `Tend Services Active: ${tendServices}`,
                 "",
-                "── Creators/Claimers ──",
+                "── Fee Allocation ──",
                 ...creatorLines,
                 "",
                 "── Recent Claims ──",
@@ -89,13 +118,30 @@ export function registerTokenTools(
     },
     async ({ tokenMint }) => {
       try {
-        const claimStats = await bags.getTokenClaimStats(tokenMint);
+        const [creators, claimEvents, metadata] = await Promise.all([
+          bags.getTokenCreators(tokenMint).catch(() => []),
+          bags.getTokenClaimEvents(tokenMint, { limit: 200 }).catch(() => []),
+          bags.getTokenMetadata(tokenMint).catch(() => null),
+        ]);
+
         const managed = state.getManagedToken(tokenMint);
 
-        const totalBps = claimStats.reduce((sum, c) => sum + c.royaltyBps, 0);
+        // Aggregate claimed amounts per wallet from actual claim events
+        const claimedByWallet: Record<string, number> = {};
+        for (const e of claimEvents) {
+          claimedByWallet[e.wallet] =
+            (claimedByWallet[e.wallet] || 0) + Number(e.amount);
+        }
 
-        const lines = claimStats.map((c) => {
+        const totalBps = creators.reduce((sum: number, c: { royaltyBps: number }) => sum + c.royaltyBps, 0);
+
+        const tokenLabel = metadata
+          ? `${metadata.name} ($${metadata.symbol})`
+          : tokenMint.slice(0, 8) + "...";
+
+        const lines = creators.map((c: { wallet: string; username: string; royaltyBps: number }) => {
           const pct = ((c.royaltyBps / 10000) * 100).toFixed(1);
+          const claimed = claimedByWallet[c.wallet] || 0;
           const isTendService =
             managed?.services.some(
               (s) => s.claimerWallet === c.wallet
@@ -104,7 +150,7 @@ export function registerTokenTools(
             ? `[TEND] ${managed?.services.find((s) => s.claimerWallet === c.wallet)?.serviceId}`
             : c.username || c.wallet.slice(0, 8) + "...";
 
-          return `  ${label}: ${c.royaltyBps} BPS (${pct}%) — Claimed: ${formatSol(c.totalClaimed)}`;
+          return `  ${label}: ${c.royaltyBps} BPS (${pct}%) — Claimed: ${formatSol(claimed)}`;
         });
 
         return {
@@ -112,7 +158,7 @@ export function registerTokenTools(
             {
               type: "text" as const,
               text: [
-                `=== Fee Breakdown: ${tokenMint.slice(0, 8)}... ===`,
+                `=== Fee Breakdown: ${tokenLabel} ===`,
                 "",
                 `Total Allocated: ${totalBps} / 10000 BPS`,
                 "",
@@ -143,7 +189,10 @@ export function registerTokenTools(
     },
     async ({ tokenMint }) => {
       try {
-        const creators = await bags.getTokenCreators(tokenMint);
+        const [creators, metadata] = await Promise.all([
+          bags.getTokenCreators(tokenMint),
+          bags.getTokenMetadata(tokenMint).catch(() => null),
+        ]);
 
         // Get top token accounts from Solana
         const { PublicKey } = await import("@solana/web3.js");
@@ -151,6 +200,10 @@ export function registerTokenTools(
           await bags.connection.getTokenLargestAccounts(
             new PublicKey(tokenMint)
           );
+
+        const tokenLabel = metadata
+          ? `${metadata.name} ($${metadata.symbol})`
+          : tokenMint.slice(0, 8) + "...";
 
         const topHolders = topAccounts.value.slice(0, 10).map((a, i) => {
           const pct = a.uiAmount
@@ -169,7 +222,7 @@ export function registerTokenTools(
             {
               type: "text" as const,
               text: [
-                `=== Holder Analysis: ${tokenMint.slice(0, 8)}... ===`,
+                `=== Holder Analysis: ${tokenLabel} ===`,
                 "",
                 "── Creators ──",
                 ...creatorLines,
@@ -268,7 +321,7 @@ export function registerTokenTools(
             {
               type: "text" as const,
               text: [
-                `=== Before/After: ${tokenMint.slice(0, 8)}... ===`,
+                `=== Before/After: ${tokenMint} ===`,
                 `Services activated: ${new Date(activatedAt).toISOString()}`,
                 "",
                 "── BEFORE Tend ──",

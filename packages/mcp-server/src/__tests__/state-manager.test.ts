@@ -20,6 +20,8 @@ function createMockToken(mint = "TokenMint123"): ManagedToken {
     services: [],
     creatorBps: 10_000,
     totalServiceBps: 0,
+    lifetimeFees: "0",
+    createdAt: Date.now(),
   };
 }
 
@@ -28,14 +30,14 @@ function createMockService(id = "buyback-bot", bps = 1500): ActiveService {
     serviceId: id,
     tokenMint: "TokenMint123",
     bps,
+    activatedAt: Date.now(),
     claimerWallet: "ServiceWallet123",
     status: "active",
     config: {},
     stats: {
-      totalFeesEarned: 0,
-      totalFeesClaimed: 0,
+      totalFeesEarned: "0",
+      totalFeesClaimed: "0",
       actionsPerformed: 0,
-      lastClaimAt: null,
     },
   };
 }
@@ -138,18 +140,18 @@ describe("StateManager", () => {
       await state.addManagedToken(createMockToken());
       await state.addService("TokenMint123", createMockService());
       await state.updateServiceStats("TokenMint123", "buyback-bot", {
-        totalFeesEarned: 1_000_000,
+        totalFeesEarned: "1000000",
         actionsPerformed: 5,
       });
       const service = state.getActiveService("TokenMint123", "buyback-bot")!;
-      expect(service.stats.totalFeesEarned).toBe(1_000_000);
+      expect(service.stats.totalFeesEarned).toBe("1000000");
       expect(service.stats.actionsPerformed).toBe(5);
-      expect(service.stats.totalFeesClaimed).toBe(0); // unchanged
+      expect(service.stats.totalFeesClaimed).toBe("0"); // unchanged
     });
   });
 
   describe("Wallet Pool", () => {
-    it("generates 20 wallets on init", () => {
+    it("generates wallets on init", () => {
       const assigned = state.getAssignedWallets();
       expect(assigned).toHaveLength(0);
     });
@@ -173,29 +175,28 @@ describe("StateManager", () => {
       await state.addSnapshot({
         tokenMint: "TokenMint123",
         timestamp: Date.now(),
-        lifetimeFees: 1_000_000,
-        totalClaimed: 500_000,
-        servicesBps: { "buyback-bot": 1500 },
+        totalFees24h: "1000000",
+        serviceAllocations: [
+          { serviceId: "buyback-bot", bps: 1500, earned: "500000" },
+        ],
       });
       const snapshots = state.getSnapshots("TokenMint123");
       expect(snapshots).toHaveLength(1);
-      expect(snapshots[0].lifetimeFees).toBe(1_000_000);
+      expect(snapshots[0].totalFees24h).toBe("1000000");
     });
 
     it("filters snapshots by token", async () => {
       await state.addSnapshot({
         tokenMint: "AAA",
         timestamp: Date.now(),
-        lifetimeFees: 100,
-        totalClaimed: 0,
-        servicesBps: {},
+        totalFees24h: "100",
+        serviceAllocations: [],
       });
       await state.addSnapshot({
         tokenMint: "BBB",
         timestamp: Date.now(),
-        lifetimeFees: 200,
-        totalClaimed: 0,
-        servicesBps: {},
+        totalFees24h: "200",
+        serviceAllocations: [],
       });
       expect(state.getSnapshots("AAA")).toHaveLength(1);
       expect(state.getSnapshots("BBB")).toHaveLength(1);
