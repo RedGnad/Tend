@@ -339,7 +339,7 @@ export default function LandingPage() {
             {[
               { label: "Bags.fm Tokens", value: <><span ref={tokenCount.ref}>{tokenCount.value}</span>+</> },
               { label: "Total Fees Generated", value: <><span ref={feeCount.ref}>{feesInSol >= 1000 ? (feeCount.value / 10).toFixed(1) + "K" : (feeCount.value / 10).toFixed(1)}</span> SOL</> },
-              { label: "MCP Tools", value: "17" },
+              { label: "MCP Tools", value: "21" },
               { label: "Network", value: <span className="text-[var(--accent)]">MAINNET</span>, dot: true },
             ].map((s) => (
               <div key={s.label} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-5 py-5">
