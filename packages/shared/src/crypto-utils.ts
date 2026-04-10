@@ -11,7 +11,12 @@ const PREFIX = "enc:";
  */
 function deriveKey(): Buffer | null {
   const seed = process.env.TEND_PRIVATE_KEY;
-  if (!seed) return null;
+  if (!seed) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("TEND_PRIVATE_KEY is required in production for wallet encryption");
+    }
+    return null;
+  }
   return createHash("sha256").update(seed).digest();
 }
 

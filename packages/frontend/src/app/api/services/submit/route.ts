@@ -65,6 +65,12 @@ export async function POST(request: Request) {
       if (prepareIdx === -1) {
         throw new Error("Invalid or expired prepareId — call /prepare first");
       }
+      const pending = state.pendingPrepares[prepareIdx];
+
+      // Verify submit params match prepare intent exactly
+      if (pending.bps !== bps || pending.serviceWallet !== serviceWallet || pending.payerWallet !== payerWallet) {
+        throw new Error("Submit parameters do not match prepare intent");
+      }
       state.pendingPrepares.splice(prepareIdx, 1);
 
       token = state.managedTokens[tokenMint] ?? {
