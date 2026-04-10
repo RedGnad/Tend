@@ -1,11 +1,7 @@
 import { NextResponse } from "next/server";
 import { getBagsClient } from "@/lib/bags-server";
-import { loadTendState, isAgentRunning } from "@/lib/state";
-import { writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
-import { homedir } from "node:os";
-
-const STATE_PATH = join(homedir(), ".tend", "state.json");
+import { isAgentRunning, withStateLock } from "@/lib/state";
+import type { ActiveService, ManagedToken } from "@tend/shared";
 
 export async function POST(request: Request) {
   if (!isAgentRunning()) {
@@ -29,41 +25,39 @@ export async function POST(request: Request) {
     }
 
     const bags = getBagsClient();
-    const state = await loadTendState();
-    const token = state.managedTokens[tokenMint];
+    let removed: ActiveService | undefined;
+    let signatures: string[] = [];
+    let token: ManagedToken | undefined;
 
-    if (!token) {
-      return NextResponse.json(
-        { error: "Token not managed" },
-        { status: 404 }
+    await withStateLock(async (state) => {
+      token = state.managedTokens[tokenMint];
+      if (!token) throw new Error("Token not managed");
+
+      const idx = token.services.findIndex((s) => s.serviceId === serviceId);
+      if (idx === -1) throw new Error(`Service "${serviceId}" not found on this token`);
+
+      [removed] = token.services.splice(idx, 1);
+      token.totalServiceBps = token.services.reduce((sum, s) => sum + s.bps, 0);
+      token.creatorBps = 10_000 - token.totalServiceBps;
+
+      // Free the wallet
+      const walletEntry = state.walletPool.find(
+        (w) => w.publicKey === removed!.claimerWallet
       );
-    }
+      if (walletEntry) {
+        walletEntry.assignedTo = undefined;
+      }
 
-    const idx = token.services.findIndex((s) => s.serviceId === serviceId);
-    if (idx === -1) {
-      return NextResponse.json(
-        { error: `Service "${serviceId}" not found on this token` },
-        { status: 404 }
-      );
-    }
+      // Update on-chain
+      const claimers = [
+        { wallet: token.adminWallet, bps: token.creatorBps },
+        ...token.services
+          .filter((s) => s.status === "active")
+          .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
+      ];
 
-    const [removed] = token.services.splice(idx, 1);
-    token.totalServiceBps = token.services.reduce((sum, s) => sum + s.bps, 0);
-    token.creatorBps = 10_000 - token.totalServiceBps;
-
-    // Update on-chain
-    const claimers = [
-      { wallet: token.adminWallet, bps: token.creatorBps },
-      ...token.services
-        .filter((s) => s.status === "active")
-        .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
-    ];
-
-    const signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
-
-    // Persist
-    await mkdir(join(homedir(), ".tend"), { recursive: true });
-    await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
+      signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
+    });
 
     return NextResponse.json({
       success: true,

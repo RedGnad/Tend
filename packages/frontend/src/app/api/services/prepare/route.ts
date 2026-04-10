@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server";
 import { getBagsClient } from "@/lib/bags-server";
-import { loadTendState, isAgentRunning } from "@/lib/state";
+import { isAgentRunning, withStateLock } from "@/lib/state";
 import { generateKeypair } from "@tend/shared";
 import { PublicKey } from "@solana/web3.js";
-import { writeFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
-import { homedir } from "node:os";
-
-const STATE_PATH = join(homedir(), ".tend", "state.json");
 
 export const dynamic = "force-dynamic";
 
@@ -41,57 +36,47 @@ export async function POST(request: Request) {
     }
 
     const bags = getBagsClient();
-    const state = await loadTendState();
-
-    // Get existing token state or create new
-    const token = state.managedTokens[tokenMint] ?? {
-      tokenMint,
-      adminWallet: payerWallet,
-      services: [],
-      creatorBps: 10_000,
-      totalServiceBps: 0,
-      lifetimeFees: "0",
-      createdAt: Date.now(),
-    };
-
-    // Validate
-    if (token.services.some((s) => s.serviceId === serviceId)) {
-      return NextResponse.json(
-        { error: `Service "${serviceId}" already active` },
-        { status: 400 }
-      );
-    }
-
-    if (token.totalServiceBps + bps > 10_000) {
-      return NextResponse.json(
-        { error: `Cannot allocate ${bps} BPS. Only ${10_000 - token.totalServiceBps} available.` },
-        { status: 400 }
-      );
-    }
-
-    // Generate service wallet
     const serviceWallet = generateKeypair();
 
-    // Store wallet in unified walletPool — never send secret to frontend
-    if (!state.walletPool) state.walletPool = [];
-    state.walletPool.push({
-      publicKey: serviceWallet.publicKey,
-      secretKey: serviceWallet.secretKey,
-      assignedTo: `${serviceId}:${tokenMint}`,
+    let claimers: Array<{ wallet: string; bps: number }> = [];
+
+    // Store wallet in unified pool under lock
+    await withStateLock(async (state) => {
+      const token = state.managedTokens[tokenMint] ?? {
+        tokenMint,
+        adminWallet: payerWallet,
+        services: [],
+        creatorBps: 10_000,
+        totalServiceBps: 0,
+        lifetimeFees: "0",
+        createdAt: Date.now(),
+      };
+
+      if (token.services.some((s) => s.serviceId === serviceId)) {
+        throw new Error(`Service "${serviceId}" already active`);
+      }
+      if (token.totalServiceBps + bps > 10_000) {
+        throw new Error(
+          `Cannot allocate ${bps} BPS. Only ${10_000 - token.totalServiceBps} available.`
+        );
+      }
+
+      state.walletPool.push({
+        publicKey: serviceWallet.publicKey,
+        secretKey: serviceWallet.secretKey,
+        assignedTo: `${serviceId}:${tokenMint}`,
+      });
+
+      claimers = [
+        { wallet: payerWallet, bps: token.creatorBps - bps },
+        ...token.services
+          .filter((s) => s.status === "active")
+          .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
+        { wallet: serviceWallet.publicKey, bps },
+      ];
     });
-    await mkdir(join(homedir(), ".tend"), { recursive: true });
-    await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
 
-    // Build claimers array with the new service
-    const claimers = [
-      { wallet: payerWallet, bps: token.creatorBps - bps },
-      ...token.services
-        .filter((s) => s.status === "active")
-        .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
-      { wallet: serviceWallet.publicKey, bps },
-    ];
-
-    // Get unsigned transactions from Bags SDK
+    // Prepare unsigned transactions from Bags SDK
     const transactions = await bags.prepareUpdateFeeShareConfig(
       tokenMint,
       claimers,
