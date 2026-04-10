@@ -3,6 +3,7 @@ import { getBagsClient } from "@/lib/bags-server";
 import { isAgentRunning, withStateLock } from "@/lib/state";
 import { generateKeypair } from "@tend/shared";
 import { PublicKey } from "@solana/web3.js";
+import { randomUUID } from "node:crypto";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +38,11 @@ export async function POST(request: Request) {
 
     const bags = getBagsClient();
     const serviceWallet = generateKeypair();
+    const prepareId = randomUUID();
 
     let claimers: Array<{ wallet: string; bps: number }> = [];
 
-    // Store wallet in unified pool under lock
+    // Store wallet + pending prepare intent under lock
     await withStateLock(async (state) => {
       const token = state.managedTokens[tokenMint] ?? {
         tokenMint,
@@ -67,6 +69,18 @@ export async function POST(request: Request) {
         assignedTo: `${serviceId}:${tokenMint}`,
       });
 
+      // Store prepare intent for submit verification
+      if (!state.pendingPrepares) state.pendingPrepares = [];
+      state.pendingPrepares.push({
+        prepareId,
+        tokenMint,
+        serviceId,
+        bps,
+        serviceWallet: serviceWallet.publicKey,
+        payerWallet,
+        createdAt: Date.now(),
+      });
+
       claimers = [
         { wallet: payerWallet, bps: token.creatorBps - bps },
         ...token.services
@@ -83,8 +97,8 @@ export async function POST(request: Request) {
       payer
     );
 
-    // Only return public key — secret stays server-side
     return NextResponse.json({
+      prepareId,
       transactions,
       serviceWallet: serviceWallet.publicKey,
       serviceId,

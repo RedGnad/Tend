@@ -63,6 +63,15 @@ Three AI services forming a feedback loop: the Analytics Engine monitors token h
 | Market Maker | 25% | *Coming soon* — Active liquidity and tight spreads |
 | Community Rewards | 15% | *Coming soon* — Fee revenue to top holders |
 
+## Security
+
+- **AES-256-GCM encryption at rest** — All service wallet private keys in `~/.tend/state.json` are encrypted with AES-256-GCM, derived from TEND_PRIVATE_KEY. Secrets are decrypted only in-memory during runtime.
+- **Local-first architecture** — State and wallets live on your machine. The Vercel dashboard is read-only — no secrets are ever sent to the cloud.
+- **Bounded AI decisions** — Every agent action has a finite action space (buy/hold/partial_buy), max amounts, cooldowns, and min thresholds. The agent cannot withdraw or transfer funds.
+- **File-level locking** — Cross-process mutex (`state.lock` with O_EXCL) prevents concurrent writes from agent, MCP server, and frontend.
+- **Intent chain verification** — The prepare→submit flow uses a `prepareId` token to prevent replay attacks and orphaned submissions.
+- **Heartbeat liveness** — Agent writes a heartbeat every 60s; the frontend checks it to detect stale agents (>10 min = offline).
+
 ## Architecture
 
 ```

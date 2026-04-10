@@ -1,8 +1,9 @@
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { TendState, ManagedToken } from "@tend/shared";
+import { encryptSecret, decryptSecret, isEncrypted } from "@tend/shared";
 
 const TEND_DIR = join(homedir(), ".tend");
 const STATE_PATH = join(TEND_DIR, "state.json");
@@ -19,8 +20,18 @@ const DEFAULT_STATE: TendState = {
   allocations: [],
 };
 
+const AGENT_HEARTBEAT_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
+
 export function isAgentRunning(): boolean {
-  return existsSync(STATE_PATH);
+  if (!existsSync(STATE_PATH)) return false;
+  try {
+    const raw = readFileSync(STATE_PATH, "utf-8");
+    const state = JSON.parse(raw);
+    if (!state.agentHeartbeat) return false;
+    return Date.now() - state.agentHeartbeat < AGENT_HEARTBEAT_MAX_AGE_MS;
+  } catch {
+    return false;
+  }
 }
 
 export async function loadTendState(): Promise<TendState> {
@@ -93,10 +104,27 @@ export async function withStateLock(
     if (!state.reports) state.reports = [];
     if (!state.allocations) state.allocations = [];
     if (!state.walletPool) state.walletPool = [];
+    if (!state.pendingPrepares) state.pendingPrepares = [];
+
+    // Decrypt wallet secrets for in-memory use
+    for (const w of state.walletPool) {
+      if (isEncrypted(w.secretKey)) {
+        w.secretKey = decryptSecret(w.secretKey);
+      }
+    }
 
     await fn(state);
 
-    await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
+    // Encrypt wallet secrets before persisting
+    const stateToWrite = {
+      ...state,
+      walletPool: state.walletPool.map((w) => ({
+        ...w,
+        secretKey: isEncrypted(w.secretKey) ? w.secretKey : encryptSecret(w.secretKey),
+      })),
+    };
+
+    await writeFile(STATE_PATH, JSON.stringify(stateToWrite, null, 2));
     return state;
   } finally {
     await releaseLock();

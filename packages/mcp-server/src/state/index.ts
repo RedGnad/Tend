@@ -13,7 +13,7 @@ import type {
   AllocationRecommendation,
 } from "@tend/shared";
 import { TEND_STATE_DIR, TEND_STATE_FILE } from "@tend/shared";
-import { generateKeypair } from "@tend/shared";
+import { generateKeypair, encryptSecret, decryptSecret, isEncrypted } from "@tend/shared";
 
 const TEND_DIR = join(homedir(), TEND_STATE_DIR);
 const STATE_PATH = join(TEND_DIR, TEND_STATE_FILE);
@@ -50,6 +50,13 @@ export class StateManager {
     if (existsSync(STATE_PATH)) {
       const raw = await readFile(STATE_PATH, "utf-8");
       this.state = JSON.parse(raw);
+    }
+
+    // Decrypt wallet secrets for in-memory use
+    for (const w of this.state.walletPool) {
+      if (isEncrypted(w.secretKey)) {
+        w.secretKey = decryptSecret(w.secretKey);
+      }
     }
 
     // Ensure arrays exist (migration from older state files)
@@ -129,7 +136,15 @@ export class StateManager {
   }
 
   private async save(): Promise<void> {
-    await writeFile(STATE_PATH, JSON.stringify(this.state, null, 2));
+    // Encrypt wallet secrets before persisting
+    const stateToWrite = {
+      ...this.state,
+      walletPool: this.state.walletPool.map((w) => ({
+        ...w,
+        secretKey: isEncrypted(w.secretKey) ? w.secretKey : encryptSecret(w.secretKey),
+      })),
+    };
+    await writeFile(STATE_PATH, JSON.stringify(stateToWrite, null, 2));
   }
 
   // ──── Token Management ────

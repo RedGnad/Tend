@@ -555,7 +555,7 @@ export default function LandingPage() {
                 with Claude
               </h2>
               <p className="text-[16px] text-[var(--text-secondary)] leading-relaxed mb-8 max-w-[420px]">
-                Tend ships as a Model Context Protocol server with 17 tools.
+                Tend ships as a Model Context Protocol server with 21 tools.
                 Connect to Claude Desktop and manage fee-sharing through natural language.
               </p>
               <div className="space-y-3 mb-8">
@@ -575,7 +575,7 @@ export default function LandingPage() {
                 <a href="https://github.com/RedGnad/Tend" target="_blank" rel="noopener noreferrer" className="text-[var(--accent)] hover:underline underline-offset-4">
                   Setup guide &rarr;
                 </a>
-                <span className="text-[var(--text-muted)] text-[13px]">17 tools &middot; 2 prompts &middot; STDIO</span>
+                <span className="text-[var(--text-muted)] text-[13px]">21 tools &middot; 2 prompts &middot; STDIO</span>
               </div>
             </div>
 
@@ -614,6 +614,46 @@ export default function LandingPage() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ─── 05 · Security ─── */}
+      <section className="py-28 px-6 border-t border-[var(--border)]">
+        <div className="max-w-[1120px] mx-auto reveal">
+          <div className="flex items-baseline gap-4 mb-4">
+            <span className="text-[var(--accent)] font-mono text-sm font-semibold">05</span>
+            <span className="text-[13px] text-[var(--accent)] uppercase tracking-[0.15em] font-semibold">Security</span>
+          </div>
+          <h2 className="text-[clamp(1.8rem,3.5vw,2.5rem)] font-bold tracking-tight mb-5">
+            Your keys, your control
+          </h2>
+          <p className="text-[15px] text-[var(--text-muted)] max-w-lg mb-14 leading-relaxed">
+            Tend handles service wallets so you don&apos;t have to. Every secret is protected at rest and in transit.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--border)] rounded-2xl overflow-hidden">
+            <div className="bg-[var(--bg-card)] p-7">
+              <div className="text-[var(--accent)] text-lg mb-3 font-semibold">AES-256-GCM</div>
+              <h3 className="text-base font-semibold mb-2">Encrypted at rest</h3>
+              <p className="text-[14px] text-[var(--text-muted)] leading-relaxed">
+                All service wallet private keys are encrypted with AES-256-GCM before being written to disk. Derived from your admin key — no extra passwords.
+              </p>
+            </div>
+            <div className="bg-[var(--bg-card)] p-7">
+              <div className="text-[var(--accent)] text-lg mb-3 font-semibold">Local-first</div>
+              <h3 className="text-base font-semibold mb-2">Never leaves your machine</h3>
+              <p className="text-[14px] text-[var(--text-muted)] leading-relaxed">
+                State and wallets live in ~/.tend on your local machine. The Vercel dashboard is read-only — no secrets are ever sent to the cloud.
+              </p>
+            </div>
+            <div className="bg-[var(--bg-card)] p-7">
+              <div className="text-[var(--accent)] text-lg mb-3 font-semibold">Bounded AI</div>
+              <h3 className="text-base font-semibold mb-2">Guardrailed decisions</h3>
+              <p className="text-[14px] text-[var(--text-muted)] leading-relaxed">
+                Every AI action has max amounts, cooldowns, and finite action spaces. The agent can only buy, hold, or partial-buy — never withdraw or transfer.
+              </p>
             </div>
           </div>
         </div>

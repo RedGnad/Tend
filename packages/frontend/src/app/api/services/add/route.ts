@@ -27,16 +27,49 @@ export async function POST(request: Request) {
     }
 
     const bags = getBagsClient();
-
-    // Generate service wallet before lock (no I/O dependency on state)
     const serviceWallet = generateKeypair();
 
+    // Step 1: Validate and build claimers under lock (no RPC calls)
+    let claimers: Array<{ wallet: string; bps: number }> = [];
+
+    await withStateLock(async (state) => {
+      const token = state.managedTokens[tokenMint] ?? {
+        tokenMint,
+        adminWallet: bags.keypair.publicKey.toBase58(),
+        services: [],
+        creatorBps: 10_000,
+        totalServiceBps: 0,
+        lifetimeFees: "0",
+        createdAt: Date.now(),
+      };
+
+      if (token.services.some((s) => s.serviceId === serviceId)) {
+        throw new Error(`Service "${serviceId}" already active on this token`);
+      }
+      if (token.totalServiceBps + bps > 10_000) {
+        throw new Error(
+          `Cannot allocate ${bps} BPS. Only ${10_000 - token.totalServiceBps} available.`
+        );
+      }
+
+      // Pre-compute claimers for the on-chain call
+      claimers = [
+        { wallet: token.adminWallet, bps: token.creatorBps - bps },
+        ...token.services
+          .filter((s) => s.status === "active")
+          .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
+        { wallet: serviceWallet.publicKey, bps },
+      ];
+    });
+
+    // Step 2: On-chain call OUTSIDE lock — no state mutation during RPC
+    const signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
+
+    // Step 3: Persist state under lock AFTER on-chain success
     let service: ActiveService | undefined;
-    let signatures: string[] = [];
     let token: ManagedToken | undefined;
 
-    const finalState = await withStateLock(async (state) => {
-      // Get or create managed token
+    await withStateLock(async (state) => {
       token = state.managedTokens[tokenMint] ?? {
         tokenMint,
         adminWallet: bags.keypair.publicKey.toBase58(),
@@ -47,17 +80,6 @@ export async function POST(request: Request) {
         createdAt: Date.now(),
       };
 
-      // Validate
-      if (token.services.some((s) => s.serviceId === serviceId)) {
-        throw new Error(`Service "${serviceId}" already active on this token`);
-      }
-      if (token.totalServiceBps + bps > 10_000) {
-        throw new Error(
-          `Cannot allocate ${bps} BPS. Only ${10_000 - token.totalServiceBps} available.`
-        );
-      }
-
-      // Store wallet in unified pool
       state.walletPool.push({
         publicKey: serviceWallet.publicKey,
         secretKey: serviceWallet.secretKey,
@@ -83,16 +105,6 @@ export async function POST(request: Request) {
       token.totalServiceBps = token.services.reduce((sum, s) => sum + s.bps, 0);
       token.creatorBps = 10_000 - token.totalServiceBps;
       state.managedTokens[tokenMint] = token;
-
-      // Build claimers and update on-chain
-      const claimers = [
-        { wallet: token.adminWallet, bps: token.creatorBps },
-        ...token.services
-          .filter((s) => s.status === "active")
-          .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
-      ];
-
-      signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
     });
 
     return NextResponse.json({

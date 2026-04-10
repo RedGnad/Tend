@@ -1,7 +1,7 @@
 import { PublicKey } from "@solana/web3.js";
-import type { BagsClient, ActiveService, AgentDecision, MarketSnapshot } from "@tend/shared";
+import type { BagsClient, ActiveService, AgentDecision, MarketSnapshot, TendState } from "@tend/shared";
 import { WSOL_MINT_STR, loadKeypair, formatSol, LAMPORTS_PER_SOL } from "@tend/shared";
-import { getServiceWallet } from "./state-reader.js";
+import { getServiceWallet, loadState } from "./state-reader.js";
 import { getAdvisorDecision } from "./ai-advisor.js";
 import { saveDecision } from "./decision-store.js";
 import { log, logError } from "./logger.js";
@@ -224,10 +224,11 @@ async function collectMarketSnapshot(
   claimableLamports: number
 ): Promise<MarketSnapshot> {
   // Gather data in parallel where possible
-  const [lifetimeFees, walletBalance, creators] = await Promise.all([
+  const [lifetimeFees, walletBalance, creators, state] = await Promise.all([
     bags.getTokenLifetimeFees(tokenMint).catch(() => 0),
     bags.connection.getBalance(serviceWallet).catch(() => 0),
     bags.getTokenCreators(tokenMint).catch(() => []),
+    loadState(),
   ]);
 
   // Get price via a quote for 1 SOL
@@ -239,6 +240,17 @@ async function collectMarketSnapshot(
     if (tokensPerSol > 0) priceSol = 1 / tokensPerSol;
   } catch { /* price unavailable */ }
 
+  // Compute price delta from last decision's snapshot
+  let priceDeltaPct: number | undefined;
+  if (priceSol > 0 && state) {
+    const prevDecisions = (state.decisions ?? [])
+      .filter((d: AgentDecision) => d.tokenMint === tokenMint && d.inputs.price_sol > 0);
+    if (prevDecisions.length > 0) {
+      const prevPrice = prevDecisions[prevDecisions.length - 1].inputs.price_sol;
+      priceDeltaPct = ((priceSol - prevPrice) / prevPrice) * 100;
+    }
+  }
+
   // Fee velocity heuristic based on lifetime fees
   const lifetimeFeeSol = lifetimeFees / LAMPORTS_PER_SOL;
   let feeVelocity: MarketSnapshot["fee_velocity"] = "none";
@@ -248,6 +260,7 @@ async function collectMarketSnapshot(
 
   return {
     price_sol: priceSol,
+    price_delta_pct: priceDeltaPct,
     volume_24h_sol: 0, // Not available via BagsClient — set to 0
     lifetime_fees_sol: lifetimeFeeSol,
     claimable_sol: claimableLamports / LAMPORTS_PER_SOL,

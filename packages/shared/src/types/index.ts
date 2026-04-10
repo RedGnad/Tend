@@ -83,6 +83,7 @@ export interface AgentDecision {
 
 export interface MarketSnapshot {
   price_sol: number;
+  price_delta_pct?: number; // % change vs previous snapshot
   volume_24h_sol: number;
   lifetime_fees_sol: number;
   claimable_sol: number;
@@ -123,6 +124,17 @@ export interface AllocationRecommendation {
   overall_assessment: string;
 }
 
+// Pending prepare intent — links prepare→submit to prevent replay
+export interface PendingPrepare {
+  prepareId: string;
+  tokenMint: string;
+  serviceId: string;
+  bps: number;
+  serviceWallet: string;
+  payerWallet: string;
+  createdAt: number;
+}
+
 // Tend state persisted to disk
 export interface TendState {
   managedTokens: Record<string, ManagedToken>;
@@ -131,5 +143,7 @@ export interface TendState {
   decisions: AgentDecision[];
   reports: AnalyticsReport[];
   allocations: AllocationRecommendation[];
+  pendingPrepares?: PendingPrepare[];
+  agentHeartbeat?: number; // timestamp of last agent tick
   serviceWallets?: Record<string, string>; // DEPRECATED — migrated into walletPool. Kept for migration only.
 }

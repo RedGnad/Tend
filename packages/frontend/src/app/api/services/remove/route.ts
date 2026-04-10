@@ -25,20 +25,53 @@ export async function POST(request: Request) {
     }
 
     const bags = getBagsClient();
+
+    // Step 1: Validate and build new claimers under lock (no RPC)
+    let claimers: Array<{ wallet: string; bps: number }> = [];
     let removed: ActiveService | undefined;
-    let signatures: string[] = [];
-    let token: ManagedToken | undefined;
 
     await withStateLock(async (state) => {
-      token = state.managedTokens[tokenMint];
+      const token = state.managedTokens[tokenMint];
       if (!token) throw new Error("Token not managed");
 
       const idx = token.services.findIndex((s) => s.serviceId === serviceId);
       if (idx === -1) throw new Error(`Service "${serviceId}" not found on this token`);
 
-      [removed] = token.services.splice(idx, 1);
-      token.totalServiceBps = token.services.reduce((sum, s) => sum + s.bps, 0);
-      token.creatorBps = 10_000 - token.totalServiceBps;
+      removed = token.services[idx];
+
+      // Compute post-removal claimers for on-chain call
+      const remainingServices = token.services.filter((_, i) => i !== idx);
+      const remainingBps = remainingServices.reduce((sum, s) => sum + s.bps, 0);
+      const creatorBps = 10_000 - remainingBps;
+
+      claimers = [
+        { wallet: token.adminWallet, bps: creatorBps },
+        ...remainingServices
+          .filter((s) => s.status === "active")
+          .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
+      ];
+    });
+
+    if (!removed) {
+      return NextResponse.json({ error: "Service not found" }, { status: 404 });
+    }
+
+    // Step 2: On-chain call OUTSIDE lock
+    const signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
+
+    // Step 3: Persist state changes under lock AFTER on-chain success
+    let token: ManagedToken | undefined;
+
+    await withStateLock(async (state) => {
+      token = state.managedTokens[tokenMint];
+      if (!token) return;
+
+      const idx = token.services.findIndex((s) => s.serviceId === serviceId);
+      if (idx !== -1) {
+        token.services.splice(idx, 1);
+        token.totalServiceBps = token.services.reduce((sum, s) => sum + s.bps, 0);
+        token.creatorBps = 10_000 - token.totalServiceBps;
+      }
 
       // Free the wallet
       const walletEntry = state.walletPool.find(
@@ -47,16 +80,6 @@ export async function POST(request: Request) {
       if (walletEntry) {
         walletEntry.assignedTo = undefined;
       }
-
-      // Update on-chain
-      const claimers = [
-        { wallet: token.adminWallet, bps: token.creatorBps },
-        ...token.services
-          .filter((s) => s.status === "active")
-          .map((s) => ({ wallet: s.claimerWallet, bps: s.bps })),
-      ];
-
-      signatures = await bags.updateFeeShareConfig(tokenMint, claimers);
     });
 
     return NextResponse.json({

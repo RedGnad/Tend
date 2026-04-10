@@ -15,6 +15,7 @@ export async function POST(request: Request) {
   }
   try {
     const {
+      prepareId,
       signedTransactions,
       tokenMint,
       serviceId,
@@ -23,9 +24,9 @@ export async function POST(request: Request) {
       payerWallet,
     } = await request.json();
 
-    if (!signedTransactions?.length || !tokenMint || !serviceId) {
+    if (!prepareId || !signedTransactions?.length || !tokenMint || !serviceId) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields (prepareId, signedTransactions, tokenMint, serviceId)" },
         { status: 400 }
       );
     }
@@ -56,6 +57,16 @@ export async function POST(request: Request) {
     let token: ManagedToken | undefined;
 
     await withStateLock(async (state) => {
+      // Verify and consume the prepare intent — prevents replay
+      if (!state.pendingPrepares) state.pendingPrepares = [];
+      const prepareIdx = state.pendingPrepares.findIndex(
+        (p) => p.prepareId === prepareId && p.tokenMint === tokenMint && p.serviceId === serviceId
+      );
+      if (prepareIdx === -1) {
+        throw new Error("Invalid or expired prepareId — call /prepare first");
+      }
+      state.pendingPrepares.splice(prepareIdx, 1);
+
       token = state.managedTokens[tokenMint] ?? {
         tokenMint,
         adminWallet: payerWallet,

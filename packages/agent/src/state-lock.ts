@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { TendState } from "@tend/shared";
-import { TEND_STATE_DIR, TEND_STATE_FILE } from "@tend/shared";
+import { TEND_STATE_DIR, TEND_STATE_FILE, encryptSecret, decryptSecret, isEncrypted } from "@tend/shared";
 
 const TEND_DIR = join(homedir(), TEND_STATE_DIR);
 const STATE_PATH = join(TEND_DIR, TEND_STATE_FILE);
@@ -73,10 +73,27 @@ export async function withStateLock(
     if (!state.decisions) state.decisions = [];
     if (!state.reports) state.reports = [];
     if (!state.allocations) state.allocations = [];
+    if (!state.pendingPrepares) state.pendingPrepares = [];
+
+    // Decrypt wallet secrets for in-memory use
+    for (const w of state.walletPool) {
+      if (isEncrypted(w.secretKey)) {
+        w.secretKey = decryptSecret(w.secretKey);
+      }
+    }
 
     await fn(state);
 
-    await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
+    // Encrypt wallet secrets before persisting
+    const stateToWrite = {
+      ...state,
+      walletPool: state.walletPool.map((w) => ({
+        ...w,
+        secretKey: isEncrypted(w.secretKey) ? w.secretKey : encryptSecret(w.secretKey),
+      })),
+    };
+
+    await writeFile(STATE_PATH, JSON.stringify(stateToWrite, null, 2));
   } finally {
     await releaseLock();
   }

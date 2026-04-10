@@ -1,6 +1,7 @@
 import type { BagsClient } from "@tend/shared";
 import type { TendState } from "@tend/shared";
 import { loadState } from "./state-reader.js";
+import { withStateLock } from "./state-lock.js";
 import { runBuyback, type BuybackResult } from "./buyback-bot.js";
 import { runFeeClaim, type ClaimResult } from "./fee-claimer.js";
 import { runAnalytics } from "./analytics-engine.js";
@@ -11,12 +12,17 @@ const BUYBACK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const CLAIM_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const ANALYTICS_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const ALLOCATION_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 1 minute
+const PREPARE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes — stale prepares
 
 export class Scheduler {
   private buybackTimer?: ReturnType<typeof setInterval>;
   private claimTimer?: ReturnType<typeof setInterval>;
   private analyticsTimer?: ReturnType<typeof setInterval>;
   private allocationTimer?: ReturnType<typeof setInterval>;
+  private cleanupTimer?: ReturnType<typeof setInterval>;
+  private heartbeatTimer?: ReturnType<typeof setInterval>;
   private running = false;
 
   // Re-entrance guards — prevent overlapping ticks
@@ -36,6 +42,9 @@ export class Scheduler {
     log(`  Claim interval: ${CLAIM_INTERVAL_MS / 1000}s`);
     log(`  Analytics interval: ${ANALYTICS_INTERVAL_MS / 1000}s`);
     log(`  Allocation interval: ${ALLOCATION_INTERVAL_MS / 1000}s`);
+
+    // Write initial heartbeat
+    this.writeHeartbeat();
 
     // Run immediately, then on interval
     this.tickBuybacks();
@@ -59,6 +68,14 @@ export class Scheduler {
       () => this.tickAllocations(),
       ALLOCATION_INTERVAL_MS
     );
+    this.cleanupTimer = setInterval(
+      () => this.tickCleanup(),
+      CLEANUP_INTERVAL_MS
+    );
+    this.heartbeatTimer = setInterval(
+      () => this.writeHeartbeat(),
+      HEARTBEAT_INTERVAL_MS
+    );
   }
 
   stop() {
@@ -69,6 +86,8 @@ export class Scheduler {
     if (this.claimTimer) clearInterval(this.claimTimer);
     if (this.analyticsTimer) clearInterval(this.analyticsTimer);
     if (this.allocationTimer) clearInterval(this.allocationTimer);
+    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
 
     log("Scheduler stopped");
   }
@@ -209,6 +228,59 @@ export class Scheduler {
       logError("[tick:allocation] Error:", err);
     } finally {
       this.allocationRunning = false;
+    }
+  }
+
+  /** Clean up orphaned wallets and expired prepare intents */
+  private async tickCleanup() {
+    try {
+      await withStateLock(async (state) => {
+        // Build set of all wallet public keys referenced by active services
+        const activeWallets = new Set<string>();
+        for (const token of Object.values(state.managedTokens)) {
+          for (const svc of token.services) {
+            activeWallets.add(svc.claimerWallet);
+          }
+        }
+
+        // Find orphaned wallets: assigned but no matching service
+        const orphans = state.walletPool.filter(
+          (w) => w.assignedTo && !activeWallets.has(w.publicKey)
+        );
+
+        if (orphans.length > 0) {
+          for (const orphan of orphans) {
+            orphan.assignedTo = undefined;
+          }
+          log(`[cleanup] Freed ${orphans.length} orphaned wallet(s)`);
+        }
+
+        // Expire stale pending prepares (older than 15 min)
+        if (state.pendingPrepares && state.pendingPrepares.length > 0) {
+          const now = Date.now();
+          const before = state.pendingPrepares.length;
+          state.pendingPrepares = state.pendingPrepares.filter(
+            (p) => now - p.createdAt < PREPARE_EXPIRY_MS
+          );
+          const expired = before - state.pendingPrepares.length;
+          if (expired > 0) {
+            log(`[cleanup] Removed ${expired} expired prepare intent(s)`);
+          }
+        }
+      });
+    } catch (err) {
+      logError("[cleanup] Error:", err);
+    }
+  }
+
+  /** Write heartbeat timestamp so frontend can detect agent liveness */
+  private async writeHeartbeat() {
+    try {
+      await withStateLock(async (state) => {
+        state.agentHeartbeat = Date.now();
+      });
+    } catch (err) {
+      logError("[heartbeat] Error:", err);
     }
   }
 }

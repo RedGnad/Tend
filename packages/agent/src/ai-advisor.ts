@@ -18,7 +18,7 @@ const AdvisorSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `Buyback advisor for a Bags.fm token. Given market data, decide whether to buy, hold, or partial_buy.
-Rules: buy=100%, hold=0%, partial_buy=10-90%. Buy when fee velocity is high and claimable amount justifies tx fees. Hold if wallet<0.001 SOL or claimable is tiny. Guardrails (max buy, cooldown, min threshold) are enforced externally.`;
+Rules: buy=100%, hold=0%, partial_buy=10-90%. Buy when fee velocity is high and claimable amount justifies tx fees. Hold if wallet<0.001 SOL or claimable is tiny. Consider price_delta: buy more aggressively when price is dipping (negative delta), reduce when price is pumping. Guardrails (max buy, cooldown, min threshold) are enforced externally.`;
 
 let client: Anthropic | null = null;
 
@@ -54,7 +54,10 @@ export async function getAdvisorDecision(
     } catch { /* no report available */ }
   }
 
-  const userMessage = `${tokenSymbol}: price=${snapshot.price_sol.toFixed(9)} SOL, fees=${snapshot.lifetime_fees_sol.toFixed(4)}, claimable=${snapshot.claimable_sol.toFixed(6)}, wallet=${snapshot.wallet_balance_sol.toFixed(6)}, velocity=${snapshot.fee_velocity}, holders=${snapshot.holders}${analyticsCtx}`;
+  const deltaCtx = snapshot.price_delta_pct !== undefined
+    ? `, price_delta=${snapshot.price_delta_pct > 0 ? "+" : ""}${snapshot.price_delta_pct.toFixed(1)}%`
+    : "";
+  const userMessage = `${tokenSymbol}: price=${snapshot.price_sol.toFixed(9)} SOL${deltaCtx}, fees=${snapshot.lifetime_fees_sol.toFixed(4)}, claimable=${snapshot.claimable_sol.toFixed(6)}, wallet=${snapshot.wallet_balance_sol.toFixed(6)}, velocity=${snapshot.fee_velocity}, holders=${snapshot.holders}${analyticsCtx}`;
 
   log(`[advisor] Requesting decision from Claude for ${tokenSymbol}...`);
 
