@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
 import type { BagsClient } from "@tend/shared";
 import type { AnalyticsReport, AgentDecision } from "@tend/shared";
 import { WSOL_MINT_STR, LAMPORTS_PER_SOL } from "@tend/shared";
@@ -6,9 +8,15 @@ import { log, logError } from "./logger.js";
 import { loadState } from "./state-reader.js";
 import { saveReport } from "./report-store.js";
 
-const SYSTEM_PROMPT = `Token analytics for Bags.fm. Given token data, return ONLY JSON:
-{"health_score":1-10,"trend":"growing"|"stable"|"declining","key_insights":["..."],"risks":["..."],"opportunities":["..."]}
+const AnalyticsSchema = z.object({
+  health_score: z.number().min(1).max(10),
+  trend: z.enum(["growing", "stable", "declining"]),
+  key_insights: z.array(z.string()).max(3),
+  risks: z.array(z.string()).max(3),
+  opportunities: z.array(z.string()).max(3),
+});
 
+const SYSTEM_PROMPT = `Token analytics for Bags.fm. Given token data, assess health and provide insights.
 Score 1-3=poor, 4-6=moderate, 7-10=healthy. Base on fee activity, holder count, buyback effectiveness. Keep arrays to 2-3 items max, each under 15 words.`;
 
 let client: Anthropic | null = null;
@@ -64,31 +72,27 @@ export async function runAnalytics(
     log(`[analytics] Requesting analysis from Claude...`);
 
     const anthropic = getClient();
-    const response = await anthropic.messages.create({
+    const response = await anthropic.messages.parse({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 200,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
+      output_config: {
+        format: zodOutputFormat(AnalyticsSchema),
+      },
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-
-    let jsonStr = text.trim();
-    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) jsonStr = fenceMatch[1].trim();
-
-    const parsed = JSON.parse(jsonStr);
+    const parsed = response.parsed_output;
+    if (!parsed) throw new Error("No parsed output");
 
     const report: AnalyticsReport = {
       timestamp: Date.now(),
       tokenMint,
-      health_score: Math.max(1, Math.min(10, parsed.health_score)),
-      trend: ["growing", "stable", "declining"].includes(parsed.trend)
-        ? parsed.trend
-        : "stable",
-      key_insights: (parsed.key_insights ?? []).slice(0, 3),
-      risks: (parsed.risks ?? []).slice(0, 3),
-      opportunities: (parsed.opportunities ?? []).slice(0, 3),
+      health_score: parsed.health_score,
+      trend: parsed.trend,
+      key_insights: parsed.key_insights,
+      risks: parsed.risks,
+      opportunities: parsed.opportunities,
       data: {
         lifetime_fees_sol: lifetimeFeeSol,
         fee_velocity: feeVelocity,

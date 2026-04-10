@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBagsClient } from "@/lib/bags-server";
-import { loadTendState } from "@/lib/state";
+import { loadTendState, isAgentRunning } from "@/lib/state";
 import { writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -12,6 +12,12 @@ const STATE_PATH = join(homedir(), ".tend", "state.json");
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (!isAgentRunning()) {
+    return NextResponse.json(
+      { error: "Agent not running locally. Start the Tend agent to manage services." },
+      { status: 503 }
+    );
+  }
   try {
     const {
       signedTransactions,

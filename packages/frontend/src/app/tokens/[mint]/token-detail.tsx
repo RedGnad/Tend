@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { ServiceCard } from "@/components/service-card";
 import { ActivityFeed } from "@/components/activity-feed";
+import { DecisionFeed } from "@/components/decision-feed";
+import { IntelligenceReport } from "@/components/intelligence-report";
 import { AddServiceModal } from "@/components/add-service-modal";
 import type { ManagedToken } from "@tend/shared";
 
@@ -289,6 +291,8 @@ export function TokenDetail({ mint }: { mint: string }) {
 
         {/* Right */}
         <div className="space-y-6">
+          <DecisionFeed mint={mint} />
+          <IntelligenceReport mint={mint} />
           <ActivityFeed />
 
           {/* Creators */}

@@ -6,6 +6,10 @@ import type { TendState, ManagedToken } from "@tend/shared";
 
 const STATE_PATH = join(homedir(), ".tend", "state.json");
 
+export function isAgentRunning(): boolean {
+  return existsSync(STATE_PATH);
+}
+
 export async function loadTendState(): Promise<TendState> {
   if (!existsSync(STATE_PATH)) {
     return { managedTokens: {}, walletPool: [], snapshots: [], decisions: [], reports: [], allocations: [] };

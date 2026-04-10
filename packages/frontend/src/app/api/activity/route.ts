@@ -7,6 +7,14 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   try {
     const tokens = await getManagedTokens();
+
+    if (tokens.length === 0) {
+      return NextResponse.json({
+        events: [],
+        message: "Run agent locally to see activity",
+      });
+    }
+
     const bags = getBagsClient();
 
     // Fetch recent claim events for all managed tokens
@@ -41,10 +49,10 @@ export async function GET() {
       .slice(0, 30);
 
     return NextResponse.json({ events });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to fetch activity" },
-      { status: 500 }
-    );
+  } catch {
+    return NextResponse.json({
+      events: [],
+      message: "Run agent locally to see activity",
+    });
   }
 }

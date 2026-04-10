@@ -120,16 +120,17 @@ npm run dev:dashboard
 ### Agent
 
 ```bash
-npm run dev:agent
+npm run start:agent
+# Builds shared + agent, then runs the scheduler
 # Buyback (5m), fee claimer (30m), analytics (2h), allocation advisor (6h)
-# Requires: ANTHROPIC_API_KEY env var
+# Requires: ANTHROPIC_API_KEY, BAGS_API_KEY, SOLANA_RPC_URL, TEND_PRIVATE_KEY in .env.local
 ```
 
 ## Stack
 
 - **MCP**: `@modelcontextprotocol/sdk` v1.29 (STDIO)
 - **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk` v1.3.5
-- **AI**: `@anthropic-ai/sdk` — Claude API for buyback decisions
+- **AI**: `@anthropic-ai/sdk` — Claude Haiku with structured outputs (Zod schemas)
 - **Frontend**: Next.js 15, Tailwind CSS v4, Recharts
 - **Runtime**: Node.js, TypeScript, npm workspaces
 

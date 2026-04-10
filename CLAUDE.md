@@ -36,7 +36,7 @@ npm run dev:agent       # Agent runtime
 ## Key Architecture
 - `packages/shared/src/bags-client.ts` — All Bags SDK interactions, handles tx signing (partialSign for claims)
 - `packages/mcp-server/src/services/orchestrator.ts` — Fee-share config management (on-chain first, state second)
-- `packages/mcp-server/src/state/` — StateManager (persists to `~/.tend/state.json` + `wallets.json`)
+- `packages/mcp-server/src/state/` — StateManager (persists to `~/.tend/state.json`, unified wallet pool)
 - `packages/mcp-server/src/tools/` — MCP tools across 7 groups (21 tools, 2 prompts, 1 resource)
 - `packages/agent/src/` — Buyback agent + fee claimer + scheduler
 
@@ -85,7 +85,7 @@ Prefer **working end-to-end flows** over impressive architecture diagrams.
 - Known violation to fix: orchestrator (MCP) vs `/api/services/add` vs `/api/services/prepare+submit` all write state differently.
 
 ### Rule 5: State consistency
-- `walletPool` mutations MUST be persisted to `wallets.json` immediately, not just in memory.
+- `walletPool` mutations MUST be persisted to `state.json` immediately via `save()`. No separate wallets.json.
 - Services added via any surface (MCP, API, dashboard) must be readable from any other surface.
 - If a multi-tx sequence partially fails, DO NOT persist local state.
 

@@ -131,5 +131,5 @@ export interface TendState {
   decisions: AgentDecision[];
   reports: AnalyticsReport[];
   allocations: AllocationRecommendation[];
-  serviceWallets?: Record<string, string>; // pubkey -> secret (base58)
+  serviceWallets?: Record<string, string>; // DEPRECATED — migrated into walletPool. Kept for migration only.
 }

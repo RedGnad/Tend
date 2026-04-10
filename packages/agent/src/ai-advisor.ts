@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
 import type { MarketSnapshot, AnalyticsReport } from "@tend/shared";
 import { loadState } from "./state-reader.js";
 import { log, logError } from "./logger.js";
@@ -9,9 +11,13 @@ export interface AdvisorDecision {
   reasoning: string;
 }
 
-const SYSTEM_PROMPT = `Buyback advisor for a Bags.fm token. Given market data, return ONLY JSON:
-{"action":"buy"|"hold"|"partial_buy","amount_pct":0-100,"reasoning":"<1 sentence>"}
+const AdvisorSchema = z.object({
+  action: z.enum(["buy", "hold", "partial_buy"]),
+  amount_pct: z.number().min(0).max(100),
+  reasoning: z.string(),
+});
 
+const SYSTEM_PROMPT = `Buyback advisor for a Bags.fm token. Given market data, decide whether to buy, hold, or partial_buy.
 Rules: buy=100%, hold=0%, partial_buy=10-90%. Buy when fee velocity is high and claimable amount justifies tx fees. Hold if wallet<0.001 SOL or claimable is tiny. Guardrails (max buy, cooldown, min threshold) are enforced externally.`;
 
 let client: Anthropic | null = null;
@@ -52,35 +58,27 @@ export async function getAdvisorDecision(
 
   log(`[advisor] Requesting decision from Claude for ${tokenSymbol}...`);
 
-  const response = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
-    max_tokens: 100,
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text =
-    response.content[0].type === "text" ? response.content[0].text : "";
-
-  log(`[advisor] Raw response: ${text}`);
-
   try {
-    // Strip markdown code fences if present (```json ... ```)
-    let jsonStr = text.trim();
-    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) jsonStr = fenceMatch[1].trim();
+    const response = await anthropic.messages.parse({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 100,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userMessage }],
+      output_config: {
+        format: zodOutputFormat(AdvisorSchema),
+      },
+    });
 
-    const parsed = JSON.parse(jsonStr);
+    const parsed = response.parsed_output;
+    if (!parsed) throw new Error("No parsed output");
+
     const decision: AdvisorDecision = {
       action: parsed.action,
       amount_pct: parsed.amount_pct,
       reasoning: parsed.reasoning,
     };
 
-    // Validate bounds
-    if (!["buy", "hold", "partial_buy"].includes(decision.action)) {
-      throw new Error(`Invalid action: ${decision.action}`);
-    }
+    // Enforce bounds
     if (decision.action === "buy") decision.amount_pct = 100;
     if (decision.action === "hold") decision.amount_pct = 0;
     if (decision.action === "partial_buy") {
@@ -92,8 +90,7 @@ export async function getAdvisorDecision(
     );
     return decision;
   } catch (err) {
-    logError(`[advisor] Failed to parse decision: ${text}`);
-    // Fallback: hold if we can't parse
+    logError(`[advisor] Failed to get decision: ${err instanceof Error ? err.message : err}`);
     return {
       action: "hold",
       amount_pct: 0,

@@ -1,12 +1,22 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
 import type { AllocationRecommendation, AnalyticsReport, AgentDecision } from "@tend/shared";
 import { log, logError } from "./logger.js";
 import { loadState } from "./state-reader.js";
 import { saveAllocation } from "./report-store.js";
 
-const SYSTEM_PROMPT = `Fee allocation advisor for Bags.fm tokens. Given current allocation and service performance, recommend optimal fee splits. Return ONLY JSON:
-{"recommendations":[{"serviceId":"...","currentBps":N,"suggestedBps":N,"reasoning":"<1 sentence>"}],"overall_assessment":"<1 sentence>"}
+const AllocationSchema = z.object({
+  recommendations: z.array(z.object({
+    serviceId: z.string(),
+    currentBps: z.number(),
+    suggestedBps: z.number(),
+    reasoning: z.string(),
+  })),
+  overall_assessment: z.string(),
+});
 
+const SYSTEM_PROMPT = `Fee allocation advisor for Bags.fm tokens. Given current allocation and service performance, recommend optimal fee splits.
 Guardrails: creator must keep >=5000 BPS (50%). No service >3000 BPS (30%). Advisory-only services (allocation-advisor) always get 0 BPS. Total must equal 10000.`;
 
 let client: Anthropic | null = null;
@@ -62,23 +72,21 @@ export async function runAllocationAdvisor(
     log(`[allocation] Requesting recommendation from Claude...`);
 
     const anthropic = getClient();
-    const response = await anthropic.messages.create({
+    const response = await anthropic.messages.parse({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 250,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
+      output_config: {
+        format: zodOutputFormat(AllocationSchema),
+      },
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
-
-    let jsonStr = text.trim();
-    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (fenceMatch) jsonStr = fenceMatch[1].trim();
-
-    const parsed = JSON.parse(jsonStr);
+    const parsed = response.parsed_output;
+    if (!parsed) throw new Error("No parsed output");
 
     // Enforce guardrails on recommendations
-    const recs = (parsed.recommendations ?? []).map((r: { serviceId: string; currentBps: number; suggestedBps: number; reasoning: string }) => ({
+    const recs = parsed.recommendations.map((r) => ({
       serviceId: r.serviceId,
       currentBps: r.currentBps,
       suggestedBps: Math.min(3000, Math.max(0, r.suggestedBps)),
@@ -89,7 +97,7 @@ export async function runAllocationAdvisor(
       timestamp: Date.now(),
       tokenMint,
       recommendations: recs,
-      overall_assessment: parsed.overall_assessment ?? "No assessment provided",
+      overall_assessment: parsed.overall_assessment,
     };
 
     await saveAllocation(recommendation);

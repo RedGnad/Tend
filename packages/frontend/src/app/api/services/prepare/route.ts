@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getBagsClient } from "@/lib/bags-server";
-import { loadTendState } from "@/lib/state";
+import { loadTendState, isAgentRunning } from "@/lib/state";
 import { generateKeypair } from "@tend/shared";
 import { PublicKey } from "@solana/web3.js";
 import { writeFile, mkdir } from "node:fs/promises";
@@ -12,6 +12,12 @@ const STATE_PATH = join(homedir(), ".tend", "state.json");
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  if (!isAgentRunning()) {
+    return NextResponse.json(
+      { error: "Agent not running locally. Start the Tend agent to manage services." },
+      { status: 503 }
+    );
+  }
   try {
     const { tokenMint, serviceId, bps, payerWallet } = await request.json();
 
@@ -66,9 +72,13 @@ export async function POST(request: Request) {
     // Generate service wallet
     const serviceWallet = generateKeypair();
 
-    // Store the secret server-side immediately — never send to frontend
-    if (!state.serviceWallets) state.serviceWallets = {};
-    state.serviceWallets[serviceWallet.publicKey] = serviceWallet.secretKey;
+    // Store wallet in unified walletPool — never send secret to frontend
+    if (!state.walletPool) state.walletPool = [];
+    state.walletPool.push({
+      publicKey: serviceWallet.publicKey,
+      secretKey: serviceWallet.secretKey,
+      assignedTo: `${serviceId}:${tokenMint}`,
+    });
     await mkdir(join(homedir(), ".tend"), { recursive: true });
     await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
 
