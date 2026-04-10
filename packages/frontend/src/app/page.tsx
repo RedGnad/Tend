@@ -23,23 +23,23 @@ const STEPS = [
   },
   {
     title: "Token grows",
-    desc: "Buyback bots create buy pressure. Analytics surface insights. Growth agents build community. All fee-funded.",
+    desc: "Buybacks create buy pressure. Analytics track health. The advisor optimizes splits. Every decision is logged with reasoning.",
   },
 ];
 
 const SERVICES_PREVIEW = [
-  { name: "Buyback Bot", desc: "Claims fees and buys back the token, creating sustained buy pressure.", tag: "LIVE", live: true },
-  { name: "Analytics Engine", desc: "Monitors holders, fees, and generates health reports via Claude.", tag: "LIVE", live: true },
-  { name: "Fee Compounder", desc: "Reinvests fees into deeper liquidity positions, reducing slippage.", tag: "READY", live: false },
-  { name: "Growth Agent", desc: "AI-powered community engagement and automated marketing.", tag: "READY", live: false },
+  { name: "Buyback Bot", desc: "Claims fees, asks Claude whether to buy/hold/partial, executes on-chain. Every decision logged with reasoning.", tag: "LIVE", live: true },
+  { name: "Analytics Engine", desc: "Monitors fees, holders, price trends. Claude generates health scores, risks, and opportunities every 2 hours.", tag: "LIVE", live: true },
+  { name: "Allocation Advisor", desc: "Reads service performance, recommends optimal fee splits via Claude. Advisory-only, zero cost.", tag: "LIVE", live: true },
 ];
 
 const MCP_LINES: Array<{ role: "user" | "tool"; text: string; result?: string }> = [
-  { role: "user", text: "Show me the top tokens on Bags.fm by fees" },
-  { role: "tool", text: "top_tokens_by_fees", result: "Found 24+ tokens with 38.4K SOL in lifetime fees" },
-  { role: "user", text: "Run a health check on $TEND" },
-  { role: "tool", text: "token_health", result: "TEND — 3 claimers, 0.019 SOL lifetime, buyback bot active" },
-  { role: "user", text: "Add a buyback bot with 15% fee allocation" },
+  { role: "user", text: "How is $TEND doing?" },
+  { role: "tool", text: "token_intelligence", result: "Health 7/10 (stable). Fees growing, buyback bot active, 3 decisions today." },
+  { role: "user", text: "Show me the agent's last decision" },
+  { role: "tool", text: "agent_decision_log", result: "PARTIAL_BUY 60% — price dipping -4.2%, fee velocity medium. Bought 1,240 TEND." },
+  { role: "user", text: "Add the analytics engine with 5% allocation" },
+  { role: "tool", text: "add_service_to_token", result: "Analytics Engine activated. Fee split updated on-chain. Tx: 4xK2...9mRp" },
 ];
 
 /* ═══════════════════════════════════════════
@@ -188,15 +188,15 @@ export default function LandingPage() {
                 Turn trading fees
                 <br />
                 into{" "}
-                <span className="gradient-text">autonomous</span>
+                <span className="gradient-text">measurable</span>
                 <br />
-                AI services
+                growth
               </h1>
 
               <p className="text-[17px] text-[var(--text-secondary)] leading-relaxed max-w-[460px] mb-10">
-                Tend transforms Bags.fm fee-sharing into a payment rail for AI agents.
-                Attach services to your token&mdash;they earn fees and work 24/7.
-                No subscriptions. No upfront cost.
+                Every Bags.fm token generates fees. Most sit unclaimed.
+                Tend routes them to AI services that buy back your token,
+                analyze health, and optimize allocation&mdash;automatically.
               </p>
 
               <div className="flex items-center gap-3">
@@ -339,7 +339,7 @@ export default function LandingPage() {
             {[
               { label: "Bags.fm Tokens", value: <><span ref={tokenCount.ref}>{tokenCount.value}</span>+</> },
               { label: "Total Fees Generated", value: <><span ref={feeCount.ref}>{feesInSol >= 1000 ? (feeCount.value / 10).toFixed(1) + "K" : (feeCount.value / 10).toFixed(1)}</span> SOL</> },
-              { label: "MCP Tools", value: "21" },
+              { label: "AI Services", value: "3 live" },
               { label: "Network", value: <span className="text-[var(--accent)]">MAINNET</span>, dot: true },
             ].map((s) => (
               <div key={s.label} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-xl px-5 py-5">
@@ -508,16 +508,16 @@ export default function LandingPage() {
         <div className="max-w-[1120px] mx-auto reveal">
           <div className="flex items-baseline gap-4 mb-4">
             <span className="text-[var(--accent)] font-mono text-sm font-semibold">03</span>
-            <span className="text-[13px] text-[var(--accent)] uppercase tracking-[0.15em] font-semibold">Marketplace</span>
+            <span className="text-[13px] text-[var(--accent)] uppercase tracking-[0.15em] font-semibold">AI Services</span>
           </div>
           <h2 className="text-[clamp(1.8rem,3.5vw,2.5rem)] font-bold tracking-tight mb-5">
-            Plug-and-play AI services
+            Three services, one feedback loop
           </h2>
           <p className="text-[15px] text-[var(--text-muted)] max-w-lg mb-14 leading-relaxed">
-            Each service earns a share of your token&apos;s trading fees and works autonomously. Add or remove with one transaction.
+            Analytics monitors your token. The buyback bot uses those insights to time purchases. The allocation advisor optimizes the split. All Claude-powered, all logged.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-[var(--border)] rounded-2xl overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--border)] rounded-2xl overflow-hidden">
             {SERVICES_PREVIEW.map((s) => (
               <div key={s.name} className="bg-[var(--bg-card)] p-7 flex flex-col">
                 <div className="flex items-center justify-between mb-4">
@@ -555,8 +555,8 @@ export default function LandingPage() {
                 with Claude
               </h2>
               <p className="text-[16px] text-[var(--text-secondary)] leading-relaxed mb-8 max-w-[420px]">
-                Tend ships as a Model Context Protocol server with 21 tools.
-                Connect to Claude Desktop and manage fee-sharing through natural language.
+                Connect Tend to Claude Desktop and manage your token&apos;s growth through conversation.
+                Add services, check health, review agent decisions&mdash;all in natural language.
               </p>
               <div className="space-y-3 mb-8">
                 {[
@@ -663,11 +663,10 @@ export default function LandingPage() {
       <section className="py-28 px-6 border-t border-[var(--border)]">
         <div className="max-w-[560px] mx-auto text-center reveal">
           <h2 className="text-[clamp(1.8rem,3.5vw,2.5rem)] font-bold tracking-tight mb-5">
-            Put your fees to work
+            Your fees are sitting idle
           </h2>
           <p className="text-[16px] text-[var(--text-muted)] mb-10 leading-relaxed">
-            Every Bags.fm token generates fees. Most sit unclaimed.
-            Tend turns them into autonomous growth engines.
+            Activate Tend and watch them turn into buybacks, analytics reports, and smarter allocation&mdash;all on autopilot.
           </p>
           <div className="flex items-center justify-center gap-4">
             <a href="/dashboard" className="gradient-btn px-8 py-3.5 rounded-xl text-[15px] font-semibold inline-block">
@@ -686,7 +685,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-2">
             <span className="font-display font-semibold text-sm gradient-text">Tend</span>
             <span>&middot;</span>
-            <span>Fee-sharing as a service</span>
+            <span>Fees into growth</span>
           </div>
           <div className="flex items-center gap-5">
             <a href="https://bags.fm" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--text)] transition-colors">Bags.fm</a>
