@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
-    "start": "node build/index.js"
+    "start": "node --env-file=../../.env.local build/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.87.0",

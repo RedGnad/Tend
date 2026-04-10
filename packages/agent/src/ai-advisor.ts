@@ -49,7 +49,12 @@ export async function getAdvisorDecision(
   log(`[advisor] Raw response: ${text}`);
 
   try {
-    const parsed = JSON.parse(text.trim());
+    // Strip markdown code fences if present (```json ... ```)
+    let jsonStr = text.trim();
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (fenceMatch) jsonStr = fenceMatch[1].trim();
+
+    const parsed = JSON.parse(jsonStr);
     const decision: AdvisorDecision = {
       action: parsed.action,
       amount_pct: parsed.amount_pct,

@@ -20,6 +20,7 @@
     "dev:mcp": "npm run dev -w packages/mcp-server",
     "dev:dashboard": "npm run dev -w packages/frontend",
     "dev:agent": "npm run dev -w packages/agent",
+    "start:agent": "npm run build -w packages/shared && npm run build -w packages/agent && npm run start -w packages/agent",
     "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
