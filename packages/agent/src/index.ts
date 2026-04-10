@@ -9,9 +9,11 @@ async function main() {
   const rpcUrl = process.env.SOLANA_RPC_URL;
   const privateKey = process.env.TEND_PRIVATE_KEY;
 
-  if (!apiKey || !rpcUrl || !privateKey) {
+  const anthropicKey = process.env.ANTHROPIC_API_KEY;
+
+  if (!apiKey || !rpcUrl || !privateKey || !anthropicKey) {
     logError(
-      "Missing required env vars: BAGS_API_KEY, SOLANA_RPC_URL, TEND_PRIVATE_KEY"
+      "Missing required env vars: BAGS_API_KEY, SOLANA_RPC_URL, TEND_PRIVATE_KEY, ANTHROPIC_API_KEY"
     );
     process.exit(1);
   }

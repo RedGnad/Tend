@@ -61,10 +61,41 @@ export interface WalletEntry {
   assignedTo?: string; // "serviceId:tokenMint"
 }
 
+// Agent decision log entry
+export interface AgentDecision {
+  timestamp: number;
+  tokenMint: string;
+  serviceId: string;
+  inputs: MarketSnapshot;
+  decision: {
+    action: "buy" | "hold" | "partial_buy";
+    amount_pct: number; // 0-100
+    reasoning: string;
+  };
+  execution: {
+    executed: boolean;
+    tx_signature?: string;
+    amount_lamports?: number;
+    tokens_bought?: number;
+    error?: string;
+  };
+}
+
+export interface MarketSnapshot {
+  price_sol: number;
+  volume_24h_sol: number;
+  lifetime_fees_sol: number;
+  claimable_sol: number;
+  wallet_balance_sol: number;
+  holders: number;
+  fee_velocity: string; // "high" | "medium" | "low" | "none"
+}
+
 // Tend state persisted to disk
 export interface TendState {
   managedTokens: Record<string, ManagedToken>;
   walletPool: WalletEntry[];
   snapshots: FeeSnapshot[];
+  decisions: AgentDecision[];
   serviceWallets?: Record<string, string>; // pubkey -> secret (base58)
 }

@@ -1,15 +1,7 @@
 "use client";
 
 import type { ActiveService } from "@tend/shared";
-
-const SERVICE_ICONS: Record<string, string> = {
-  "buyback-bot": "↩",
-  "fee-compounder": "🔄",
-  analytics: "📊",
-  "growth-agent": "📈",
-  "market-maker": "💹",
-  "community-rewards": "🎁",
-};
+import { ServiceIcon } from "./service-icons";
 
 const STATUS_COLORS: Record<string, string> = {
   active: "var(--accent)",
@@ -22,17 +14,18 @@ function formatSol(lamports: string | number): string {
 }
 
 export function ServiceCard({ service }: { service: ActiveService }) {
-  const icon = SERVICE_ICONS[service.serviceId] ?? "⚙";
   const statusColor = STATUS_COLORS[service.status] ?? "var(--text-muted)";
 
   return (
-    <div className="card">
+    <div className="card card-accent">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{icon}</span>
+          <div className="w-10 h-10 rounded-lg bg-[var(--bg-elevated)] flex items-center justify-center text-[var(--accent)]">
+            <ServiceIcon serviceId={service.serviceId} size={18} />
+          </div>
           <div>
-            <h3 className="font-semibold text-sm">{service.serviceId}</h3>
-            <p className="text-xs text-[var(--text-muted)]">
+            <h3 className="font-display font-semibold text-[14px]">{service.serviceId}</h3>
+            <p className="text-[11px] text-[var(--text-muted)] font-mono">
               {service.bps} BPS ({(service.bps / 100).toFixed(1)}%)
             </p>
           </div>
@@ -51,32 +44,39 @@ export function ServiceCard({ service }: { service: ActiveService }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 text-xs">
-        <div>
-          <p className="text-[var(--text-muted)]">Fees Earned</p>
-          <p className="font-mono mt-0.5">
-            {formatSol(service.stats.totalFeesEarned)}
-          </p>
+      {Number(service.stats.totalFeesEarned) === 0 &&
+       service.stats.actionsPerformed === 0 ? (
+        <div className="text-xs text-[var(--text-muted)] py-3 text-center">
+          No activity yet — waiting for first claim cycle
         </div>
-        <div>
-          <p className="text-[var(--text-muted)]">Fees Claimed</p>
-          <p className="font-mono mt-0.5">
-            {formatSol(service.stats.totalFeesClaimed)}
-          </p>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <p className="text-[var(--text-muted)]">Fees Earned</p>
+            <p className="font-mono mt-0.5">
+              {formatSol(service.stats.totalFeesEarned)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[var(--text-muted)]">Fees Claimed</p>
+            <p className="font-mono mt-0.5">
+              {formatSol(service.stats.totalFeesClaimed)}
+            </p>
+          </div>
+          <div>
+            <p className="text-[var(--text-muted)]">Actions</p>
+            <p className="font-mono mt-0.5">{service.stats.actionsPerformed}</p>
+          </div>
+          <div>
+            <p className="text-[var(--text-muted)]">Last Claim</p>
+            <p className="font-mono mt-0.5">
+              {service.stats.lastClaimAt
+                ? new Date(service.stats.lastClaimAt).toLocaleDateString()
+                : "Never"}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="text-[var(--text-muted)]">Actions</p>
-          <p className="font-mono mt-0.5">{service.stats.actionsPerformed}</p>
-        </div>
-        <div>
-          <p className="text-[var(--text-muted)]">Last Claim</p>
-          <p className="font-mono mt-0.5">
-            {service.stats.lastClaimAt
-              ? new Date(service.stats.lastClaimAt).toLocaleDateString()
-              : "Never"}
-          </p>
-        </div>
-      </div>
+      )}
 
       <div className="mt-3 pt-3 border-t border-[var(--border)]">
         <p className="text-[10px] text-[var(--text-muted)] font-mono truncate">

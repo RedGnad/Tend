@@ -11,18 +11,19 @@ describe("Service Registry", () => {
     expect(SERVICE_REGISTRY).toHaveLength(6);
   });
 
-  it("has 4 available and 2 coming-soon", () => {
+  it("has 1 available and 5 coming-soon", () => {
     const available = SERVICE_REGISTRY.filter((s) => s.status === "available");
     const comingSoon = SERVICE_REGISTRY.filter(
       (s) => s.status === "coming-soon"
     );
-    expect(available).toHaveLength(4);
-    expect(comingSoon).toHaveLength(2);
+    expect(available).toHaveLength(1);
+    expect(comingSoon).toHaveLength(5);
   });
 
   it("getAvailableServices returns only available services", () => {
     const services = getAvailableServices();
-    expect(services).toHaveLength(4);
+    expect(services).toHaveLength(1);
+    expect(services[0].id).toBe("buyback-bot");
     services.forEach((s) => expect(s.status).toBe("available"));
   });
 

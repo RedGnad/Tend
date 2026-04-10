@@ -41,7 +41,7 @@
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Satoshi', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-satoshi), system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -54,7 +54,7 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   opacity: 0.025;
   pointer-events: none;
-  z-index: 9999;
+  z-index: 1;
 }
 
 /* Top accent edge line */
@@ -67,12 +67,12 @@ body::after {
   height: 1px;
   background: linear-gradient(90deg, transparent 10%, var(--accent) 50%, transparent 90%);
   opacity: 0.35;
-  z-index: 10000;
+  z-index: 2;
 }
 
 /* ─── Typography ─── */
 h1, h2, h3, .font-display {
-  font-family: 'Clash Display', 'Satoshi', system-ui, sans-serif;
+  font-family: var(--font-clash), var(--font-satoshi), system-ui, sans-serif;
   letter-spacing: -0.02em;
 }
 
@@ -82,11 +82,45 @@ h1, h2, h3, .font-display {
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1.5rem;
-  transition: border-color 0.25s ease;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .card:hover {
   border-color: var(--border-hover);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+/* Accent border top variant */
+.card-accent {
+  border-top: 1px solid rgba(0, 255, 178, 0.15);
+}
+
+/* Section label — matches landing page style */
+.section-label {
+  font-family: var(--font-mono), monospace;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-muted);
+}
+
+.section-label span {
+  color: var(--accent);
+}
+
+/* Page header */
+.page-header h2 {
+  font-family: var(--font-clash), system-ui, sans-serif;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.page-header p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
 }
 
 /* ─── Gradient text ─── */
@@ -140,7 +174,7 @@ h1, h2, h3, .font-display {
 
 .stat-value {
   font-variant-numeric: tabular-nums;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  font-family: var(--font-mono), 'SF Mono', monospace;
 }
 
 /* ─── Animations ─── */
@@ -210,7 +244,7 @@ h1, h2, h3, .font-display {
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-family: 'Satoshi', sans-serif;
+  font-family: var(--font-satoshi), sans-serif;
 }
 
 .badge-accent {
@@ -229,7 +263,7 @@ h1, h2, h3, .font-display {
   background: var(--accent) !important;
   color: #060606 !important;
   border-radius: 10px !important;
-  font-family: 'Satoshi', sans-serif !important;
+  font-family: var(--font-satoshi), sans-serif !important;
   font-size: 0.875rem !important;
   font-weight: 600 !important;
   height: auto !important;
@@ -255,7 +289,7 @@ h1, h2, h3, .font-display {
 
 .wallet-adapter-modal-title {
   color: var(--text) !important;
-  font-family: 'Clash Display', sans-serif !important;
+  font-family: var(--font-clash), sans-serif !important;
 }
 
 .wallet-adapter-modal-list li {

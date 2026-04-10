@@ -62,7 +62,7 @@ export class FeeShareOrchestrator {
     }
 
     // Assign a wallet from the pool
-    const wallet = this.state.assignWallet(serviceId, tokenMint);
+    const wallet = await this.state.assignWallet(serviceId, tokenMint);
     if (!wallet) {
       throw new Error("No available wallets in pool. All 20 slots are in use.");
     }

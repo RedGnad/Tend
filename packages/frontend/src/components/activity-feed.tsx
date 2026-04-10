@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Zap, Coins } from "./service-icons";
 
 interface ActivityEvent {
   wallet: string;
@@ -53,10 +54,10 @@ export function ActivityFeed() {
   return (
     <div className="card">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold">Live Activity</h3>
+        <h3 className="text-[13px] font-display font-semibold">Activity</h3>
         <div className="flex items-center gap-1.5">
-          <div className="pulse-dot" />
-          <span className="text-xs text-[var(--accent)]">Live</span>
+          <div className="pulse-dot" style={{ width: 6, height: 6 }} />
+          <span className="text-[11px] text-[var(--accent)] font-mono uppercase tracking-wider">Live</span>
         </div>
       </div>
 
@@ -89,8 +90,8 @@ export function ActivityFeed() {
             key={`${event.signature}-${i}`}
             className="flex items-start gap-3 text-xs pb-3 border-b border-[var(--border)] last:border-0"
           >
-            <span className="text-base flex-shrink-0 mt-0.5">
-              {event.isTendService ? "⚡" : "💰"}
+            <span className="flex-shrink-0 mt-0.5" style={{ color: event.isTendService ? "var(--accent)" : "var(--text-muted)" }}>
+              {event.isTendService ? <Zap size={16} /> : <Coins size={16} />}
             </span>
             <div className="flex-1 min-w-0">
               <p className="text-[var(--text)]">

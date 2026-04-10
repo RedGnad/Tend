@@ -75,7 +75,7 @@ export function TokenDetail({ mint }: { mint: string }) {
       <div className="max-w-6xl mx-auto">
         <div className="card text-center py-16">
           <p className="text-red-400 mb-2">{error || "Failed to load token data"}</p>
-          <a href="/" className="text-xs text-[var(--accent)] hover:underline">
+          <a href="/dashboard" className="text-xs text-[var(--accent)] hover:underline">
             ← Back to dashboard
           </a>
         </div>
@@ -104,46 +104,51 @@ export function TokenDetail({ mint }: { mint: string }) {
   return (
     <div className="max-w-6xl mx-auto fade-in">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)] mb-3">
-          <a href="/" className="hover:text-white transition-colors">
+      <div className="mb-10">
+        {/* Breadcrumb */}
+        <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)] mb-4 font-mono">
+          <a href="/dashboard" className="hover:text-[var(--accent)] transition-colors">
             Dashboard
           </a>
-          <span>/</span>
-          <span>Token</span>
+          <span className="text-[var(--border-hover)]">/</span>
+          <span className="text-[var(--text-secondary)]">Token</span>
         </div>
+
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">
+            <h2 className="font-display text-2xl font-semibold tracking-tight">
               {health.tokenName
-                ? `${health.tokenName} ($${health.tokenSymbol})`
+                ? `${health.tokenName}`
                 : mint.slice(0, 16) + "..."}
+              {health.tokenSymbol && (
+                <span className="text-[var(--accent)] ml-2">${health.tokenSymbol}</span>
+              )}
             </h2>
             {health.tokenName && (
-              <p className="text-xs text-[var(--text-muted)] font-mono">{mint}</p>
+              <p className="text-[12px] text-[var(--text-muted)] font-mono mt-1">{mint}</p>
             )}
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-2">
               <a
                 href={`https://bags.fm/${mint}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[var(--accent)] hover:underline"
+                className="text-[12px] text-[var(--accent)] hover:underline font-medium"
               >
-                Bags.fm
+                Bags.fm ↗
               </a>
               <a
                 href={`https://solscan.io/token/${mint}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-[var(--text-muted)] hover:text-white transition-colors"
+                className="text-[12px] text-[var(--text-muted)] hover:text-white transition-colors"
               >
-                Solscan
+                Solscan ↗
               </a>
             </div>
           </div>
           <button
             onClick={() => setShowAddModal(true)}
-            className="gradient-btn px-5 py-2.5 rounded-xl text-sm font-semibold"
+            className="gradient-btn px-6 py-3 rounded-xl text-sm font-semibold"
           >
             + Add Service
           </button>
@@ -151,35 +156,36 @@ export function TokenDetail({ mint }: { mint: string }) {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="card">
-          <p className="text-xs text-[var(--text-muted)] mb-1">Lifetime Fees</p>
-          <p className="text-2xl font-bold">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="card card-accent">
+          <p className="text-[11px] text-[var(--text-muted)] mb-2 uppercase tracking-wider font-mono">Lifetime Fees</p>
+          <p className="text-xl font-bold stat-value">
             {formatSol(health.lifetimeFees)}
           </p>
-          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+          <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
             1% of all trading volume
           </p>
         </div>
-        <div className="card">
-          <p className="text-xs text-[var(--text-muted)] mb-1">Unclaimed</p>
-          <p className="text-2xl font-bold gradient-text">
+        <div className="card card-accent">
+          <p className="text-[11px] text-[var(--text-muted)] mb-2 uppercase tracking-wider font-mono">Unclaimed</p>
+          <p className="text-xl font-bold gradient-text stat-value">
             {formatSol(health.unclaimedEstimate)}
           </p>
-          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+          <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
             Available to claim now
           </p>
         </div>
-        <div className="card">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-xs text-[var(--text-muted)]">Services</p>
-            <p className="text-xs text-[var(--text-muted)]">Claimers</p>
-          </div>
-          <div className="flex items-center justify-between">
-            <p className="text-2xl font-bold">{managed?.services.length ?? 0}</p>
-            <p className="text-2xl font-bold text-[var(--accent)]">{feeDistribution.length}</p>
-          </div>
-          <p className="text-[10px] text-[var(--text-muted)] mt-1">
+        <div className="card card-accent">
+          <p className="text-[11px] text-[var(--text-muted)] mb-2 uppercase tracking-wider font-mono">Active Services</p>
+          <p className="text-xl font-bold stat-value">{managed?.services.length ?? 0}</p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
+            AI-powered strategies
+          </p>
+        </div>
+        <div className="card card-accent">
+          <p className="text-[11px] text-[var(--text-muted)] mb-2 uppercase tracking-wider font-mono">Fee Claimers</p>
+          <p className="text-xl font-bold stat-value text-[var(--accent)]">{feeDistribution.length}</p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-1.5">
             {formatSol(health.totalClaimed)} claimed total
           </p>
         </div>
@@ -190,8 +196,9 @@ export function TokenDetail({ mint }: { mint: string }) {
         <div className="lg:col-span-2 space-y-6">
           {/* Fee distribution */}
           <div className="card">
-            <h3 className="text-sm font-semibold mb-3">
-              Fee Distribution (on-chain)
+            <h3 className="text-[13px] font-display font-semibold mb-4 flex items-center gap-2">
+              <span className="text-[var(--accent)]">●</span> Fee Distribution
+              <span className="text-[10px] font-mono text-[var(--text-muted)] font-normal">on-chain</span>
             </h3>
             {feeDistribution.length > 0 ? (
               <>
@@ -268,7 +275,9 @@ export function TokenDetail({ mint }: { mint: string }) {
           {/* Services */}
           {managed && managed.services.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold mb-3">Active Services</h3>
+              <h3 className="text-[13px] font-display font-semibold mb-4 flex items-center gap-2">
+                <span className="text-[var(--accent)]">●</span> Active Services
+              </h3>
               <div className="grid grid-cols-2 gap-4">
                 {managed.services.map((s) => (
                   <ServiceCard key={s.serviceId} service={s} />
@@ -284,7 +293,7 @@ export function TokenDetail({ mint }: { mint: string }) {
 
           {/* Creators */}
           <div className="card">
-            <h3 className="text-sm font-semibold mb-3">Creators</h3>
+            <h3 className="text-[13px] font-display font-semibold mb-3">Creators</h3>
             <div className="space-y-2">
               {health.creators.map((c, i) => (
                 <div key={i} className="text-xs flex justify-between">
@@ -307,7 +316,7 @@ export function TokenDetail({ mint }: { mint: string }) {
           {/* How it works — show when no services */}
           {(!managed || managed.services.length === 0) && (
             <div className="card">
-              <h3 className="text-sm font-semibold mb-3">How Tend works</h3>
+              <h3 className="text-[13px] font-display font-semibold mb-3">How Tend works</h3>
               <div className="space-y-3 text-xs text-[var(--text-muted)]">
                 <div className="flex gap-2">
                   <span className="text-[var(--accent)] font-bold shrink-0">1.</span>
@@ -347,7 +356,7 @@ export function TokenDetail({ mint }: { mint: string }) {
         <AddServiceModal
           tokenMint={mint}
           existingServiceIds={[]}
-          availableBps={10_000}
+          availableBps={10_000 - feeDistribution.reduce((s, c) => s + c.bps, 0)}
           onClose={() => setShowAddModal(false)}
           onAdded={fetchHealth}
         />

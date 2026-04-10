@@ -8,6 +8,7 @@ import type {
   ActiveService,
   WalletEntry,
   FeeSnapshot,
+  AgentDecision,
 } from "@tend/shared";
 import { TEND_STATE_DIR, TEND_STATE_FILE, TEND_WALLETS_FILE } from "@tend/shared";
 import { generateKeypair } from "@tend/shared";
@@ -23,6 +24,7 @@ export class StateManager {
     managedTokens: {},
     walletPool: [],
     snapshots: [],
+    decisions: [],
   };
   private loaded = false;
 
@@ -162,10 +164,11 @@ export class StateManager {
 
   // ──── Wallet Pool ────
 
-  assignWallet(serviceId: string, tokenMint: string): WalletEntry | undefined {
+  async assignWallet(serviceId: string, tokenMint: string): Promise<WalletEntry | undefined> {
     const available = this.state.walletPool.find((w) => !w.assignedTo);
     if (!available) return undefined;
     available.assignedTo = `${serviceId}:${tokenMint}`;
+    await writeFile(WALLETS_PATH, JSON.stringify(this.state.walletPool, null, 2));
     return available;
   }
 
@@ -208,5 +211,25 @@ export class StateManager {
     if (!service) return;
     Object.assign(service.stats, update);
     await this.save();
+  }
+
+  // ──── Decision Log ────
+
+  async addDecision(decision: AgentDecision): Promise<void> {
+    if (!this.state.decisions) this.state.decisions = [];
+    this.state.decisions.push(decision);
+    // Keep last 200 decisions
+    if (this.state.decisions.length > 200) {
+      this.state.decisions = this.state.decisions.slice(-200);
+    }
+    await this.save();
+  }
+
+  getDecisions(tokenMint?: string, limit = 20): AgentDecision[] {
+    const all = this.state.decisions ?? [];
+    const filtered = tokenMint
+      ? all.filter((d) => d.tokenMint === tokenMint)
+      : all;
+    return filtered.slice(-limit).reverse();
   }
 }

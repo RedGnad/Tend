@@ -156,14 +156,14 @@ describe("StateManager", () => {
       expect(assigned).toHaveLength(0);
     });
 
-    it("assigns a wallet to a service", () => {
-      const wallet = state.assignWallet("buyback-bot", "TokenMint123");
+    it("assigns a wallet to a service", async () => {
+      const wallet = await state.assignWallet("buyback-bot", "TokenMint123");
       expect(wallet).toBeDefined();
       expect(wallet!.assignedTo).toBe("buyback-bot:TokenMint123");
     });
 
-    it("retrieves wallet for a service", () => {
-      state.assignWallet("buyback-bot", "TokenMint123");
+    it("retrieves wallet for a service", async () => {
+      await state.assignWallet("buyback-bot", "TokenMint123");
       const wallet = state.getWalletForService("buyback-bot", "TokenMint123");
       expect(wallet).toBeDefined();
       expect(wallet!.assignedTo).toBe("buyback-bot:TokenMint123");

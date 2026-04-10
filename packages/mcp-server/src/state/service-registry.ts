@@ -21,7 +21,7 @@ export const SERVICE_REGISTRY: ServiceDefinition[] = [
     minBps: 300,
     maxBps: 3000,
     category: "growth",
-    status: "available",
+    status: "coming-soon",
   },
   {
     id: "analytics",
@@ -32,7 +32,7 @@ export const SERVICE_REGISTRY: ServiceDefinition[] = [
     minBps: 200,
     maxBps: 1500,
     category: "analytics",
-    status: "available",
+    status: "coming-soon",
   },
   {
     id: "growth-agent",
@@ -43,7 +43,7 @@ export const SERVICE_REGISTRY: ServiceDefinition[] = [
     minBps: 500,
     maxBps: 4000,
     category: "growth",
-    status: "available",
+    status: "coming-soon",
   },
   {
     id: "market-maker",

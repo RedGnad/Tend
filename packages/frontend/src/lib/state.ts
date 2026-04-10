@@ -8,7 +8,7 @@ const STATE_PATH = join(homedir(), ".tend", "state.json");
 
 export async function loadTendState(): Promise<TendState> {
   if (!existsSync(STATE_PATH)) {
-    return { managedTokens: {}, walletPool: [], snapshots: [] };
+    return { managedTokens: {}, walletPool: [], snapshots: [], decisions: [] };
   }
   const raw = await readFile(STATE_PATH, "utf-8");
   return JSON.parse(raw);

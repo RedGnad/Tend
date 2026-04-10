@@ -10,9 +10,8 @@
     "start": "node build/index.js"
   },
   "dependencies": {
-    "@tend/shared": "*",
-    "ai": "^4.0.0",
-    "@anthropic-ai/sdk": "^0.39.0"
+    "@anthropic-ai/sdk": "^0.87.0",
+    "@tend/shared": "*"
   },
   "devDependencies": {
     "typescript": "^5.7.0"

@@ -5,6 +5,7 @@ import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
 import { AddServiceModal } from "./add-service-modal";
 import { ExploreToken } from "./explore-token";
+import { Zap } from "./service-icons";
 import type { ManagedToken } from "@tend/shared";
 
 interface AdminToken {
@@ -63,16 +64,17 @@ export function TokenManager() {
   if (!connected) {
     return (
       <div className="space-y-6">
-        <div className="card text-center py-14 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-[var(--accent)]/5 to-transparent pointer-events-none" />
+        <div className="card card-accent text-center py-16 relative overflow-hidden">
+          {/* Background glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 rounded-full blur-3xl bg-[var(--accent)] opacity-[0.03] pointer-events-none" />
           <div className="relative z-10">
-            <div className="w-14 h-14 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center text-2xl mx-auto mb-4">
-              ⚡
+            <div className="w-16 h-16 rounded-2xl bg-[var(--accent)]/10 flex items-center justify-center mx-auto mb-5 border border-[var(--accent)]/10 text-[var(--accent)]">
+              <Zap size={28} />
             </div>
-            <h3 className="text-xl font-bold mb-2">
+            <h3 className="text-2xl font-display font-semibold mb-3 tracking-tight">
               Attach AI services to your tokens
             </h3>
-            <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto leading-relaxed mb-5">
+            <p className="text-[14px] text-[var(--text-secondary)] max-w-md mx-auto leading-relaxed mb-6">
               Connect your wallet to manage fee-sharing on your Bags.fm tokens.
               Add buyback bots, analytics engines, and growth agents that earn
               fees and work autonomously.
@@ -83,7 +85,7 @@ export function TokenManager() {
             >
               Connect Wallet
             </button>
-            <div className="flex items-center justify-center gap-6 mt-5 text-xs text-[var(--text-muted)]">
+            <div className="flex items-center justify-center gap-6 mt-6 text-[12px] text-[var(--text-muted)] font-mono">
               <span className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)]" />
                 On-chain

@@ -2,47 +2,17 @@
 
 import { useState } from "react";
 import { useWallet } from "@solana/wallet-adapter-react";
+import { ServiceIcon } from "./service-icons";
 
 const SERVICES = [
   {
     id: "buyback-bot",
     name: "Buyback Bot",
-    icon: "↩",
     description: "Claims fees and buys back the token, creating buy pressure.",
     defaultBps: 1500,
     minBps: 500,
     maxBps: 4000,
     color: "#10b981",
-  },
-  {
-    id: "fee-compounder",
-    name: "Fee Compounder",
-    icon: "🔄",
-    description: "Claims fees and reinvests into liquidity positions.",
-    defaultBps: 1000,
-    minBps: 300,
-    maxBps: 3000,
-    color: "#06b6d4",
-  },
-  {
-    id: "analytics",
-    name: "Analytics Engine",
-    icon: "📊",
-    description: "Monitors holders, fees, price action, and health reports.",
-    defaultBps: 500,
-    minBps: 200,
-    maxBps: 1500,
-    color: "#8b5cf6",
-  },
-  {
-    id: "growth-agent",
-    name: "Growth Agent",
-    icon: "📈",
-    description: "AI-powered community engagement and marketing.",
-    defaultBps: 2000,
-    minBps: 500,
-    maxBps: 4000,
-    color: "#f59e0b",
   },
 ];
 
@@ -182,10 +152,10 @@ export function AddServiceModal({
                   >
                     <div className="flex items-center gap-3">
                       <span
-                        className="text-2xl w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: s.color + "1a" }}
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: s.color + "1a", color: s.color }}
                       >
-                        {s.icon}
+                        <ServiceIcon serviceId={s.id} size={18} />
                       </span>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -240,10 +210,10 @@ export function AddServiceModal({
 
               <div className="flex items-center gap-3">
                 <span
-                  className="text-2xl w-10 h-10 rounded-lg flex items-center justify-center"
-                  style={{ backgroundColor: service!.color + "1a" }}
+                  className="w-10 h-10 rounded-lg flex items-center justify-center"
+                  style={{ backgroundColor: service!.color + "1a", color: service!.color }}
                 >
-                  {service!.icon}
+                  <ServiceIcon serviceId={service!.id} size={18} />
                 </span>
                 <div>
                   <h3 className="font-bold">{service!.name}</h3>

@@ -77,7 +77,7 @@ export function registerLaunchTools(
 
         // Assign wallets for services
         for (const svc of serviceAllocations) {
-          const wallet = state.assignWallet(svc.serviceId, tokenInfo.tokenMint);
+          const wallet = await state.assignWallet(svc.serviceId, tokenInfo.tokenMint);
           if (!wallet) {
             return {
               content: [

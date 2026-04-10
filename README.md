@@ -5,11 +5,10 @@
 Tend transforms Bags.fm fee-sharing into an automatic payment rail for AI services. Creators allocate a percentage of their token's trading fees to autonomous services — buyback bots, analytics engines, growth agents — that execute on-chain without human intervention.
 
 ```
-Trading Volume → 1% Fee → Tend Orchestrator → Creator 60% + Buyback Bot 20% + Analytics 10% + Growth 10%
-                                                              ↓                    ↓              ↓
-                                                         Claims fees          Monitors         Engages
-                                                         Buys back token      Generates        community
-                                                         Creates buy pressure reports           AI-powered
+Trading Volume → 1% Fee → Tend Orchestrator → Creator (configurable) + Services (configurable)
+                                                              ↓
+                                                      Fee-share splits on-chain
+                                                      Services claim & execute autonomously
 ```
 
 ## Why
@@ -18,14 +17,14 @@ Every Bags.fm token generates trading fees split among claimers. Today that's ju
 
 ## What's included
 
-### MCP Server — 17 tools for Claude Desktop
+### MCP Server — 18 tools for Claude Desktop
 
 The first and deepest MCP integration for Bags.fm. Tell Claude what you want in natural language:
 
 ```
 "Add the buyback bot to my token with 20% allocation"
 "What's the fee breakdown for token ABC123?"
-"Emergency stop all services"
+"Show me the agent's recent decisions and reasoning"
 "Launch a new token with buyback bot pre-configured"
 ```
 
@@ -36,6 +35,7 @@ The first and deepest MCP integration for Bags.fm. Tell Claude what you want in 
 | **Manage** | `configure_strategy` `set_allocation` `claim_fees` `emergency_stop` |
 | **Portfolio** | `all_managed_tokens` `total_revenue` `service_performance` |
 | **Launch** | `launch_token` `top_tokens_by_fees` |
+| **Agent** | `agent_decision_log` |
 
 ### Dashboard — self-service UI
 
@@ -44,22 +44,22 @@ Next.js 15 dark-mode dashboard with wallet connect. Manage services, view fee fl
 - Wallet-gated token management
 - Real-time fee distribution visualization
 - Live activity feed (claim events from Bags API)
-- Service marketplace with 4 available + 2 coming soon
+- Service marketplace with 1 active service + 5 coming soon
 - Top tokens leaderboard by lifetime fees
 - Per-token detail with on-chain claim stats
 
-### Agent Runtime — autonomous services
+### Agent Runtime — AI-powered buyback agent
 
-Background processes that claim fees and execute strategies automatically.
+Autonomous agent that claims fees, collects market snapshots, and uses Claude API to decide whether to buy, hold, or partial-buy. Every decision is logged with inputs, reasoning, and outcome.
 
-| Service | Default | What it does |
-|---------|---------|-------------|
-| **Buyback Bot** | 15% | Claims fees, swaps SOL for token, creates buy pressure |
-| **Fee Compounder** | 10% | Claims fees, reinvests into liquidity positions |
-| **Analytics Engine** | 5% | Monitors holders, fees, price action, generates reports |
-| **Growth Agent** | 20% | AI-powered community engagement and marketing |
-| Market Maker | 25% | *Coming soon* |
-| Community Rewards | 15% | *Coming soon* |
+| Service | Default | Status |
+|---------|---------|--------|
+| **Buyback Bot** | 15% | **Active** — Claims fees, swaps SOL for token, creates buy pressure |
+| Fee Compounder | 10% | *Coming soon* — Reinvests fees into liquidity positions |
+| Analytics Engine | 5% | *Coming soon* — Monitors holders, fees, generates reports |
+| Growth Agent | 20% | *Coming soon* — AI-powered community engagement |
+| Market Maker | 25% | *Coming soon* — Active liquidity and tight spreads |
+| Community Rewards | 15% | *Coming soon* — Fee revenue to top holders |
 
 ## Architecture
 
@@ -119,13 +119,15 @@ npm run dev:dashboard
 
 ```bash
 npm run dev:agent
-# Buyback bot runs every 5 min, fee claimer every 30 min
+# Buyback agent runs every 5 min (AI decision), fee claimer every 30 min
+# Requires: ANTHROPIC_API_KEY env var
 ```
 
 ## Stack
 
 - **MCP**: `@modelcontextprotocol/sdk` v1.29 (STDIO)
 - **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk` v1.3.5
+- **AI**: `@anthropic-ai/sdk` — Claude API for buyback decisions
 - **Frontend**: Next.js 15, Tailwind CSS v4, Recharts
 - **Runtime**: Node.js, TypeScript, npm workspaces
 
@@ -133,20 +135,16 @@ npm run dev:agent
 
 Built for [Bags Hackathon](https://bags.fm/hackathon) ($4M developer fund)
 
-- **Claude Skills** — First MCP server for Bags.fm (17 tools)
+- **Claude Skills** — First MCP server for Bags.fm (18 tools)
 - **Fee Sharing** — Fee-sharing as a programmable payment rail
-- **AI Agents** — Autonomous buyback bot and fee claimer
+- **AI Agents** — Decisional buyback agent powered by Claude API
 - **Bags API** — Deep integration across all SDK modules
 
 ## $TEND Token
 
 Live on Bags.fm: [`6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
 
-Fee-sharing config (dog-fooding Tend):
-- Creator: 40%
-- Buyback Bot: 20%
-- Community Fund: 20%
-- Dev Fund: 20%
+Dog-fooding Tend — fee-sharing config set at launch. Service wallets are managed by the Tend runtime.
 
 ## License
 
