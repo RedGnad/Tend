@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { z } from "zod";
+import * as z from "zod/v4";
 import type { AllocationRecommendation, AnalyticsReport, AgentDecision } from "@tend/shared";
 import { log, logError } from "./logger.js";
 import { loadState } from "./state-reader.js";
@@ -74,11 +74,11 @@ export async function runAllocationAdvisor(
     const anthropic = getClient();
     const response = await anthropic.messages.parse({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 250,
+      max_tokens: 500,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
       output_config: {
-        format: zodOutputFormat(AllocationSchema),
+        format: zodOutputFormat(AllocationSchema as any),
       },
     });
 
@@ -86,22 +86,22 @@ export async function runAllocationAdvisor(
     if (!parsed) throw new Error("No parsed output");
 
     // Enforce guardrails on recommendations
-    const recs = parsed.recommendations.map((r) => ({
-      serviceId: r.serviceId,
-      currentBps: r.currentBps,
-      suggestedBps: Math.min(3000, Math.max(0, r.suggestedBps)),
-      reasoning: r.reasoning,
+    const recs = parsed.recommendations.map((r: any) => ({
+      serviceId: r.serviceId as string,
+      currentBps: r.currentBps as number,
+      suggestedBps: Math.min(3000, Math.max(0, r.suggestedBps as number)),
+      reasoning: r.reasoning as string,
     }));
 
     // Hard guardrail: creator must keep >= 5000 BPS (50%)
-    const totalSuggestedServiceBps = recs.reduce((sum, r) => sum + r.suggestedBps, 0);
+    const totalSuggestedServiceBps = recs.reduce((sum: number, r: { suggestedBps: number }) => sum + r.suggestedBps, 0);
     if (totalSuggestedServiceBps > 5000) {
       // Scale down proportionally to fit within 5000 BPS ceiling
       const scale = 5000 / totalSuggestedServiceBps;
       for (const r of recs) {
         r.suggestedBps = Math.floor(r.suggestedBps * scale);
       }
-      log(`[allocation] Guardrail: scaled service BPS from ${totalSuggestedServiceBps} to ${recs.reduce((s, r) => s + r.suggestedBps, 0)} (creator >= 50%)`);
+      log(`[allocation] Guardrail: scaled service BPS from ${totalSuggestedServiceBps} to ${recs.reduce((s: number, r: { suggestedBps: number }) => s + r.suggestedBps, 0)} (creator >= 50%)`);
     }
 
     const recommendation: AllocationRecommendation = {

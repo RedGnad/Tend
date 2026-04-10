@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { z } from "zod";
+import * as z from "zod/v4";
 import type { MarketSnapshot, AnalyticsReport } from "@tend/shared";
 import { loadState } from "./state-reader.js";
 import { log, logError } from "./logger.js";
@@ -64,11 +64,11 @@ export async function getAdvisorDecision(
   try {
     const response = await anthropic.messages.parse({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 100,
+      max_tokens: 300,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
       output_config: {
-        format: zodOutputFormat(AdvisorSchema),
+        format: zodOutputFormat(AdvisorSchema as any),
       },
     });
 

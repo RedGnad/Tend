@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import { z } from "zod";
+import * as z from "zod/v4";
 import type { BagsClient } from "@tend/shared";
 import type { AnalyticsReport, AgentDecision } from "@tend/shared";
 import { WSOL_MINT_STR, LAMPORTS_PER_SOL } from "@tend/shared";
@@ -74,11 +74,11 @@ export async function runAnalytics(
     const anthropic = getClient();
     const response = await anthropic.messages.parse({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
+      max_tokens: 400,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: userMessage }],
       output_config: {
-        format: zodOutputFormat(AnalyticsSchema),
+        format: zodOutputFormat(AnalyticsSchema as any),
       },
     });
 
