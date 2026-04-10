@@ -8,33 +8,10 @@ export interface AdvisorDecision {
   reasoning: string;
 }
 
-const SYSTEM_PROMPT = `You are the Tend Buyback Advisor — an autonomous agent managing buyback operations for a Bags.fm creator token.
+const SYSTEM_PROMPT = `Buyback advisor for a Bags.fm token. Given market data, return ONLY JSON:
+{"action":"buy"|"hold"|"partial_buy","amount_pct":0-100,"reasoning":"<1 sentence>"}
 
-Your job: Given a market snapshot, decide whether to execute a buyback (swap SOL for the token).
-
-## Decision Space (STRICT — only these 3 actions)
-- "buy": Swap 100% of claimable SOL for the token. Use when conditions strongly favor buying.
-- "partial_buy": Swap a percentage (amount_pct: 10-90) of claimable SOL. Use for moderate conviction.
-- "hold": Do nothing, wait for better conditions. Use when buying now would be suboptimal.
-
-## Decision Factors
-- **Fee velocity**: High velocity = token is actively traded = good time to buy (the buyback creates visible buy pressure).
-- **Wallet balance**: If very low (<0.001 SOL), hold to avoid failed transactions from insufficient fees.
-- **Claimable amount**: Larger amounts justify buying; tiny amounts may not be worth the tx fees.
-- **Volume context**: Higher 24h volume means the buyback will have less relative price impact (good).
-
-## Guardrails (enforced by the system, not you)
-- Max buy = wallet balance (no borrowing)
-- Min claim threshold is checked before you're called
-- Cooldown between buys is enforced externally
-
-## Response Format
-Reply with ONLY valid JSON, no markdown, no explanation outside the JSON:
-{"action": "buy" | "hold" | "partial_buy", "amount_pct": 0-100, "reasoning": "1-2 sentence explanation"}
-
-For "buy", set amount_pct to 100.
-For "hold", set amount_pct to 0.
-For "partial_buy", set amount_pct between 10 and 90.`;
+Rules: buy=100%, hold=0%, partial_buy=10-90%. Buy when fee velocity is high and claimable amount justifies tx fees. Hold if wallet<0.001 SOL or claimable is tiny. Guardrails (max buy, cooldown, min threshold) are enforced externally.`;
 
 let client: Anthropic | null = null;
 
@@ -55,22 +32,13 @@ export async function getAdvisorDecision(
 ): Promise<AdvisorDecision> {
   const anthropic = getClient();
 
-  const userMessage = `Market snapshot for ${tokenSymbol}:
-- Token price: ${snapshot.price_sol.toFixed(9)} SOL
-- 24h volume: ${snapshot.volume_24h_sol.toFixed(4)} SOL
-- Lifetime fees: ${snapshot.lifetime_fees_sol.toFixed(4)} SOL
-- Claimable now: ${snapshot.claimable_sol.toFixed(6)} SOL
-- Agent wallet balance: ${snapshot.wallet_balance_sol.toFixed(6)} SOL
-- Holders: ${snapshot.holders}
-- Fee velocity: ${snapshot.fee_velocity}
-
-Should I execute a buyback now?`;
+  const userMessage = `${tokenSymbol}: price=${snapshot.price_sol.toFixed(9)} SOL, fees=${snapshot.lifetime_fees_sol.toFixed(4)}, claimable=${snapshot.claimable_sol.toFixed(6)}, wallet=${snapshot.wallet_balance_sol.toFixed(6)}, velocity=${snapshot.fee_velocity}, holders=${snapshot.holders}`;
 
   log(`[advisor] Requesting decision from Claude for ${tokenSymbol}...`);
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 256,
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 100,
     system: SYSTEM_PROMPT,
     messages: [{ role: "user", content: userMessage }],
   });
