@@ -19,6 +19,12 @@ export class Scheduler {
   private allocationTimer?: ReturnType<typeof setInterval>;
   private running = false;
 
+  // Re-entrance guards — prevent overlapping ticks
+  private buybackRunning = false;
+  private claimRunning = false;
+  private analyticsRunning = false;
+  private allocationRunning = false;
+
   constructor(private bags: BagsClient) {}
 
   start() {
@@ -68,97 +74,141 @@ export class Scheduler {
   }
 
   private async tickBuybacks() {
-    const state = await loadState();
-    if (!state) return;
-
-    const tokens = Object.values(state.managedTokens);
-    if (tokens.length === 0) return;
-
-    log(`[tick:buyback] Processing ${tokens.length} token(s)`);
-
-    const results: BuybackResult[] = [];
-
-    for (const token of tokens) {
-      const buybackService = token.services.find(
-        (s) => s.serviceId === "buyback-bot" && s.status === "active"
-      );
-      if (!buybackService) continue;
-
-      const result = await runBuyback(
-        this.bags,
-        token.tokenMint,
-        buybackService
-      );
-      results.push(result);
+    if (this.buybackRunning) {
+      log("[tick:buyback] Previous tick still running, skipping");
+      return;
     }
+    this.buybackRunning = true;
+    try {
+      const state = await loadState();
+      if (!state) return;
 
-    const successful = results.filter((r) => r.swapped);
-    if (successful.length > 0) {
-      log(
-        `[tick:buyback] ${successful.length} buyback(s) executed`
-      );
+      const tokens = Object.values(state.managedTokens);
+      if (tokens.length === 0) return;
+
+      log(`[tick:buyback] Processing ${tokens.length} token(s)`);
+
+      const results: BuybackResult[] = [];
+
+      for (const token of tokens) {
+        const buybackService = token.services.find(
+          (s) => s.serviceId === "buyback-bot" && s.status === "active"
+        );
+        if (!buybackService) continue;
+
+        const result = await runBuyback(
+          this.bags,
+          token.tokenMint,
+          buybackService
+        );
+        results.push(result);
+      }
+
+      const successful = results.filter((r) => r.swapped);
+      if (successful.length > 0) {
+        log(
+          `[tick:buyback] ${successful.length} buyback(s) executed`
+        );
+      }
+    } catch (err) {
+      logError("[tick:buyback] Error:", err);
+    } finally {
+      this.buybackRunning = false;
     }
   }
 
   private async tickClaims() {
-    const state = await loadState();
-    if (!state) return;
-
-    const tokens = Object.values(state.managedTokens);
-    if (tokens.length === 0) return;
-
-    log(`[tick:claim] Processing ${tokens.length} token(s)`);
-
-    const results: ClaimResult[] = [];
-
-    for (const token of tokens) {
-      for (const service of token.services) {
-        if (service.status !== "active") continue;
-        // Skip buyback-bot — it handles its own claims
-        if (service.serviceId === "buyback-bot") continue;
-
-        const result = await runFeeClaim(
-          this.bags,
-          token.tokenMint,
-          service
-        );
-        results.push(result);
-      }
+    if (this.claimRunning) {
+      log("[tick:claim] Previous tick still running, skipping");
+      return;
     }
+    this.claimRunning = true;
+    try {
+      const state = await loadState();
+      if (!state) return;
 
-    const claimed = results.filter((r) => r.claimed);
-    if (claimed.length > 0) {
-      log(`[tick:claim] ${claimed.length} claim(s) processed`);
+      const tokens = Object.values(state.managedTokens);
+      if (tokens.length === 0) return;
+
+      log(`[tick:claim] Processing ${tokens.length} token(s)`);
+
+      const results: ClaimResult[] = [];
+
+      for (const token of tokens) {
+        for (const service of token.services) {
+          if (service.status !== "active") continue;
+          // Skip buyback-bot — it handles its own claims
+          if (service.serviceId === "buyback-bot") continue;
+
+          const result = await runFeeClaim(
+            this.bags,
+            token.tokenMint,
+            service
+          );
+          results.push(result);
+        }
+      }
+
+      const claimed = results.filter((r) => r.claimed);
+      if (claimed.length > 0) {
+        log(`[tick:claim] ${claimed.length} claim(s) processed`);
+      }
+    } catch (err) {
+      logError("[tick:claim] Error:", err);
+    } finally {
+      this.claimRunning = false;
     }
   }
 
   private async tickAnalytics() {
-    const state = await loadState();
-    if (!state) return;
+    if (this.analyticsRunning) {
+      log("[tick:analytics] Previous tick still running, skipping");
+      return;
+    }
+    this.analyticsRunning = true;
+    try {
+      const state = await loadState();
+      if (!state) return;
 
-    const tokens = Object.values(state.managedTokens);
-    if (tokens.length === 0) return;
+      const tokens = Object.values(state.managedTokens);
+      if (tokens.length === 0) return;
 
-    log(`[tick:analytics] Processing ${tokens.length} token(s)`);
+      log(`[tick:analytics] Processing ${tokens.length} token(s)`);
 
-    for (const token of tokens) {
-      // Analytics runs for all managed tokens, regardless of service config
-      await runAnalytics(this.bags, token.tokenMint);
+      for (const token of tokens) {
+        // Analytics runs for all managed tokens, regardless of service config
+        await runAnalytics(this.bags, token.tokenMint);
+      }
+    } catch (err) {
+      logError("[tick:analytics] Error:", err);
+    } finally {
+      this.analyticsRunning = false;
     }
   }
 
   private async tickAllocations() {
-    const state = await loadState();
-    if (!state) return;
+    if (this.allocationRunning) {
+      log("[tick:allocation] Previous tick still running, skipping");
+      return;
+    }
+    this.allocationRunning = true;
+    try {
+      const state = await loadState();
+      if (!state) return;
 
-    const tokens = Object.values(state.managedTokens);
-    if (tokens.length === 0) return;
+      const tokens = Object.values(state.managedTokens);
+      if (tokens.length === 0) return;
 
-    log(`[tick:allocation] Processing ${tokens.length} token(s)`);
+      log(`[tick:allocation] Processing ${tokens.length} token(s)`);
 
-    for (const token of tokens) {
-      if (token.services.length === 0) continue;
-      await runAllocationAdvisor(token.tokenMint);
+      for (const token of tokens) {
+        if (token.services.length === 0) continue;
+        await runAllocationAdvisor(token.tokenMint);
+      }
+    } catch (err) {
+      logError("[tick:allocation] Error:", err);
+    } finally {
+      this.allocationRunning = false;
     }
   }
 }

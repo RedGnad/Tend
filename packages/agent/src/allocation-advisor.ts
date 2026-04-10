@@ -93,6 +93,17 @@ export async function runAllocationAdvisor(
       reasoning: r.reasoning,
     }));
 
+    // Hard guardrail: creator must keep >= 5000 BPS (50%)
+    const totalSuggestedServiceBps = recs.reduce((sum, r) => sum + r.suggestedBps, 0);
+    if (totalSuggestedServiceBps > 5000) {
+      // Scale down proportionally to fit within 5000 BPS ceiling
+      const scale = 5000 / totalSuggestedServiceBps;
+      for (const r of recs) {
+        r.suggestedBps = Math.floor(r.suggestedBps * scale);
+      }
+      log(`[allocation] Guardrail: scaled service BPS from ${totalSuggestedServiceBps} to ${recs.reduce((s, r) => s + r.suggestedBps, 0)} (creator >= 50%)`);
+    }
+
     const recommendation: AllocationRecommendation = {
       timestamp: Date.now(),
       tokenMint,
