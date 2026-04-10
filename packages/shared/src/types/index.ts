@@ -8,7 +8,7 @@ export interface ServiceDefinition {
   defaultBps: number;
   minBps: number;
   maxBps: number;
-  category: "growth" | "market-making" | "analytics" | "community";
+  category: "growth" | "market-making" | "analytics" | "community" | "advisory";
   status: "available" | "coming-soon";
 }
 
@@ -91,11 +91,45 @@ export interface MarketSnapshot {
   fee_velocity: string; // "high" | "medium" | "low" | "none"
 }
 
+// Analytics report from the intelligence service
+export interface AnalyticsReport {
+  timestamp: number;
+  tokenMint: string;
+  health_score: number; // 1-10
+  trend: "growing" | "stable" | "declining";
+  key_insights: string[];
+  risks: string[];
+  opportunities: string[];
+  data: {
+    lifetime_fees_sol: number;
+    fee_velocity: string;
+    holders: number;
+    price_sol: number;
+    buyback_count: number;
+    buyback_success_rate: number;
+  };
+}
+
+// Fee allocation recommendation from the advisor
+export interface AllocationRecommendation {
+  timestamp: number;
+  tokenMint: string;
+  recommendations: Array<{
+    serviceId: string;
+    currentBps: number;
+    suggestedBps: number;
+    reasoning: string;
+  }>;
+  overall_assessment: string;
+}
+
 // Tend state persisted to disk
 export interface TendState {
   managedTokens: Record<string, ManagedToken>;
   walletPool: WalletEntry[];
   snapshots: FeeSnapshot[];
   decisions: AgentDecision[];
+  reports: AnalyticsReport[];
+  allocations: AllocationRecommendation[];
   serviceWallets?: Record<string, string>; // pubkey -> secret (base58)
 }

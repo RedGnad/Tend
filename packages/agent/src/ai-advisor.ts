@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { MarketSnapshot } from "@tend/shared";
+import type { MarketSnapshot, AnalyticsReport } from "@tend/shared";
+import { loadState } from "./state-reader.js";
 import { log, logError } from "./logger.js";
 
 export interface AdvisorDecision {
@@ -28,11 +29,26 @@ function getClient(): Anthropic {
 
 export async function getAdvisorDecision(
   snapshot: MarketSnapshot,
-  tokenSymbol: string
+  tokenSymbol: string,
+  tokenMint?: string
 ): Promise<AdvisorDecision> {
   const anthropic = getClient();
 
-  const userMessage = `${tokenSymbol}: price=${snapshot.price_sol.toFixed(9)} SOL, fees=${snapshot.lifetime_fees_sol.toFixed(4)}, claimable=${snapshot.claimable_sol.toFixed(6)}, wallet=${snapshot.wallet_balance_sol.toFixed(6)}, velocity=${snapshot.fee_velocity}, holders=${snapshot.holders}`;
+  let analyticsCtx = "";
+  if (tokenMint) {
+    try {
+      const state = await loadState();
+      const reports = (state?.reports ?? []).filter(
+        (r: AnalyticsReport) => r.tokenMint === tokenMint
+      );
+      if (reports.length > 0) {
+        const latest = reports[reports.length - 1];
+        analyticsCtx = `, health=${latest.health_score}/10, trend=${latest.trend}`;
+      }
+    } catch { /* no report available */ }
+  }
+
+  const userMessage = `${tokenSymbol}: price=${snapshot.price_sol.toFixed(9)} SOL, fees=${snapshot.lifetime_fees_sol.toFixed(4)}, claimable=${snapshot.claimable_sol.toFixed(6)}, wallet=${snapshot.wallet_balance_sol.toFixed(6)}, velocity=${snapshot.fee_velocity}, holders=${snapshot.holders}${analyticsCtx}`;
 
   log(`[advisor] Requesting decision from Claude for ${tokenSymbol}...`);
 

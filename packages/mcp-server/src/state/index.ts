@@ -9,6 +9,8 @@ import type {
   WalletEntry,
   FeeSnapshot,
   AgentDecision,
+  AnalyticsReport,
+  AllocationRecommendation,
 } from "@tend/shared";
 import { TEND_STATE_DIR, TEND_STATE_FILE, TEND_WALLETS_FILE } from "@tend/shared";
 import { generateKeypair } from "@tend/shared";
@@ -25,6 +27,8 @@ export class StateManager {
     walletPool: [],
     snapshots: [],
     decisions: [],
+    reports: [],
+    allocations: [],
   };
   private loaded = false;
 
@@ -229,6 +233,44 @@ export class StateManager {
     const all = this.state.decisions ?? [];
     const filtered = tokenMint
       ? all.filter((d) => d.tokenMint === tokenMint)
+      : all;
+    return filtered.slice(-limit).reverse();
+  }
+
+  // ──── Analytics Reports ────
+
+  async addReport(report: AnalyticsReport): Promise<void> {
+    if (!this.state.reports) this.state.reports = [];
+    this.state.reports.push(report);
+    if (this.state.reports.length > 50) {
+      this.state.reports = this.state.reports.slice(-50);
+    }
+    await this.save();
+  }
+
+  getReports(tokenMint?: string, limit = 10): AnalyticsReport[] {
+    const all = this.state.reports ?? [];
+    const filtered = tokenMint
+      ? all.filter((r) => r.tokenMint === tokenMint)
+      : all;
+    return filtered.slice(-limit).reverse();
+  }
+
+  // ──── Allocation Recommendations ────
+
+  async addAllocation(rec: AllocationRecommendation): Promise<void> {
+    if (!this.state.allocations) this.state.allocations = [];
+    this.state.allocations.push(rec);
+    if (this.state.allocations.length > 20) {
+      this.state.allocations = this.state.allocations.slice(-20);
+    }
+    await this.save();
+  }
+
+  getAllocations(tokenMint?: string, limit = 5): AllocationRecommendation[] {
+    const all = this.state.allocations ?? [];
+    const filtered = tokenMint
+      ? all.filter((a) => a.tokenMint === tokenMint)
       : all;
     return filtered.slice(-limit).reverse();
   }

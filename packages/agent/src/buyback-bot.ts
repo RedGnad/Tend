@@ -114,7 +114,7 @@ export async function runBuyback(
       if (meta) tokenSymbol = meta.symbol;
     } catch { /* use truncated mint */ }
 
-    const aiDecision = await getAdvisorDecision(snapshot, tokenSymbol);
+    const aiDecision = await getAdvisorDecision(snapshot, tokenSymbol, tokenMint);
 
     // Build decision log entry
     const decision: AgentDecision = {

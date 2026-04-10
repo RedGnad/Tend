@@ -12,6 +12,7 @@ import { registerManageTools } from "./tools/manage.js";
 import { registerPortfolioTools } from "./tools/portfolio.js";
 import { registerLaunchTools } from "./tools/launch.js";
 import { registerDecisionTools } from "./tools/decisions.js";
+import { registerIntelligenceTools } from "./tools/intelligence.js";
 
 // All debug output to stderr (STDIO transport requirement)
 const log = (...args: unknown[]) => console.error("[tend]", ...args);
@@ -58,6 +59,7 @@ async function main() {
   registerPortfolioTools(server, bags, state);
   registerLaunchTools(server, bags, state);
   registerDecisionTools(server, state);
+  registerIntelligenceTools(server, state);
 
   // ── MCP Resources ──
   server.resource("status", "tend://status", async (uri) => ({
@@ -129,7 +131,7 @@ async function main() {
   );
 
   log(
-    "Registered 18 tools + 1 resource + 2 prompts"
+    "Registered 21 tools + 1 resource + 2 prompts"
   );
 
   // Connect via STDIO

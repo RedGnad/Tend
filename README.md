@@ -17,7 +17,7 @@ Every Bags.fm token generates trading fees split among claimers. Today that's ju
 
 ## What's included
 
-### MCP Server — 18 tools for Claude Desktop
+### MCP Server — 21 tools for Claude Desktop
 
 The first and deepest MCP integration for Bags.fm. Tell Claude what you want in natural language:
 
@@ -36,6 +36,7 @@ The first and deepest MCP integration for Bags.fm. Tell Claude what you want in 
 | **Portfolio** | `all_managed_tokens` `total_revenue` `service_performance` |
 | **Launch** | `launch_token` `top_tokens_by_fees` |
 | **Agent** | `agent_decision_log` |
+| **Intelligence** | `token_intelligence` `allocation_recommendations` `approve_allocation` |
 
 ### Dashboard — self-service UI
 
@@ -44,19 +45,20 @@ Next.js 15 dark-mode dashboard with wallet connect. Manage services, view fee fl
 - Wallet-gated token management
 - Real-time fee distribution visualization
 - Live activity feed (claim events from Bags API)
-- Service marketplace with 1 active service + 5 coming soon
+- Service marketplace with 3 active services + 4 coming soon
 - Top tokens leaderboard by lifetime fees
 - Per-token detail with on-chain claim stats
 
 ### Agent Runtime — AI-powered buyback agent
 
-Autonomous agent that claims fees, collects market snapshots, and uses Claude API to decide whether to buy, hold, or partial-buy. Every decision is logged with inputs, reasoning, and outcome.
+Three AI services forming a feedback loop: the Analytics Engine monitors token health, the Buyback Agent uses that intelligence to make buy/hold decisions, and the Allocation Advisor recommends optimal fee splits. Every AI decision uses Claude API and is logged with inputs, reasoning, and outcome.
 
 | Service | Default | Status |
 |---------|---------|--------|
-| **Buyback Bot** | 15% | **Active** — Claims fees, swaps SOL for token, creates buy pressure |
+| **Buyback Bot** | 15% | **Active** — Claims fees, AI-decides buy/hold/partial, executes on-chain |
+| **Analytics Engine** | 5% | **Active** — AI health scores, trend analysis, risk/opportunity reports |
+| **Fee Allocation Advisor** | 0% | **Active** — AI recommends optimal fee splits (advisory-only, free) |
 | Fee Compounder | 10% | *Coming soon* — Reinvests fees into liquidity positions |
-| Analytics Engine | 5% | *Coming soon* — Monitors holders, fees, generates reports |
 | Growth Agent | 20% | *Coming soon* — AI-powered community engagement |
 | Market Maker | 25% | *Coming soon* — Active liquidity and tight spreads |
 | Community Rewards | 15% | *Coming soon* — Fee revenue to top holders |
@@ -67,11 +69,11 @@ Autonomous agent that claims fees, collects market snapshots, and uses Claude AP
 packages/
 ├── shared/          # Types, Bags SDK wrapper, Solana utils
 │   └── bags-client  # Wraps all Bags SDK interactions (fee-share, claims, trades, launch)
-├── mcp-server/      # 17 MCP tools + prompts + resources (STDIO transport)
+├── mcp-server/      # 21 MCP tools + prompts + resources (STDIO transport)
 │   ├── tools/       # 4 tool groups (services, token, manage, portfolio, launch)
 │   ├── state/       # StateManager + service registry + wallet pool
 │   └── services/    # Fee-share orchestrator (translates service config → on-chain tx)
-├── agent/           # Buyback bot (5m interval) + fee claimer (30m interval)
+├── agent/           # Buyback bot (5m) + fee claimer (30m) + analytics (2h) + allocation advisor (6h)
 └── frontend/        # Next.js 15, Tailwind v4, Recharts, Solana wallet adapter
     ├── components/  # TokenManager, FeeFlow, ServiceCards, ActivityFeed, Leaderboard
     └── api/         # 7 API routes (tokens, health, services, activity, leaderboard)
@@ -119,7 +121,7 @@ npm run dev:dashboard
 
 ```bash
 npm run dev:agent
-# Buyback agent runs every 5 min (AI decision), fee claimer every 30 min
+# Buyback (5m), fee claimer (30m), analytics (2h), allocation advisor (6h)
 # Requires: ANTHROPIC_API_KEY env var
 ```
 
@@ -135,7 +137,7 @@ npm run dev:agent
 
 Built for [Bags Hackathon](https://bags.fm/hackathon) ($4M developer fund)
 
-- **Claude Skills** — First MCP server for Bags.fm (18 tools)
+- **Claude Skills** — First MCP server for Bags.fm (21 tools)
 - **Fee Sharing** — Fee-sharing as a programmable payment rail
 - **AI Agents** — Decisional buyback agent powered by Claude API
 - **Bags API** — Deep integration across all SDK modules

@@ -21,6 +21,8 @@ export async function saveDecision(decision: AgentDecision): Promise<void> {
       walletPool: [],
       snapshots: [],
       decisions: [],
+      reports: [],
+      allocations: [],
     };
 
     if (existsSync(STATE_PATH)) {

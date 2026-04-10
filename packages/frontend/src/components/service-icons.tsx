@@ -8,6 +8,7 @@ import {
   Zap,
   Settings,
   Coins,
+  SlidersHorizontal,
 } from "lucide-react";
 import type { LucideProps } from "lucide-react";
 import type { ComponentType } from "react";
@@ -19,6 +20,7 @@ const ICON_MAP: Record<string, ComponentType<LucideProps>> = {
   "growth-agent": TrendingUp,
   "market-maker": LineChart,
   "community-rewards": Gift,
+  "allocation-advisor": SlidersHorizontal,
 };
 
 export function ServiceIcon({

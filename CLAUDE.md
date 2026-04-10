@@ -37,7 +37,7 @@ npm run dev:agent       # Agent runtime
 - `packages/shared/src/bags-client.ts` — All Bags SDK interactions, handles tx signing (partialSign for claims)
 - `packages/mcp-server/src/services/orchestrator.ts` — Fee-share config management (on-chain first, state second)
 - `packages/mcp-server/src/state/` — StateManager (persists to `~/.tend/state.json` + `wallets.json`)
-- `packages/mcp-server/src/tools/` — MCP tools across 6 groups (18 tools, 2 prompts, 1 resource)
+- `packages/mcp-server/src/tools/` — MCP tools across 7 groups (21 tools, 2 prompts, 1 resource)
 - `packages/agent/src/` — Buyback agent + fee claimer + scheduler
 
 ## Conventions

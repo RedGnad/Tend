@@ -27,12 +27,12 @@ export const SERVICE_REGISTRY: ServiceDefinition[] = [
     id: "analytics",
     name: "Analytics Engine",
     description:
-      "Monitors holder distribution, fee flows, price action, and generates health reports. Powers the Tend dashboard.",
+      "AI-powered token intelligence. Monitors fees, holders, price, and buyback effectiveness. Generates health scores and trend analysis via Claude.",
     defaultBps: 500,
     minBps: 200,
     maxBps: 1500,
     category: "analytics",
-    status: "coming-soon",
+    status: "available",
   },
   {
     id: "growth-agent",
@@ -66,6 +66,17 @@ export const SERVICE_REGISTRY: ServiceDefinition[] = [
     maxBps: 3000,
     category: "community",
     status: "coming-soon",
+  },
+  {
+    id: "allocation-advisor",
+    name: "Fee Allocation Advisor",
+    description:
+      "AI advisor that analyzes service performance and recommends optimal fee splits. Advisory-only — never auto-executes changes.",
+    defaultBps: 0,
+    minBps: 0,
+    maxBps: 0,
+    category: "advisory",
+    status: "available",
   },
 ];
 

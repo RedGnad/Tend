@@ -36,14 +36,27 @@ const SERVICES = [
     id: "analytics",
     name: "Analytics Engine",
     description:
-      "Monitors holder distribution, fee velocity, price action, and generates on-demand health reports via Claude.",
+      "AI-powered token intelligence. Monitors fees, holders, price, and buyback effectiveness. Generates health scores and trend analysis via Claude.",
     defaultBps: 500,
     minBps: 200,
     maxBps: 1500,
     category: "analytics",
-    status: "coming-soon" as const,
+    status: "available" as const,
     color: "#8b5cf6",
-    highlight: null,
+    highlight: "Live",
+  },
+  {
+    id: "allocation-advisor",
+    name: "Fee Allocation Advisor",
+    description:
+      "AI advisor that analyzes service performance and recommends optimal fee splits. Advisory-only — never auto-executes changes.",
+    defaultBps: 0,
+    minBps: 0,
+    maxBps: 0,
+    category: "advisory",
+    status: "available" as const,
+    color: "#f97316",
+    highlight: "Live",
   },
   {
     id: "growth-agent",
@@ -176,18 +189,29 @@ export default function ServicesPage() {
               </p>
 
               <div className="border-t border-[var(--border)] pt-3 space-y-2">
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[var(--text-muted)]">Default allocation</span>
-                  <span className="font-mono font-semibold">
-                    {(service.defaultBps / 100).toFixed(0)}%
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-[13px]">
-                  <span className="text-[var(--text-muted)]">Range</span>
-                  <span className="font-mono text-[var(--text-muted)]">
-                    {(service.minBps / 100).toFixed(0)}% – {(service.maxBps / 100).toFixed(0)}%
-                  </span>
-                </div>
+                {service.maxBps > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between text-[13px]">
+                      <span className="text-[var(--text-muted)]">Default allocation</span>
+                      <span className="font-mono font-semibold">
+                        {(service.defaultBps / 100).toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[13px]">
+                      <span className="text-[var(--text-muted)]">Range</span>
+                      <span className="font-mono text-[var(--text-muted)]">
+                        {(service.minBps / 100).toFixed(0)}% – {(service.maxBps / 100).toFixed(0)}%
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between text-[13px]">
+                    <span className="text-[var(--text-muted)]">Fee allocation</span>
+                    <span className="font-mono text-[var(--text-muted)]">
+                      Free — advisory only
+                    </span>
+                  </div>
+                )}
               </div>
 
               <button
