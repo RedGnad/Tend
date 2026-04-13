@@ -8,7 +8,7 @@ import { log, logError } from "./logger.js";
 
 // Default config
 const DEFAULT_MIN_CLAIM_LAMPORTS = 1_000_000; // 0.001 SOL
-const SWAP_FEE_BUFFER_LAMPORTS = 100_000; // 0.0001 SOL reserved for swap tx fees
+const SWAP_FEE_BUFFER_LAMPORTS = 5_000_000; // 0.005 SOL reserved for swap tx fees + rent
 const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
 
 // Track last buy time per token (in-memory, resets on restart)
@@ -52,29 +52,27 @@ export async function runBuyback(
       `[buyback] Checking ${tokenMint.slice(0, 8)}... wallet=${serviceWallet.toBase58().slice(0, 8)}...`
     );
 
-    // Check claimable fees
+    // Check claimable fees + existing wallet balance
     const positions = await bags.getClaimablePositions(serviceWallet);
     const tokenPositions = positions.filter(
       (p) => p.baseMint === tokenMint
     );
-
-    if (tokenPositions.length === 0) {
-      log(`[buyback] No claimable positions for ${tokenMint.slice(0, 8)}...`);
-      return result;
-    }
 
     const totalClaimable = tokenPositions.reduce(
       (sum, p) => sum + p.totalClaimableLamportsUserShare,
       0
     );
 
+    const existingBalance = await bags.connection.getBalance(serviceWallet);
+    const availableLamports = totalClaimable + existingBalance;
+
     const minClaim =
       (service.config.minClaimLamports as number) ??
       DEFAULT_MIN_CLAIM_LAMPORTS;
 
-    if (totalClaimable < minClaim) {
+    if (availableLamports < minClaim) {
       log(
-        `[buyback] Claimable ${formatSol(totalClaimable)} below threshold ${formatSol(minClaim)}`
+        `[buyback] Available ${formatSol(availableLamports)} (claimable=${formatSol(totalClaimable)}, balance=${formatSol(existingBalance)}) below threshold ${formatSol(minClaim)}`
       );
       return result;
     }
@@ -88,23 +86,26 @@ export async function runBuyback(
       return result;
     }
 
-    log(`[buyback] Claiming ${formatSol(totalClaimable)}...`);
+    // Step 1: Claim fees (if any)
+    if (totalClaimable > 0) {
+      log(`[buyback] Claiming ${formatSol(totalClaimable)}...`);
+      const claimSigs = await bags.claimFees(tokenMint, serviceKeypair);
+      result.claimed = true;
+      result.claimAmount = totalClaimable;
+      log(
+        `[buyback] Claimed ${formatSol(totalClaimable)} in ${claimSigs.length} tx(s)`
+      );
+    } else {
+      log(`[buyback] No new fees to claim, using existing balance ${formatSol(existingBalance)}`);
+    }
 
-    // Step 1: Claim fees
-    const claimSigs = await bags.claimFees(tokenMint, serviceKeypair);
-    result.claimed = true;
-    result.claimAmount = totalClaimable;
-
-    log(
-      `[buyback] Claimed ${formatSol(totalClaimable)} in ${claimSigs.length} tx(s)`
-    );
-
-    // Step 2: Collect market snapshot
+    // Step 2: Collect market snapshot (use wallet balance after claim as available amount)
+    const balanceAfterClaim = await bags.connection.getBalance(serviceWallet);
     const snapshot = await collectMarketSnapshot(
       bags,
       tokenMint,
       serviceWallet,
-      totalClaimable
+      balanceAfterClaim
     );
 
     // Step 3: Get AI decision
@@ -132,7 +133,7 @@ export async function runBuyback(
       decision.execution = { executed: false };
     } else {
       const pct = aiDecision.amount_pct;
-      const swapBase = totalClaimable - SWAP_FEE_BUFFER_LAMPORTS;
+      const swapBase = balanceAfterClaim - SWAP_FEE_BUFFER_LAMPORTS;
 
       if (swapBase <= 0) {
         log(`[buyback] Claimed amount too small to swap after fee buffer`);
@@ -165,15 +166,14 @@ export async function runBuyback(
             `[buyback] AI: ${aiDecision.action} ${pct}% — swapping ${formatSol(swapAmount)} SOL → ${tokenSymbol}`
           );
 
-          // Execute swap
+          // Execute swap (with retry on block height expiration)
           const { signature } = await bags.executeSwap(
             WSOL_MINT_STR,
             tokenMint,
             swapAmount,
-            serviceKeypair
+            serviceKeypair,
+            5
           );
-
-          await bags.connection.confirmTransaction(signature, "confirmed");
 
           // Measure tokens received
           const tokenAccountsAfter =
@@ -235,8 +235,8 @@ async function collectMarketSnapshot(
   let priceSol = 0;
   try {
     const quote = await bags.getQuote(WSOL_MINT_STR, tokenMint, LAMPORTS_PER_SOL);
-    // Bags tokens use 6 decimals by default
-    const tokensPerSol = Number(quote.outAmount) / 1e6;
+    const decimals = quote.routePlan?.[0]?.outputMintDecimals ?? 9;
+    const tokensPerSol = Number(quote.outAmount) / 10 ** decimals;
     if (tokensPerSol > 0) priceSol = 1 / tokensPerSol;
   } catch { /* price unavailable */ }
 

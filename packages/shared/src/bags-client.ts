@@ -312,23 +312,51 @@ export class BagsClient {
     inputMint: string,
     outputMint: string,
     amount: number,
-    signerKeypair?: Keypair
+    signerKeypair?: Keypair,
+    maxRetries = 3
   ): Promise<{ signature: string; result: CreateSwapTransactionResult }> {
     const kp = signerKeypair ?? this.keypair;
-    const quote = await this.getQuote(inputMint, outputMint, amount);
-    const result = await this.sdk.trade.createSwapTransaction({
-      quoteResponse: quote,
-      userPublicKey: kp.publicKey,
-    });
 
-    const sig = await signAndSendTransaction(
-      this.connection,
-      this.connection.commitment as Commitment ?? "processed",
-      result.transaction,
-      kp
-    );
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const quote = await this.getQuote(inputMint, outputMint, amount);
+      const result = await this.sdk.trade.createSwapTransaction({
+        quoteResponse: quote,
+        userPublicKey: kp.publicKey,
+      });
 
-    return { signature: sig, result };
+      try {
+        result.transaction.sign([kp]);
+        const sig = await this.connection.sendTransaction(result.transaction, {
+          skipPreflight: true,
+          maxRetries: 3,
+        });
+
+        const blockhash = await this.connection.getLatestBlockhash("confirmed");
+        const confirmation = await this.connection.confirmTransaction(
+          {
+            blockhash: blockhash.blockhash,
+            lastValidBlockHeight: blockhash.lastValidBlockHeight,
+            signature: sig,
+          },
+          "confirmed" as Commitment
+        );
+
+        if (confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+
+        return { signature: sig, result };
+      } catch (err: any) {
+        const msg = err?.message ?? String(err);
+        if ((msg.includes("expired") || msg.includes("block height")) && attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 2000));
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    throw new Error("executeSwap failed after retries");
   }
 
   // ──── Token Launch ────

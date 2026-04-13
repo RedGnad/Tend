@@ -46,7 +46,8 @@ export async function runAnalytics(
     let priceSol = 0;
     try {
       const quote = await bags.getQuote(WSOL_MINT_STR, tokenMint, LAMPORTS_PER_SOL);
-      const tokensPerSol = Number(quote.outAmount) / 1e6;
+      const decimals = quote.routePlan?.[0]?.outputMintDecimals ?? 9;
+      const tokensPerSol = Number(quote.outAmount) / 10 ** decimals;
       if (tokensPerSol > 0) priceSol = 1 / tokensPerSol;
     } catch { /* unavailable */ }
 

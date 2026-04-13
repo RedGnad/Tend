@@ -18,7 +18,7 @@ const AdvisorSchema = z.object({
 });
 
 const SYSTEM_PROMPT = `Buyback advisor for a Bags.fm token. Given market data, decide whether to buy, hold, or partial_buy.
-Rules: buy=100%, hold=0%, partial_buy=10-90%. Buy when fee velocity is high and claimable amount justifies tx fees. Hold if wallet<0.001 SOL or claimable is tiny. Consider price_delta: buy more aggressively when price is dipping (negative delta), reduce when price is pumping. Guardrails (max buy, cooldown, min threshold) are enforced externally.`;
+Rules: buy=100%, hold=0%, partial_buy=10-90%. Swap tx fees on Solana cost ~0.001 SOL. Buy when wallet balance > 0.002 SOL (enough for swap + fees). Hold only if wallet < 0.001 SOL. Consider price_delta: buy more aggressively when price is dipping (negative delta), be cautious when pumping. Low health scores or declining trends are NOT reasons to hold if wallet has funds — buybacks support the token. Guardrails (max buy, cooldown, min threshold) are enforced externally.`;
 
 let client: Anthropic | null = null;
 
