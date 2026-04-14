@@ -18,6 +18,10 @@ const DEFAULT_STATE: TendState = {
   decisions: [],
   reports: [],
   allocations: [],
+  campaigns: [],
+  rewardPayouts: [],
+  swapCursors: {},
+  fraudDecisions: [],
 };
 
 async function acquireLock(): Promise<void> {
@@ -74,6 +78,10 @@ export async function withStateLock(
     if (!state.reports) state.reports = [];
     if (!state.allocations) state.allocations = [];
     if (!state.pendingPrepares) state.pendingPrepares = [];
+    if (!state.campaigns) state.campaigns = [];
+    if (!state.rewardPayouts) state.rewardPayouts = [];
+    if (!state.swapCursors) state.swapCursors = {};
+    if (!state.fraudDecisions) state.fraudDecisions = [];
 
     // Decrypt wallet secrets for in-memory use
     for (const w of state.walletPool) {

@@ -124,6 +124,61 @@ export interface AllocationRecommendation {
   overall_assessment: string;
 }
 
+// ── Live growth campaigns (pivot 2026-04-14) ──
+
+export interface Campaign {
+  tokenMint: string;
+  creatorWallet: string;
+  cashbackBps: number;
+  poolCapLamports: string;
+  poolSpentLamports: string;
+  status: "live" | "paused" | "depleted";
+  createdAt: number;
+  tokenInfo?: {
+    name: string;
+    symbol: string;
+    image?: string;
+  };
+}
+
+export interface RewardPayout {
+  id: string;
+  tokenMint: string;
+  traderWallet: string;
+  swapTxSig: string;
+  swapVolumeLamports: string;
+  rewardLamports: string;
+  payoutTxSig: string | null;
+  status: "accrued" | "paid" | "failed";
+  createdAt: number;
+  paidAt?: number;
+  failedAttempts?: number;
+  lastError?: string;
+}
+
+/**
+ * Decision made by the fraud/sybil gate before a payout is accrued.
+ * One entry per (swapTxSig, traderWallet) — persisted for audit even when allowed.
+ */
+export interface FraudDecision {
+  id: string; // same shape as RewardPayout.id: `${swapSig.slice(0,16)}-${trader.slice(0,8)}`
+  tokenMint: string;
+  traderWallet: string;
+  swapTxSig: string;
+  swapVolumeLamports: string;
+  decision: "allow" | "reject" | "hold";
+  reasoning: string;
+  flags: string[];
+  model: string;
+  checkedAt: number;
+  /** snapshot of what the model saw, useful for audit + dashboard */
+  walletContext: {
+    walletAgeHours: number | null;
+    txCount: number | null;
+    priorTendPayouts: number;
+  };
+}
+
 // Pending prepare intent — links prepare→submit to prevent replay
 export interface PendingPrepare {
   prepareId: string;
@@ -144,6 +199,10 @@ export interface TendState {
   reports: AnalyticsReport[];
   allocations: AllocationRecommendation[];
   pendingPrepares?: PendingPrepare[];
+  campaigns?: Campaign[];
+  rewardPayouts?: RewardPayout[];
+  swapCursors?: Record<string, number>;
+  fraudDecisions?: FraudDecision[];
   agentHeartbeat?: number; // timestamp of last agent tick
   serviceWallets?: Record<string, string>; // DEPRECATED — migrated into walletPool. Kept for migration only.
 }

@@ -34,21 +34,21 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Tend — Fee-sharing as a service",
+  title: "Tend — Earn SOL from live Bags token campaigns",
   description:
-    "Transform Bags.fm fee-sharing into a payment rail for autonomous AI services. Plug-and-play buyback bots, analytics, and growth agents for your token.",
+    "Trade Bags tokens and earn real SOL cashback from live campaigns powered by creator fees. Every payout logged on-chain.",
   openGraph: {
-    title: "Tend — Fee-sharing as a service",
+    title: "Tend — Earn SOL from live Bags token campaigns",
     description:
-      "Autonomous AI services paid through on-chain fee-sharing. No subscriptions, no upfront cost.",
+      "Trade participating Bags tokens, get SOL cashback from live campaigns financed by creator fees. Fully on-chain.",
     type: "website",
     siteName: "Tend",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Tend — Fee-sharing as a service",
+    title: "Tend — Earn SOL from live Bags token campaigns",
     description:
-      "Autonomous AI services paid through on-chain fee-sharing on Bags.fm.",
+      "Trade Bags tokens, earn real SOL cashback from creator-funded campaigns.",
   },
   icons: {
     icon: "/favicon.svg",

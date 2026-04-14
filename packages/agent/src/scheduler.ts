@@ -6,12 +6,14 @@ import { runBuyback, type BuybackResult } from "./buyback-bot.js";
 import { runFeeClaim, type ClaimResult } from "./fee-claimer.js";
 import { runAnalytics } from "./analytics-engine.js";
 import { runAllocationAdvisor } from "./allocation-advisor.js";
+import { runRewardsDistributor } from "./rewards-distributor.js";
 import { log, logError } from "./logger.js";
 
 const BUYBACK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const CLAIM_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const ANALYTICS_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 hours
 const ALLOCATION_INTERVAL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const REWARDS_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 1 minute
 const PREPARE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes — stale prepares
@@ -21,6 +23,7 @@ export class Scheduler {
   private claimTimer?: ReturnType<typeof setInterval>;
   private analyticsTimer?: ReturnType<typeof setInterval>;
   private allocationTimer?: ReturnType<typeof setInterval>;
+  private rewardsTimer?: ReturnType<typeof setInterval>;
   private cleanupTimer?: ReturnType<typeof setInterval>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
   private running = false;
@@ -30,6 +33,7 @@ export class Scheduler {
   private claimRunning = false;
   private analyticsRunning = false;
   private allocationRunning = false;
+  private rewardsRunning = false;
 
   constructor(private bags: BagsClient) {}
 
@@ -42,6 +46,7 @@ export class Scheduler {
     log(`  Claim interval: ${CLAIM_INTERVAL_MS / 1000}s`);
     log(`  Analytics interval: ${ANALYTICS_INTERVAL_MS / 1000}s`);
     log(`  Allocation interval: ${ALLOCATION_INTERVAL_MS / 1000}s`);
+    log(`  Rewards interval: ${REWARDS_INTERVAL_MS / 1000}s`);
 
     // Write initial heartbeat
     this.writeHeartbeat();
@@ -51,6 +56,7 @@ export class Scheduler {
     this.tickClaims();
     this.tickAnalytics();
     this.tickAllocations();
+    this.tickRewards();
 
     this.buybackTimer = setInterval(
       () => this.tickBuybacks(),
@@ -67,6 +73,10 @@ export class Scheduler {
     this.allocationTimer = setInterval(
       () => this.tickAllocations(),
       ALLOCATION_INTERVAL_MS
+    );
+    this.rewardsTimer = setInterval(
+      () => this.tickRewards(),
+      REWARDS_INTERVAL_MS
     );
     this.cleanupTimer = setInterval(
       () => this.tickCleanup(),
@@ -86,6 +96,7 @@ export class Scheduler {
     if (this.claimTimer) clearInterval(this.claimTimer);
     if (this.analyticsTimer) clearInterval(this.analyticsTimer);
     if (this.allocationTimer) clearInterval(this.allocationTimer);
+    if (this.rewardsTimer) clearInterval(this.rewardsTimer);
     if (this.cleanupTimer) clearInterval(this.cleanupTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
 
@@ -228,6 +239,30 @@ export class Scheduler {
       logError("[tick:allocation] Error:", err);
     } finally {
       this.allocationRunning = false;
+    }
+  }
+
+  private async tickRewards() {
+    if (this.rewardsRunning) {
+      log("[tick:rewards] Previous tick still running, skipping");
+      return;
+    }
+    this.rewardsRunning = true;
+    try {
+      const result = await runRewardsDistributor(this.bags);
+      if (
+        result.campaignsProcessed > 0 ||
+        result.payoutsPaid > 0 ||
+        result.swapsDetected > 0
+      ) {
+        log(
+          `[tick:rewards] campaigns=${result.campaignsProcessed} swaps=${result.swapsDetected} fraud(allow/reject/hold)=${result.fraudAllowed}/${result.fraudRejected}/${result.fraudHeld} accrued=${result.payoutsAccrued} paid=${result.payoutsPaid}`
+        );
+      }
+    } catch (err) {
+      logError("[tick:rewards] Error:", err);
+    } finally {
+      this.rewardsRunning = false;
     }
   }
 

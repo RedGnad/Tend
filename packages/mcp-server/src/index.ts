@@ -4,21 +4,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { BagsClient, loadKeypair } from "@tend/shared";
-import { StateManager } from "./state/index.js";
-import { FeeShareOrchestrator } from "./services/orchestrator.js";
-import { registerServiceTools } from "./tools/services.js";
-import { registerTokenTools } from "./tools/token.js";
-import { registerManageTools } from "./tools/manage.js";
-import { registerPortfolioTools } from "./tools/portfolio.js";
-import { registerLaunchTools } from "./tools/launch.js";
-import { registerDecisionTools } from "./tools/decisions.js";
-import { registerIntelligenceTools } from "./tools/intelligence.js";
+import { registerCampaignTools } from "./tools/campaigns.js";
+import { listCampaigns, getCampaignStats } from "./state/campaign-store.js";
 
 // All debug output to stderr (STDIO transport requirement)
 const log = (...args: unknown[]) => console.error("[tend]", ...args);
 
 async function main() {
-  // Validate env
   const apiKey = process.env.BAGS_API_KEY;
   const rpcUrl = process.env.SOLANA_RPC_URL;
   const privateKey = process.env.TEND_PRIVATE_KEY;
@@ -30,9 +22,8 @@ async function main() {
     process.exit(1);
   }
 
-  // Init services
   const keypair = loadKeypair(privateKey);
-  log(`Wallet: ${keypair.publicKey.toBase58()}`);
+  log(`Creator wallet: ${keypair.publicKey.toBase58()}`);
 
   const bags = new BagsClient({
     apiKey,
@@ -40,48 +31,50 @@ async function main() {
     privateKey: keypair,
   });
 
-  const state = new StateManager();
-  await state.init();
-  log("State loaded");
-
-  const orchestrator = new FeeShareOrchestrator(bags, state);
-
-  // Create MCP server
   const server = new McpServer({
     name: "tend",
-    version: "1.0.0",
+    version: "2.0.0",
   });
 
-  // Register all tool groups
-  registerServiceTools(server, orchestrator, state);
-  registerTokenTools(server, bags, state);
-  registerManageTools(server, orchestrator, state);
-  registerPortfolioTools(server, bags, state);
-  registerLaunchTools(server, bags, state);
-  registerDecisionTools(server, state);
-  registerIntelligenceTools(server, state);
+  registerCampaignTools(server, bags, keypair.publicKey.toBase58());
 
-  // ── MCP Resources ──
-  server.resource("status", "tend://status", async (uri) => ({
-    contents: [
-      {
-        uri: uri.href,
-        mimeType: "text/plain",
-        text: [
-          `Tend Protocol Status`,
-          `Wallet: ${keypair.publicKey.toBase58()}`,
-          `Managed Tokens: ${state.getAllManagedTokens().length}`,
-          `Active Services: ${state.getAllManagedTokens().reduce((s, t) => s + t.services.length, 0)}`,
-          `Assigned Wallets: ${state.getAssignedWallets().length}/20`,
-        ].join("\n"),
-      },
-    ],
-  }));
+  // ── Resource: current creator status ──
+  server.resource("status", "tend://status", async (uri) => {
+    const campaigns = await listCampaigns();
+    const live = campaigns.filter((c) => c.status === "live").length;
+    const paused = campaigns.filter((c) => c.status === "paused").length;
+    const depleted = campaigns.filter((c) => c.status === "depleted").length;
 
-  // ── MCP Prompts ──
+    let totalPaid = 0n;
+    let totalEarners = 0;
+    for (const c of campaigns) {
+      const s = await getCampaignStats(c.tokenMint);
+      totalPaid += BigInt(s.totalPaidLamports);
+      totalEarners += s.uniqueEarners;
+    }
+
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          mimeType: "text/plain",
+          text: [
+            `Tend — Creator Console`,
+            `Creator wallet: ${keypair.publicKey.toBase58()}`,
+            ``,
+            `Campaigns: ${campaigns.length} total — ${live} live, ${paused} paused, ${depleted} depleted`,
+            `Total paid out: ${(Number(totalPaid) / 1_000_000_000).toFixed(6)} SOL`,
+            `Earners reached: ${totalEarners}`,
+          ].join("\n"),
+        },
+      ],
+    };
+  });
+
+  // ── Prompt: single workflow — launch a campaign ──
   server.prompt(
-    "setup-new-token",
-    "Guide for setting up a new token with Tend services",
+    "launch-campaign",
+    "Guide a creator through launching a reward campaign for their token",
     { tokenMint: z.string().describe("Token mint address") },
     ({ tokenMint }) => ({
       messages: [
@@ -90,14 +83,14 @@ async function main() {
           content: {
             type: "text" as const,
             text: [
-              `I want to set up Tend services on token ${tokenMint}.`,
-              "",
-              "Please:",
-              "1. Check the token health first",
-              "2. Show me available services",
-              "3. Recommend which services to add based on the token's current state",
-              "4. Add the services I approve",
-              "5. Show me the final fee breakdown",
+              `I want to launch a Tend reward campaign on ${tokenMint}.`,
+              ``,
+              `Please:`,
+              `1. Check if a campaign already exists (view_campaign_stats)`,
+              `2. Ask me for the cashback rate (typical: 1-5%) and pool size in SOL`,
+              `3. Explain the tradeoff (higher cashback = more buyers, faster depletion)`,
+              `4. Create the campaign once I confirm`,
+              `5. Remind me the agent + fraud gate now take over automatically`,
             ].join("\n"),
           },
         },
@@ -105,36 +98,8 @@ async function main() {
     })
   );
 
-  server.prompt(
-    "optimize-allocations",
-    "Analyze and optimize fee-sharing allocations for best results",
-    { tokenMint: z.string().describe("Token mint address") },
-    ({ tokenMint }) => ({
-      messages: [
-        {
-          role: "user" as const,
-          content: {
-            type: "text" as const,
-            text: [
-              `Analyze the fee-sharing allocations on token ${tokenMint}.`,
-              "",
-              "Please:",
-              "1. Show current service status and performance",
-              "2. Show the before/after comparison",
-              "3. Suggest allocation changes to maximize token health",
-              "4. Apply changes if I approve",
-            ].join("\n"),
-          },
-        },
-      ],
-    })
-  );
+  log("Registered 4 creator tools + 1 resource + 1 prompt");
 
-  log(
-    "Registered 21 tools + 1 resource + 2 prompts"
-  );
-
-  // Connect via STDIO
   const transport = new StdioServerTransport();
   await server.connect(transport);
   log("MCP server running on STDIO");

@@ -18,6 +18,10 @@ const DEFAULT_STATE: TendState = {
   decisions: [],
   reports: [],
   allocations: [],
+  campaigns: [],
+  rewardPayouts: [],
+  swapCursors: {},
+  fraudDecisions: [],
 };
 
 const AGENT_HEARTBEAT_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
@@ -105,6 +109,10 @@ export async function withStateLock(
     if (!state.allocations) state.allocations = [];
     if (!state.walletPool) state.walletPool = [];
     if (!state.pendingPrepares) state.pendingPrepares = [];
+    if (!state.campaigns) state.campaigns = [];
+    if (!state.rewardPayouts) state.rewardPayouts = [];
+    if (!state.swapCursors) state.swapCursors = {};
+    if (!state.fraudDecisions) state.fraudDecisions = [];
 
     // Decrypt wallet secrets for in-memory use
     for (const w of state.walletPool) {
