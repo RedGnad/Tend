@@ -36,12 +36,49 @@ function poolProgress(c: Campaign): number {
   return Math.min(100, (Number(c.poolSpentLamports) / cap) * 100);
 }
 
+function campaignHeadline(c: Campaign): { value: string; label: string } {
+  switch (c.type) {
+    case "cashback":
+      return {
+        value: `${(c.config.cashbackBps / 100).toFixed(1)}%`,
+        label: "Cashback / buy",
+      };
+    case "holder":
+      return {
+        value: `${(c.config.rewardBps / 100).toFixed(1)}%`,
+        label: `Holder · ${c.config.minHoldHours}h min`,
+      };
+    case "sprint":
+      return { value: "Sprint", label: "First buyers bonus" };
+    case "referral":
+      return {
+        value: `${(c.config.referrerBps / 100).toFixed(1)}%`,
+        label: "Referral",
+      };
+  }
+}
+
+function campaignTypeBadge(c: Campaign): string {
+  switch (c.type) {
+    case "cashback":
+      return "CASHBACK";
+    case "holder":
+      return "HOLDER";
+    case "sprint":
+      return "SPRINT";
+    case "referral":
+      return "REFERRAL";
+  }
+}
+
 function CampaignCard({ c }: { c: CampaignWithStats }) {
   const progress = poolProgress(c);
   const remaining =
     BigInt(c.poolCapLamports) - BigInt(c.poolSpentLamports);
   const symbol = c.tokenInfo?.symbol ?? c.tokenMint.slice(0, 4).toUpperCase();
   const isLive = c.status === "live";
+  const headline = campaignHeadline(c);
+  const typeLabel = campaignTypeBadge(c);
 
   return (
     <Link
@@ -78,13 +115,19 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
         </span>
       </div>
 
+      <div className="mb-3">
+        <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg)] text-[var(--text-muted)] font-mono font-semibold tracking-wider border border-[var(--border)]">
+          {typeLabel}
+        </span>
+      </div>
+
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-[var(--bg)] rounded-lg p-3">
           <p className="text-lg font-semibold font-mono gradient-text">
-            {((c.type === "cashback" ? c.config.cashbackBps : 0) / 100).toFixed(1)}%
+            {headline.value}
           </p>
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
-            Cashback
+            {headline.label}
           </p>
         </div>
         <div className="bg-[var(--bg)] rounded-lg p-3">

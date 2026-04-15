@@ -92,10 +92,6 @@ export default function CampaignDetailPage() {
   const symbol =
     campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4).toUpperCase();
   const name = campaign.tokenInfo?.name ?? symbol;
-  const cashbackPct =
-    campaign.type === "cashback"
-      ? (campaign.config.cashbackBps / 100).toFixed(1)
-      : "0.0";
   const remaining =
     BigInt(campaign.poolCapLamports) - BigInt(campaign.poolSpentLamports);
   const progress = Math.min(
@@ -132,6 +128,9 @@ export default function CampaignDetailPage() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold font-display">${symbol}</h1>
+                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg)] text-[var(--text-muted)] font-mono font-semibold tracking-wider border border-[var(--border)]">
+                  {campaign.type.toUpperCase()}
+                </span>
                 {name !== symbol && (
                   <span className="text-[13px] text-[var(--text-muted)]">
                     {name}
@@ -170,10 +169,22 @@ export default function CampaignDetailPage() {
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-[var(--bg)] rounded-lg p-3">
             <p className="text-xl font-semibold font-mono gradient-text">
-              {cashbackPct}%
+              {campaign.type === "cashback"
+                ? `${(campaign.config.cashbackBps / 100).toFixed(1)}%`
+                : campaign.type === "holder"
+                  ? `${(campaign.config.rewardBps / 100).toFixed(1)}%`
+                  : campaign.type === "referral"
+                    ? `${(campaign.config.referrerBps / 100).toFixed(1)}%`
+                    : "—"}
             </p>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
-              Cashback on buys
+              {campaign.type === "cashback"
+                ? "Cashback on buys"
+                : campaign.type === "holder"
+                  ? `Per snapshot · ${campaign.config.minHoldHours}h min`
+                  : campaign.type === "sprint"
+                    ? "Launch sprint bonus"
+                    : "Referral payout"}
             </p>
           </div>
           <div className="bg-[var(--bg)] rounded-lg p-3">
@@ -211,14 +222,36 @@ export default function CampaignDetailPage() {
         <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-3">
           How to earn
         </p>
-        <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
-          Buy ${symbol} on any Solana exchange. The Tend agent detects your
-          trade on-chain, runs an AI fraud gate, and computes{" "}
-          <span className="text-[var(--accent)] font-semibold">
-            {cashbackPct}% cashback
-          </span>{" "}
-          on the SOL you spent — sent to your wallet within minutes.
-        </p>
+        {campaign.type === "cashback" ? (
+          <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
+            Buy ${symbol} on any Solana exchange. The Tend agent detects your
+            trade on-chain, runs an AI fraud gate, and pays{" "}
+            <span className="text-[var(--accent)] font-semibold">
+              {(campaign.config.cashbackBps / 100).toFixed(1)}% cashback
+            </span>{" "}
+            on the SOL you spent — sent to your wallet within minutes.
+          </p>
+        ) : campaign.type === "holder" ? (
+          <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
+            Hold ${symbol} for at least{" "}
+            <span className="text-[var(--accent)] font-semibold">
+              {campaign.config.minHoldHours}h
+            </span>
+            . Every {campaign.config.snapshotCronHours}h the Tend agent
+            snapshots eligible holders, runs each wallet through the AI fraud
+            gate, and pays a pro-rata share of{" "}
+            <span className="text-[var(--accent)] font-semibold">
+              {(campaign.config.rewardBps / 100).toFixed(1)}% of the pool
+            </span>{" "}
+            — sent to your wallet within minutes.
+          </p>
+        ) : (
+          <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
+            This campaign type is live on-chain. The Tend agent handles
+            eligibility, the AI fraud gate checks every wallet, and payouts
+            hit your wallet within minutes.
+          </p>
+        )}
         {isLive ? (
           <a
             href={`https://jup.ag/swap/SOL-${campaign.tokenMint}`}
@@ -227,7 +260,10 @@ export default function CampaignDetailPage() {
             className="gradient-btn px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
           >
             <Zap size={14} />
-            Trade on Jupiter <ExternalLink size={12} />
+            {campaign.type === "holder"
+              ? "Buy & hold on Jupiter"
+              : "Trade on Jupiter"}{" "}
+            <ExternalLink size={12} />
           </a>
         ) : (
           <p className="text-[12px] text-[var(--text-muted)]">
@@ -243,7 +279,7 @@ export default function CampaignDetailPage() {
           style={{ borderColor: "rgba(0, 255, 178, 0.12)" }}
         >
           <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-3">
-            Your cashback on this campaign
+            Your rewards on this campaign
           </p>
           {myPayouts.length > 0 ? (
             <div>
@@ -252,12 +288,20 @@ export default function CampaignDetailPage() {
               </p>
               <p className="text-[12px] text-[var(--text-muted)]">
                 from {myPayouts.length} qualifying{" "}
-                {myPayouts.length === 1 ? "trade" : "trades"}
+                {campaign.type === "holder"
+                  ? myPayouts.length === 1
+                    ? "snapshot"
+                    : "snapshots"
+                  : myPayouts.length === 1
+                    ? "trade"
+                    : "trades"}
               </p>
             </div>
           ) : (
             <p className="text-[13px] text-[var(--text-muted)]">
-              No cashback yet. Trade ${symbol} to start earning.
+              {campaign.type === "holder"
+                ? `No rewards yet. Hold $${symbol} for ${campaign.config.minHoldHours}h+ to qualify.`
+                : `No rewards yet. Trade $${symbol} to start earning.`}
             </p>
           )}
         </div>
@@ -311,8 +355,10 @@ export default function CampaignDetailPage() {
                     </span>
                   </div>
                   <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                    swap {formatSol(p.swapVolumeLamports)} SOL ·{" "}
-                    {timeAgo(p.createdAt)}
+                    {campaign.type === "holder"
+                      ? "holder snapshot"
+                      : `swap ${formatSol(p.swapVolumeLamports)} SOL`}{" "}
+                    · {timeAgo(p.createdAt)}
                   </p>
                 </div>
                 <div className="text-right flex-shrink-0">

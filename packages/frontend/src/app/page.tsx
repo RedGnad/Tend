@@ -44,6 +44,28 @@ function poolProgress(c: Campaign): number {
   return Math.min(100, (Number(c.poolSpentLamports) / cap) * 100);
 }
 
+function campaignHeadline(c: Campaign): { value: string; label: string } {
+  switch (c.type) {
+    case "cashback":
+      return {
+        value: `${(c.config.cashbackBps / 100).toFixed(1)}%`,
+        label: "Cashback on every buy",
+      };
+    case "holder":
+      return {
+        value: `${(c.config.rewardBps / 100).toFixed(1)}%`,
+        label: `Holder reward · ${c.config.minHoldHours}h min`,
+      };
+    case "sprint":
+      return { value: "Sprint", label: "First buyers bonus" };
+    case "referral":
+      return {
+        value: `${(c.config.referrerBps / 100).toFixed(1)}%`,
+        label: "Referral payout",
+      };
+  }
+}
+
 function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
   const progress = poolProgress(c);
   const remaining = BigInt(c.poolCapLamports) - BigInt(c.poolSpentLamports);
@@ -98,10 +120,10 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
             </div>
             <div className="text-right">
               <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
-                Cashback on every buy
+                {campaignHeadline(c).label}
               </p>
               <p className="text-4xl md:text-5xl font-bold font-mono gradient-text leading-none">
-                {((c.type === "cashback" ? c.config.cashbackBps : 0) / 100).toFixed(1)}%
+                {campaignHeadline(c).value}
               </p>
             </div>
           </div>
@@ -185,10 +207,16 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-[var(--bg)] rounded-lg p-3">
           <p className="text-lg font-semibold font-mono gradient-text">
-            {((c.type === "cashback" ? c.config.cashbackBps : 0) / 100).toFixed(1)}%
+            {campaignHeadline(c).value}
           </p>
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
-            Cashback
+            {c.type === "cashback"
+              ? "Cashback"
+              : c.type === "holder"
+                ? "Holder"
+                : c.type === "sprint"
+                  ? "Sprint"
+                  : "Referral"}
           </p>
         </div>
         <div className="bg-[var(--bg)] rounded-lg p-3">
