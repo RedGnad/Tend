@@ -23,6 +23,12 @@ This is not AI decoration. If the gate is down, payouts stop. If the gate says n
 
 Bounded authority: the agent can only emit payouts inside campaign budgets, has per-wallet and per-campaign cooldowns, and cannot withdraw or transfer funds outside the payout rail.
 
+**Real example from the $TEND launch sprint** — a fresh wallet (6 days old, 6 txs) tried to claim a sprint bonus. Claude Haiku held it:
+
+> *"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping, and while the wallet shows some activity, the minimal transaction history combined with young age warrants human review to confirm legitimacy before payout."*
+
+Flags: `new_wallet_6days`, `low_tx_count`, `launch_sprint_campaign`. The sprint slot was not consumed, the pool was not debited, and the decision is persisted in `state.json`. Full JSON + narrative in [`docs/fraud-gate-example.md`](docs/fraud-gate-example.md).
+
 ## How it works
 
 ```
