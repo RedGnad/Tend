@@ -30,23 +30,25 @@ const DecisionSchema = z.object({
   flags: z.array(z.string()).max(6),
 });
 
-const SYSTEM_PROMPT = `You are the fraud gate for Tend, a consumer rewards program that pays real SOL cashback to traders who buy Bags creator tokens during live campaigns. Your job: for each detected buy, decide whether to allow, reject, or hold the payout.
+const SYSTEM_PROMPT = `You are the fraud gate for Tend, a consumer rewards program that pays real SOL to users participating in live Bags creator-token campaigns. Each campaign is one of: cashback (reward per buy), holder dividends (pro-rata per snapshot to eligible holders), launch sprint (bonus to first real buyers), referral (reward for referrers). Your job: for each eligible wallet, decide whether to allow, reject, or hold the payout.
 
 Action space (strict):
-- allow:  normal organic trader → pay the cashback
-- reject: strong sybil / wash trading evidence → drop, pool is not debited
+- allow:  organic participant → pay the reward
+- reject: strong sybil / wash / farm evidence → drop, pool is not debited
 - hold:   ambiguous / insufficient signal → human reviews via dashboard
 
 Reject signals (any one strong enough):
 - Wallet created in the last 1h with no prior on-chain history
 - Zero other token interactions (fresh gas-funded wallet spinning up just for this)
-- Pattern: trader already received multiple Tend payouts on this same campaign in the last hour (farming)
-- Swap amount suspiciously close to the minimum threshold repeatedly
+- Already received multiple Tend payouts on this same campaign in the last hour (farming)
+- For swaps: amount suspiciously close to the minimum threshold repeatedly
+- For holders: hold duration is exactly the campaign minimum + wallet is brand new (snipe pattern)
 
 Allow signals:
 - Wallet age > 7 days, > 20 total txs, normal browsing pattern
-- Swap amount is organic-looking (not exact round-number patterns)
+- Swap amount or balance looks organic (not exact round-number patterns)
 - Has interacted with other Bags / Solana DEXs before
+- Holder: hold duration well above the campaign minimum, wallet has history
 
 Hold signals:
 - Wallet is new but has some legitimate activity (e.g. 1-3 days old, few txs)
@@ -144,11 +146,9 @@ function describeCampaign(campaign: Campaign): string {
 
 function buildUserMessage(
   campaign: Campaign,
-  traderWallet: string,
-  solSpentLamports: bigint,
+  event: FraudEvent,
   ctx: WalletContext
 ): string {
-  const solSpent = (Number(solSpentLamports) / 1_000_000_000).toFixed(6);
   const ageStr =
     ctx.walletAgeHours === null
       ? "unknown"
@@ -156,12 +156,46 @@ function buildUserMessage(
         ? `${ctx.walletAgeHours}h`
         : `${Math.floor(ctx.walletAgeHours / 24)}d`;
   const txStr = ctx.txCount === null ? "unknown" : `${ctx.txCount}`;
+  const walletShort = `${event.traderWallet.slice(0, 6)}..${event.traderWallet.slice(-4)}`;
+
+  let action: string;
+  if (event.kind === "holder") {
+    const holdHours =
+      event.holdHours === null ? "unknown" : `${event.holdHours}h`;
+    action = `Holder ${walletShort} has held the token for ${holdHours} and is eligible for this snapshot's pro-rata dividend. Wallet age: ${ageStr}. On-chain tx count: ${txStr}. Prior Tend payouts on this campaign: ${ctx.priorTendPayouts}.`;
+  } else {
+    const solSpent = (
+      Number(event.solSpentLamports) / 1_000_000_000
+    ).toFixed(6);
+    action = `Trader ${walletShort} bought for ${solSpent} SOL. Wallet age: ${ageStr}. On-chain tx count: ${txStr}. Prior Tend payouts on this campaign: ${ctx.priorTendPayouts}.`;
+  }
 
   return `Campaign ${describeCampaign(campaign)}.
-Trader ${traderWallet.slice(0, 6)}..${traderWallet.slice(-4)} bought for ${solSpent} SOL.
-Wallet age: ${ageStr}. On-chain tx count: ${txStr}. Prior Tend payouts on this campaign: ${ctx.priorTendPayouts}.
+${action}
 Decide: allow, reject, or hold.`;
 }
+
+/**
+ * Discriminated fraud event. Swap kind carries SOL spent; holder kind carries
+ * hold duration. Both flow through the same gate for a unified audit trail.
+ */
+export type FraudEvent =
+  | {
+      kind: "swap";
+      signature: string;
+      traderWallet: string;
+      solSpentLamports: bigint;
+    }
+  | {
+      kind: "holder";
+      /** Synthetic id unique per (campaign, snapshot, wallet). */
+      signature: string;
+      traderWallet: string;
+      /** Holder's raw token balance at snapshot time (metadata for payout). */
+      balanceRaw: bigint;
+      /** Hours the wallet has held the token (null if unknown). */
+      holdHours: number | null;
+    };
 
 /**
  * Main gate entry point. Returns the FraudDecision record (also persisted).
@@ -170,13 +204,13 @@ Decide: allow, reject, or hold.`;
 export async function checkFraud(
   bags: BagsClient,
   campaign: Campaign,
-  buy: {
-    signature: string;
-    traderWallet: string;
-    solSpentLamports: bigint;
-  }
+  event: FraudEvent
 ): Promise<FraudDecision> {
-  const id = makeDecisionId(buy.signature, buy.traderWallet);
+  const id = makeDecisionId(event.signature, event.traderWallet);
+  const volumeLamports =
+    event.kind === "swap"
+      ? event.solSpentLamports.toString()
+      : event.balanceRaw.toString();
 
   // Idempotent: if we already decided on this swap, return the cached decision
   const existingState = await loadState();
@@ -188,7 +222,7 @@ export async function checkFraud(
 
   const walletContext = await fetchWalletContext(
     bags,
-    buy.traderWallet,
+    event.traderWallet,
     campaign.tokenMint
   );
 
@@ -199,9 +233,9 @@ export async function checkFraud(
     return {
       id,
       tokenMint: campaign.tokenMint,
-      traderWallet: buy.traderWallet,
-      swapTxSig: buy.signature,
-      swapVolumeLamports: buy.solSpentLamports.toString(),
+      traderWallet: event.traderWallet,
+      swapTxSig: event.signature,
+      swapVolumeLamports: volumeLamports,
       decision: "hold",
       reasoning: "AI gate offline (no API key) — held for manual review",
       flags: ["api_offline"],
@@ -211,15 +245,10 @@ export async function checkFraud(
     };
   }
 
-  const userMessage = buildUserMessage(
-    campaign,
-    buy.traderWallet,
-    buy.solSpentLamports,
-    walletContext
-  );
+  const userMessage = buildUserMessage(campaign, event, walletContext);
 
   log(
-    `[fraud] Checking swap ${buy.signature.slice(0, 10)} trader=${buy.traderWallet.slice(0, 6)} age=${walletContext.walletAgeHours}h txs=${walletContext.txCount} priors=${walletContext.priorTendPayouts}`
+    `[fraud] Checking ${event.kind} ${event.signature.slice(0, 10)} trader=${event.traderWallet.slice(0, 6)} age=${walletContext.walletAgeHours}h txs=${walletContext.txCount} priors=${walletContext.priorTendPayouts}`
   );
 
   try {
@@ -247,9 +276,9 @@ export async function checkFraud(
     const decision: FraudDecision = {
       id,
       tokenMint: campaign.tokenMint,
-      traderWallet: buy.traderWallet,
-      swapTxSig: buy.signature,
-      swapVolumeLamports: buy.solSpentLamports.toString(),
+      traderWallet: event.traderWallet,
+      swapTxSig: event.signature,
+      swapVolumeLamports: volumeLamports,
       decision: parsed.decision,
       reasoning: parsed.reasoning,
       flags: parsed.flags ?? [],
@@ -268,9 +297,9 @@ export async function checkFraud(
     return {
       id,
       tokenMint: campaign.tokenMint,
-      traderWallet: buy.traderWallet,
-      swapTxSig: buy.signature,
-      swapVolumeLamports: buy.solSpentLamports.toString(),
+      traderWallet: event.traderWallet,
+      swapTxSig: event.signature,
+      swapVolumeLamports: volumeLamports,
       decision: "hold",
       reasoning: `Gate error (${msg.slice(0, 80)}) — held for manual review`,
       flags: ["gate_error"],

@@ -273,6 +273,7 @@ export interface TendState {
   campaigns?: Campaign[];
   rewardPayouts?: RewardPayout[];
   swapCursors?: Record<string, number>;
+  holderSnapshotCursors?: Record<string, number>;
   fraudDecisions?: FraudDecision[];
   agentHeartbeat?: number; // timestamp of last agent tick
   serviceWallets?: Record<string, string>; // DEPRECATED — migrated into walletPool. Kept for migration only.

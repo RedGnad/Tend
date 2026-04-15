@@ -26,6 +26,7 @@ const DEFAULT_STATE: TendState = {
   campaigns: [],
   rewardPayouts: [],
   swapCursors: {},
+  holderSnapshotCursors: {},
   fraudDecisions: [],
 };
 
@@ -121,6 +122,7 @@ export async function withStateLock(
     if (!state.campaigns) state.campaigns = [];
     if (!state.rewardPayouts) state.rewardPayouts = [];
     if (!state.swapCursors) state.swapCursors = {};
+    if (!state.holderSnapshotCursors) state.holderSnapshotCursors = {};
     if (!state.fraudDecisions) state.fraudDecisions = [];
 
     // Migrate legacy campaign shapes on read (Plan E discriminated union).

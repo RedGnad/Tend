@@ -68,6 +68,7 @@ async function main() {
     console.log(`→ swap ${buy.signature.slice(0, 12)}  trader ${buy.traderWallet.slice(0, 8)}`);
     const t0 = Date.now();
     const decision = await checkFraud(bags, campaign, {
+      kind: "swap",
       signature: buy.signature,
       traderWallet: buy.traderWallet,
       solSpentLamports: buy.solSpentLamports,

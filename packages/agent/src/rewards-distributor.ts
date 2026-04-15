@@ -16,7 +16,7 @@ import { log, logError } from "./logger.js";
  *   1. Load live campaigns from state (migrated on read)
  *   2. Dispatch each to its type-specific trigger:
  *        cashback → runCashbackTrigger  (real, S1)
- *        holder   → runHolderTrigger    (stub, S2-S3)
+ *        holder   → runHolderTrigger    (real, S2)
  *        sprint   → runSprintTrigger    (stub, S4)
  *        referral → no-op               (Q3)
  *   3. Triggers accrue RewardPayout rows into state
@@ -102,11 +102,23 @@ export async function runRewardsDistributor(
           });
         }
       } else if (campaign.type === "holder") {
-        const { result: triggerResult } = await runHolderTrigger(
+        const lastSnapshotAt =
+          state.holderSnapshotCursors?.[campaign.tokenMint] ?? 0;
+
+        const { result: triggerResult, nextCursor } = await runHolderTrigger(
           bags,
-          campaign
+          campaign,
+          lastSnapshotAt,
+          excludeWallets
         );
         mergeTriggerResult(result, triggerResult);
+
+        if (nextCursor !== null && nextCursor > lastSnapshotAt) {
+          await withStateLock(async (s) => {
+            if (!s.holderSnapshotCursors) s.holderSnapshotCursors = {};
+            s.holderSnapshotCursors[campaign.tokenMint] = nextCursor;
+          });
+        }
       } else if (campaign.type === "sprint") {
         const { result: triggerResult } = await runSprintTrigger(
           bags,

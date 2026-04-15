@@ -139,7 +139,12 @@ export async function runCashbackTrigger(
   }
 
   for (const buy of buys) {
-    const decision = await checkFraud(bags, campaign, buy);
+    const decision = await checkFraud(bags, campaign, {
+      kind: "swap",
+      signature: buy.signature,
+      traderWallet: buy.traderWallet,
+      solSpentLamports: buy.solSpentLamports,
+    });
     await persistFraudDecision(decision);
 
     if (decision.decision === "allow") {

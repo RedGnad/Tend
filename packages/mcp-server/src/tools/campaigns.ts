@@ -1,7 +1,11 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { PublicKey } from "@solana/web3.js";
-import type { BagsClient, CashbackCampaign } from "@tend/shared";
+import type {
+  BagsClient,
+  CashbackCampaign,
+  HolderCampaign,
+} from "@tend/shared";
 import {
   getCampaign,
   listCampaigns,
@@ -31,12 +35,13 @@ function isValidMint(mint: string): boolean {
 }
 
 /**
- * Minimal creator console — 4 tools.
+ * Minimal creator console — 5 tools.
  *
- *   create_campaign     — stand up a live reward pool for a mint
- *   pause_campaign      — freeze payouts without losing the pool
- *   topup_pool          — raise the cap (or revive from depleted)
- *   view_campaign_stats — payouts, fraud decisions, utilization
+ *   create_campaign          — cashback pool (pay % per buy)
+ *   create_holder_campaign   — holder dividends (pro-rata snapshots)
+ *   pause_campaign           — freeze payouts without losing the pool
+ *   topup_pool               — raise the cap (or revive from depleted)
+ *   view_campaign_stats      — payouts, fraud decisions, utilization
  *
  * Every write uses the shared file lock in campaign-store so MCP + agent + web
  * all see the same state.
@@ -120,6 +125,116 @@ export function registerCampaignTools(
               `   status     ${campaign.status}`,
               ``,
               `Agent will detect new buys, run the AI fraud gate, and pay cashback to allowed traders.`,
+            ].join("\n"),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
+    "create_holder_campaign",
+    "Launch a live holder-dividends campaign for a Bags token. The creator pre-funds a pool cap (in SOL); on a cron cadence the agent snapshots holders, filters by minimum hold duration, runs each through the AI fraud gate, and pays a pro-rata share of a per-snapshot budget (poolCap × rewardBps / 10000).",
+    {
+      tokenMint: z
+        .string()
+        .describe("Token mint (base58) — must be a valid Solana pubkey"),
+      rewardBps: z
+        .number()
+        .int()
+        .min(1)
+        .max(2000)
+        .describe(
+          "Per-snapshot budget as basis points of the pool cap. 100 = 1%, max 2000 (20%). Over time the pool depletes deterministically."
+        ),
+      minHoldHours: z
+        .number()
+        .int()
+        .min(1)
+        .max(720)
+        .describe(
+          "Minimum hours a wallet must have held the token to qualify for a snapshot. 24 = anti-snipe baseline."
+        ),
+      snapshotCronHours: z
+        .number()
+        .int()
+        .min(1)
+        .max(168)
+        .describe(
+          "Cadence between snapshots, in hours. 24 = daily, 168 = weekly."
+        ),
+      poolSol: z
+        .number()
+        .positive()
+        .describe(
+          "Pool cap in SOL — the maximum the agent will ever pay out for this campaign"
+        ),
+    },
+    async ({
+      tokenMint,
+      rewardBps,
+      minHoldHours,
+      snapshotCronHours,
+      poolSol,
+    }) => {
+      if (!isValidMint(tokenMint)) {
+        return {
+          content: [
+            { type: "text", text: `❌ Invalid mint address: ${tokenMint}` },
+          ],
+        };
+      }
+
+      const existing = await getCampaign(tokenMint);
+      if (existing && existing.status === "live") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `⚠️  A live campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
+            },
+          ],
+        };
+      }
+
+      let tokenInfo: HolderCampaign["tokenInfo"] | undefined;
+      try {
+        const meta = await bags.getTokenMetadata(tokenMint);
+        if (meta) tokenInfo = { name: meta.name, symbol: meta.symbol };
+      } catch {
+        /* metadata optional */
+      }
+
+      const campaign: HolderCampaign = {
+        tokenMint,
+        creatorWallet,
+        type: "holder",
+        config: { rewardBps, minHoldHours, snapshotCronHours },
+        poolCapLamports: solToLamports(poolSol).toString(),
+        poolSpentLamports: existing?.poolSpentLamports ?? "0",
+        status: "live",
+        createdAt: existing?.createdAt ?? Date.now(),
+        tokenInfo,
+      };
+      await upsertCampaign(campaign);
+
+      const symbol = tokenInfo?.symbol ?? tokenMint.slice(0, 4);
+      const perSnapshot = (poolSol * rewardBps) / 10_000;
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              `✅ Holder campaign live: $${symbol}`,
+              `   mint            ${tokenMint}`,
+              `   reward rate     ${(rewardBps / 100).toFixed(2)}% of pool per snapshot`,
+              `   min hold        ${minHoldHours}h`,
+              `   cadence         every ${snapshotCronHours}h`,
+              `   pool cap        ${poolSol} SOL`,
+              `   per snapshot    ~${perSnapshot.toFixed(6)} SOL distributed pro-rata`,
+              `   status          ${campaign.status}`,
+              ``,
+              `Agent will snapshot holders, run the AI fraud gate on each eligible wallet, and pay pro-rata dividends.`,
             ].join("\n"),
           },
         ],
@@ -263,10 +378,17 @@ export function registerCampaignTools(
       const remaining = cap - spent;
       const pct = cap > 0n ? Number((spent * 100n) / cap) : 0;
 
-      const rateLine =
-        campaign.type === "cashback"
-          ? `   cashback    ${(campaign.config.cashbackBps / 100).toFixed(2)}%`
-          : `   type        ${campaign.type}`;
+      let rateLine: string;
+      switch (campaign.type) {
+        case "cashback":
+          rateLine = `   cashback    ${(campaign.config.cashbackBps / 100).toFixed(2)}%`;
+          break;
+        case "holder":
+          rateLine = `   holder      ${(campaign.config.rewardBps / 100).toFixed(2)}%/snapshot · min ${campaign.config.minHoldHours}h · every ${campaign.config.snapshotCronHours}h`;
+          break;
+        default:
+          rateLine = `   type        ${campaign.type}`;
+      }
 
       return {
         content: [
