@@ -67,19 +67,15 @@ async function tryAccrueCashbackPayout(
       (p) =>
         p.tokenMint === campaign.tokenMint &&
         p.traderWallet === buy.traderWallet &&
+        (p.campaignType ?? "cashback") === "cashback" &&
         now - p.createdAt < PAYOUT_COOLDOWN_MS
     );
     if (recent) return;
 
     const liveCampaign = state.campaigns.find(
-      (c) => c.tokenMint === campaign.tokenMint
+      (c) => c.tokenMint === campaign.tokenMint && c.type === "cashback"
     );
-    if (
-      !liveCampaign ||
-      liveCampaign.status !== "live" ||
-      liveCampaign.type !== "cashback"
-    )
-      return;
+    if (!liveCampaign || liveCampaign.status !== "live") return;
 
     const reward = computeCashbackReward(
       liveCampaign as CashbackCampaign,
@@ -97,6 +93,7 @@ async function tryAccrueCashbackPayout(
       payoutTxSig: null,
       status: "accrued",
       createdAt: now,
+      campaignType: "cashback",
     };
     state.rewardPayouts.push(payout);
 

@@ -6,7 +6,10 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const state = await loadTendState();
   const campaigns = (state.campaigns ?? []).filter(
-    (c) => c.status === "live" || c.status === "depleted"
+    (c) =>
+      c.status === "live" ||
+      c.status === "paused" ||
+      c.status === "depleted"
   );
 
   const payouts = state.rewardPayouts ?? [];

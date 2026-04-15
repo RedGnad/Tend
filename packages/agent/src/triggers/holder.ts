@@ -57,14 +57,9 @@ async function tryAccrueHolderPayout(
     if (state.rewardPayouts.some((p) => p.id === id)) return;
 
     const liveCampaign = state.campaigns.find(
-      (c) => c.tokenMint === campaign.tokenMint
+      (c) => c.tokenMint === campaign.tokenMint && c.type === "holder"
     );
-    if (
-      !liveCampaign ||
-      liveCampaign.status !== "live" ||
-      liveCampaign.type !== "holder"
-    )
-      return;
+    if (!liveCampaign || liveCampaign.status !== "live") return;
 
     const remaining =
       BigInt(liveCampaign.poolCapLamports) -
@@ -83,6 +78,7 @@ async function tryAccrueHolderPayout(
       payoutTxSig: null,
       status: "accrued",
       createdAt: Date.now(),
+      campaignType: "holder",
     };
     state.rewardPayouts.push(payout);
 

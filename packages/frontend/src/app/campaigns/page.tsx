@@ -208,6 +208,7 @@ export default function CampaignsPage() {
   }, []);
 
   const live = (campaigns ?? []).filter((c) => c.status === "live");
+  const paused = (campaigns ?? []).filter((c) => c.status === "paused");
   const depleted = (campaigns ?? []).filter((c) => c.status === "depleted");
 
   const statItems = [
@@ -238,7 +239,13 @@ export default function CampaignsPage() {
           Earn SOL from creator fees
         </h1>
         <p className="text-[14px] text-[var(--text-muted)] max-w-[520px]">
-          Pick a campaign, trade the token, get cashback. Every payout on-chain.
+          Pick a campaign, trade the token, earn SOL. Every payout on-chain,
+          every wallet vetted by the AI fraud gate.
+        </p>
+        <p className="text-[11px] text-[var(--text-muted)] max-w-[520px] mt-2">
+          Note — if a token ran multiple campaign types, the detail page shows
+          the highest-priority entry (live &gt; paused &gt; completed). Past
+          payouts from every type stay visible in its history.
         </p>
       </div>
 
@@ -291,7 +298,23 @@ export default function CampaignsPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {live.map((c) => (
-                  <CampaignCard key={c.tokenMint} c={c} />
+                  <CampaignCard key={`${c.tokenMint}-${c.type}`} c={c} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {paused.length > 0 && (
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#eab308]" />
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                  Paused ({paused.length})
+                </h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paused.map((c) => (
+                  <CampaignCard key={`${c.tokenMint}-${c.type}`} c={c} />
                 ))}
               </div>
             </div>
@@ -307,7 +330,7 @@ export default function CampaignsPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {depleted.map((c) => (
-                  <CampaignCard key={c.tokenMint} c={c} />
+                  <CampaignCard key={`${c.tokenMint}-${c.type}`} c={c} />
                 ))}
               </div>
             </div>

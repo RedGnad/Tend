@@ -225,6 +225,10 @@ export interface RewardPayout {
   paidAt?: number;
   failedAttempts?: number;
   lastError?: string;
+  // Optional — populated by the triggers so sprint slot accounting and
+  // detail-page grouping don't cross-contaminate when multiple campaign
+  // types have run on the same mint over time.
+  campaignType?: "cashback" | "holder" | "sprint" | "referral";
 }
 
 /**

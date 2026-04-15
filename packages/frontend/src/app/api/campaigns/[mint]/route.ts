@@ -10,9 +10,19 @@ export async function GET(
   const { mint } = await params;
   const state = await loadTendState();
 
-  const campaign = (state.campaigns ?? []).find(
-    (c) => c.tokenMint === mint
-  );
+  // If multiple campaign types coexist on a mint (sequential demo — e.g.
+  // cashback then sprint then holder), surface the highest-priority one.
+  const forMint = (state.campaigns ?? []).filter((c) => c.tokenMint === mint);
+  const priority = ["live", "paused", "depleted"] as const;
+  let campaign = null as (typeof forMint)[number] | null;
+  for (const status of priority) {
+    const hit = forMint.find((c) => c.status === status);
+    if (hit) {
+      campaign = hit;
+      break;
+    }
+  }
+  if (!campaign) campaign = forMint[0] ?? null;
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }

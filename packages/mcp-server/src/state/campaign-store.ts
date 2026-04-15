@@ -90,14 +90,45 @@ export async function listCampaigns(): Promise<Campaign[]> {
   return state.campaigns ?? [];
 }
 
+// Campaigns are keyed by (tokenMint, type). This lets a creator run distinct
+// types sequentially on the same mint (e.g. cashback → sprint → holder) and
+// keep each entry in the ledger, while still enforcing "one LIVE per mint" at
+// the tool layer via findLiveCampaign.
 export async function getCampaign(tokenMint: string): Promise<Campaign | null> {
   const campaigns = await listCampaigns();
-  return campaigns.find((c) => c.tokenMint === tokenMint) ?? null;
+  const forMint = campaigns.filter((c) => c.tokenMint === tokenMint);
+  if (forMint.length === 0) return null;
+  const priority: Campaign["status"][] = ["live", "paused", "depleted"];
+  for (const status of priority) {
+    const hit = forMint.find((c) => c.status === status);
+    if (hit) return hit;
+  }
+  return forMint[0];
+}
+
+export async function findLiveCampaign(tokenMint: string): Promise<Campaign | null> {
+  const campaigns = await listCampaigns();
+  return (
+    campaigns.find((c) => c.tokenMint === tokenMint && c.status === "live") ??
+    null
+  );
+}
+
+export async function getCampaignByType(
+  tokenMint: string,
+  type: Campaign["type"]
+): Promise<Campaign | null> {
+  const campaigns = await listCampaigns();
+  return (
+    campaigns.find((c) => c.tokenMint === tokenMint && c.type === type) ?? null
+  );
 }
 
 export async function upsertCampaign(campaign: Campaign): Promise<void> {
   await mutate(async (state) => {
-    const idx = state.campaigns!.findIndex((c) => c.tokenMint === campaign.tokenMint);
+    const idx = state.campaigns!.findIndex(
+      (c) => c.tokenMint === campaign.tokenMint && c.type === campaign.type
+    );
     if (idx === -1) {
       state.campaigns!.push(campaign);
     } else {
@@ -106,13 +137,18 @@ export async function upsertCampaign(campaign: Campaign): Promise<void> {
   });
 }
 
+// Prefers the live campaign on the mint. Falls back to the first match only
+// if nothing is live (e.g. pausing a paused one is a no-op — same entry).
 export async function updateCampaign(
   tokenMint: string,
   patch: (c: Campaign) => void
 ): Promise<Campaign | null> {
   let updated: Campaign | null = null;
   await mutate(async (state) => {
-    const c = state.campaigns!.find((x) => x.tokenMint === tokenMint);
+    const live = state.campaigns!.find(
+      (x) => x.tokenMint === tokenMint && x.status === "live"
+    );
+    const c = live ?? state.campaigns!.find((x) => x.tokenMint === tokenMint);
     if (!c) return;
     patch(c);
     updated = c;

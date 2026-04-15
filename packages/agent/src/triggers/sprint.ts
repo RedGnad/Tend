@@ -51,19 +51,18 @@ async function tryAccrueSprintPayout(
     if (state.rewardPayouts.some((p) => p.id === id)) return;
 
     const liveCampaign = state.campaigns.find(
-      (c) => c.tokenMint === campaign.tokenMint
+      (c): c is SprintCampaign =>
+        c.tokenMint === campaign.tokenMint && c.type === "sprint"
     );
-    if (
-      !liveCampaign ||
-      liveCampaign.status !== "live" ||
-      liveCampaign.type !== "sprint"
-    )
-      return;
+    if (!liveCampaign || liveCampaign.status !== "live") return;
 
-    // Existing winners for this campaign (accrued + paid + failed all count —
-    // a failed payout still used a slot).
+    // Existing winners for THIS sprint (accrued + paid + failed all count —
+    // a failed payout still used a slot). Filter by campaignType so payouts
+    // from a prior cashback/holder campaign on the same mint don't bleed in.
     const priorWinners = state.rewardPayouts.filter(
-      (p) => p.tokenMint === campaign.tokenMint
+      (p) =>
+        p.tokenMint === campaign.tokenMint &&
+        (p.campaignType ?? "cashback") === "sprint"
     );
     if (priorWinners.length >= liveCampaign.config.maxWinners) {
       // Sprint is full — flip status and stop.
@@ -95,6 +94,7 @@ async function tryAccrueSprintPayout(
       payoutTxSig: null,
       status: "accrued",
       createdAt: Date.now(),
+      campaignType: "sprint",
     };
     state.rewardPayouts.push(payout);
 

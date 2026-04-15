@@ -13,6 +13,8 @@ import {
   upsertCampaign,
   updateCampaign,
   getCampaignStats,
+  findLiveCampaign,
+  getCampaignByType,
 } from "../state/campaign-store.js";
 
 const LAMPORTS_PER_SOL = 1_000_000_000;
@@ -80,17 +82,18 @@ export function registerCampaignTools(
         };
       }
 
-      const existing = await getCampaign(tokenMint);
-      if (existing && existing.status === "live") {
+      const live = await findLiveCampaign(tokenMint);
+      if (live) {
         return {
           content: [
             {
               type: "text",
-              text: `⚠️  A live campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
+              text: `⚠️  A live ${live.type} campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
             },
           ],
         };
       }
+      const prior = await getCampaignByType(tokenMint, "cashback");
 
       // Best-effort token metadata
       let tokenInfo: CashbackCampaign["tokenInfo"] | undefined;
@@ -107,9 +110,9 @@ export function registerCampaignTools(
         type: "cashback",
         config: { cashbackBps },
         poolCapLamports: solToLamports(poolSol).toString(),
-        poolSpentLamports: existing?.poolSpentLamports ?? "0",
+        poolSpentLamports: prior?.poolSpentLamports ?? "0",
         status: "live",
-        createdAt: existing?.createdAt ?? Date.now(),
+        createdAt: prior?.createdAt ?? Date.now(),
         tokenInfo,
       };
       await upsertCampaign(campaign);
@@ -187,17 +190,18 @@ export function registerCampaignTools(
         };
       }
 
-      const existing = await getCampaign(tokenMint);
-      if (existing && existing.status === "live") {
+      const live = await findLiveCampaign(tokenMint);
+      if (live) {
         return {
           content: [
             {
               type: "text",
-              text: `⚠️  A live campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
+              text: `⚠️  A live ${live.type} campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
             },
           ],
         };
       }
+      const prior = await getCampaignByType(tokenMint, "holder");
 
       let tokenInfo: HolderCampaign["tokenInfo"] | undefined;
       try {
@@ -213,9 +217,9 @@ export function registerCampaignTools(
         type: "holder",
         config: { rewardBps, minHoldHours, snapshotCronHours },
         poolCapLamports: solToLamports(poolSol).toString(),
-        poolSpentLamports: existing?.poolSpentLamports ?? "0",
+        poolSpentLamports: prior?.poolSpentLamports ?? "0",
         status: "live",
-        createdAt: existing?.createdAt ?? Date.now(),
+        createdAt: prior?.createdAt ?? Date.now(),
         tokenInfo,
       };
       await upsertCampaign(campaign);
@@ -298,17 +302,18 @@ export function registerCampaignTools(
         };
       }
 
-      const existing = await getCampaign(tokenMint);
-      if (existing && existing.status === "live") {
+      const live = await findLiveCampaign(tokenMint);
+      if (live) {
         return {
           content: [
             {
               type: "text",
-              text: `⚠️  A live campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
+              text: `⚠️  A live ${live.type} campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
             },
           ],
         };
       }
+      const prior = await getCampaignByType(tokenMint, "sprint");
 
       let tokenInfo: SprintCampaign["tokenInfo"] | undefined;
       try {
@@ -328,9 +333,9 @@ export function registerCampaignTools(
           bonusLamports: solToLamports(bonusSol).toString(),
         },
         poolCapLamports: solToLamports(poolSol).toString(),
-        poolSpentLamports: existing?.poolSpentLamports ?? "0",
+        poolSpentLamports: prior?.poolSpentLamports ?? "0",
         status: "live",
-        createdAt: existing?.createdAt ?? Date.now(),
+        createdAt: prior?.createdAt ?? Date.now(),
         tokenInfo,
       };
       await upsertCampaign(campaign);
