@@ -5,6 +5,7 @@ import type {
   BagsClient,
   CashbackCampaign,
   HolderCampaign,
+  SprintCampaign,
 } from "@tend/shared";
 import {
   getCampaign,
@@ -35,10 +36,11 @@ function isValidMint(mint: string): boolean {
 }
 
 /**
- * Minimal creator console — 5 tools.
+ * Minimal creator console — 6 tools.
  *
  *   create_campaign          — cashback pool (pay % per buy)
  *   create_holder_campaign   — holder dividends (pro-rata snapshots)
+ *   create_sprint_campaign   — launch sprint (first N buyers flat bonus)
  *   pause_campaign           — freeze payouts without losing the pool
  *   topup_pool               — raise the cap (or revive from depleted)
  *   view_campaign_stats      — payouts, fraud decisions, utilization
@@ -243,6 +245,119 @@ export function registerCampaignTools(
   );
 
   server.tool(
+    "create_sprint_campaign",
+    "Launch a live sprint campaign for a Bags token. Pays a flat SOL bonus to the first N wallets that buy at least minBuySol. Each wallet wins at most once. The AI fraud gate rejects snipe bots and fresh-wallet farms before a slot is used. Auto-completes when winners == maxWinners.",
+    {
+      tokenMint: z
+        .string()
+        .describe("Token mint (base58) — must be a valid Solana pubkey"),
+      minBuySol: z
+        .number()
+        .positive()
+        .describe(
+          "Minimum SOL a buy must hit to qualify for the sprint (e.g. 0.25)"
+        ),
+      maxWinners: z
+        .number()
+        .int()
+        .min(1)
+        .max(200)
+        .describe(
+          "How many wallets can win before the sprint auto-completes. 50 is a typical launch-week sprint."
+        ),
+      bonusSol: z
+        .number()
+        .positive()
+        .describe(
+          "Flat SOL bonus each winner receives. poolSol must be >= bonusSol * maxWinners."
+        ),
+      poolSol: z
+        .number()
+        .positive()
+        .describe(
+          "Pool cap in SOL — should be >= bonusSol * maxWinners so every winner gets the full bonus."
+        ),
+    },
+    async ({ tokenMint, minBuySol, maxWinners, bonusSol, poolSol }) => {
+      if (!isValidMint(tokenMint)) {
+        return {
+          content: [
+            { type: "text", text: `❌ Invalid mint address: ${tokenMint}` },
+          ],
+        };
+      }
+
+      if (poolSol < bonusSol * maxWinners) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `⚠️  poolSol (${poolSol}) must cover bonusSol × maxWinners (${(bonusSol * maxWinners).toFixed(6)}). Raise poolSol or lower the bonus/winners.`,
+            },
+          ],
+        };
+      }
+
+      const existing = await getCampaign(tokenMint);
+      if (existing && existing.status === "live") {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `⚠️  A live campaign already exists for ${tokenMint.slice(0, 8)}… Pause it first or use topup_pool to extend.`,
+            },
+          ],
+        };
+      }
+
+      let tokenInfo: SprintCampaign["tokenInfo"] | undefined;
+      try {
+        const meta = await bags.getTokenMetadata(tokenMint);
+        if (meta) tokenInfo = { name: meta.name, symbol: meta.symbol };
+      } catch {
+        /* metadata optional */
+      }
+
+      const campaign: SprintCampaign = {
+        tokenMint,
+        creatorWallet,
+        type: "sprint",
+        config: {
+          minBuyLamports: solToLamports(minBuySol).toString(),
+          maxWinners,
+          bonusLamports: solToLamports(bonusSol).toString(),
+        },
+        poolCapLamports: solToLamports(poolSol).toString(),
+        poolSpentLamports: existing?.poolSpentLamports ?? "0",
+        status: "live",
+        createdAt: existing?.createdAt ?? Date.now(),
+        tokenInfo,
+      };
+      await upsertCampaign(campaign);
+
+      const symbol = tokenInfo?.symbol ?? tokenMint.slice(0, 4);
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              `✅ Sprint campaign live: $${symbol}`,
+              `   mint            ${tokenMint}`,
+              `   min buy         ${minBuySol} SOL`,
+              `   winners         up to ${maxWinners}`,
+              `   bonus           ${bonusSol} SOL flat per winner`,
+              `   pool cap        ${poolSol} SOL`,
+              `   status          ${campaign.status}`,
+              ``,
+              `Agent will pay each of the first ${maxWinners} qualifying buyers (after AI fraud gate) a flat ${bonusSol} SOL bonus. Auto-completes when full.`,
+            ].join("\n"),
+          },
+        ],
+      };
+    }
+  );
+
+  server.tool(
     "pause_campaign",
     "Pause a live campaign. Stops new payouts immediately. The pool is preserved; resume later with create_campaign or topup_pool.",
     {
@@ -385,6 +500,9 @@ export function registerCampaignTools(
           break;
         case "holder":
           rateLine = `   holder      ${(campaign.config.rewardBps / 100).toFixed(2)}%/snapshot · min ${campaign.config.minHoldHours}h · every ${campaign.config.snapshotCronHours}h`;
+          break;
+        case "sprint":
+          rateLine = `   sprint      ${lamportsToSol(campaign.config.bonusLamports)} SOL bonus · up to ${campaign.config.maxWinners} winners · min buy ${lamportsToSol(campaign.config.minBuyLamports)} SOL`;
           break;
         default:
           rateLine = `   type        ${campaign.type}`;

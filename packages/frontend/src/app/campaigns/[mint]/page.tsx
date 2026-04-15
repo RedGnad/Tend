@@ -173,9 +173,11 @@ export default function CampaignDetailPage() {
                 ? `${(campaign.config.cashbackBps / 100).toFixed(1)}%`
                 : campaign.type === "holder"
                   ? `${(campaign.config.rewardBps / 100).toFixed(1)}%`
-                  : campaign.type === "referral"
-                    ? `${(campaign.config.referrerBps / 100).toFixed(1)}%`
-                    : "—"}
+                  : campaign.type === "sprint"
+                    ? `${formatSol(campaign.config.bonusLamports)} SOL`
+                    : campaign.type === "referral"
+                      ? `${(campaign.config.referrerBps / 100).toFixed(1)}%`
+                      : "—"}
             </p>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
               {campaign.type === "cashback"
@@ -183,7 +185,7 @@ export default function CampaignDetailPage() {
                 : campaign.type === "holder"
                   ? `Per snapshot · ${campaign.config.minHoldHours}h min`
                   : campaign.type === "sprint"
-                    ? "Launch sprint bonus"
+                    ? `Flat bonus · ${campaign.config.maxWinners} winners`
                     : "Referral payout"}
             </p>
           </div>
@@ -245,6 +247,23 @@ export default function CampaignDetailPage() {
             </span>{" "}
             — sent to your wallet within minutes.
           </p>
+        ) : campaign.type === "sprint" ? (
+          <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
+            Be one of the first{" "}
+            <span className="text-[var(--accent)] font-semibold">
+              {campaign.config.maxWinners}
+            </span>{" "}
+            wallets to buy at least{" "}
+            <span className="text-[var(--accent)] font-semibold">
+              {formatSol(campaign.config.minBuyLamports)} SOL
+            </span>{" "}
+            of ${symbol}. The Tend agent runs an AI fraud gate (snipe bots and
+            fresh-wallet farms are rejected) and pays a flat{" "}
+            <span className="text-[var(--accent)] font-semibold">
+              {formatSol(campaign.config.bonusLamports)} SOL
+            </span>{" "}
+            bonus to each qualifying winner. One bonus per wallet.
+          </p>
         ) : (
           <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
             This campaign type is live on-chain. The Tend agent handles
@@ -292,16 +311,22 @@ export default function CampaignDetailPage() {
                   ? myPayouts.length === 1
                     ? "snapshot"
                     : "snapshots"
-                  : myPayouts.length === 1
-                    ? "trade"
-                    : "trades"}
+                  : campaign.type === "sprint"
+                    ? myPayouts.length === 1
+                      ? "winning buy"
+                      : "winning buys"
+                    : myPayouts.length === 1
+                      ? "trade"
+                      : "trades"}
               </p>
             </div>
           ) : (
             <p className="text-[13px] text-[var(--text-muted)]">
               {campaign.type === "holder"
                 ? `No rewards yet. Hold $${symbol} for ${campaign.config.minHoldHours}h+ to qualify.`
-                : `No rewards yet. Trade $${symbol} to start earning.`}
+                : campaign.type === "sprint"
+                  ? `No bonus yet. Buy ≥ ${formatSol(campaign.config.minBuyLamports)} SOL of $${symbol} before the sprint fills.`
+                  : `No rewards yet. Trade $${symbol} to start earning.`}
             </p>
           )}
         </div>

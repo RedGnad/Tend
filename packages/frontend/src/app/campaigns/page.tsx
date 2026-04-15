@@ -48,8 +48,15 @@ function campaignHeadline(c: Campaign): { value: string; label: string } {
         value: `${(c.config.rewardBps / 100).toFixed(1)}%`,
         label: `Holder · ${c.config.minHoldHours}h min`,
       };
-    case "sprint":
-      return { value: "Sprint", label: "First buyers bonus" };
+    case "sprint": {
+      const bonusSol = (
+        Number(c.config.bonusLamports) / 1_000_000_000
+      ).toFixed(3);
+      return {
+        value: `${bonusSol} SOL`,
+        label: `Bonus · ${c.config.maxWinners} winners`,
+      };
+    }
     case "referral":
       return {
         value: `${(c.config.referrerBps / 100).toFixed(1)}%`,

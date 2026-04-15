@@ -17,7 +17,7 @@ import { log, logError } from "./logger.js";
  *   2. Dispatch each to its type-specific trigger:
  *        cashback → runCashbackTrigger  (real, S1)
  *        holder   → runHolderTrigger    (real, S2)
- *        sprint   → runSprintTrigger    (stub, S4)
+ *        sprint   → runSprintTrigger    (real, S4)
  *        referral → no-op               (Q3)
  *   3. Triggers accrue RewardPayout rows into state
  *   4. Shared payout-executor owns the on-chain SOL leg for all types
@@ -120,11 +120,25 @@ export async function runRewardsDistributor(
           });
         }
       } else if (campaign.type === "sprint") {
-        const { result: triggerResult } = await runSprintTrigger(
-          bags,
-          campaign
-        );
+        const sinceTimestamp =
+          state.swapCursors?.[campaign.tokenMint] ??
+          Math.floor(campaign.createdAt / 1000);
+
+        const { result: triggerResult, maxFreshBlockTime } =
+          await runSprintTrigger(
+            bags,
+            campaign,
+            sinceTimestamp,
+            excludeWallets
+          );
         mergeTriggerResult(result, triggerResult);
+
+        if (maxFreshBlockTime > sinceTimestamp) {
+          await withStateLock(async (s) => {
+            if (!s.swapCursors) s.swapCursors = {};
+            s.swapCursors[campaign.tokenMint] = maxFreshBlockTime;
+          });
+        }
       } else if (campaign.type === "referral") {
         // Coming Q3 — skip silently, no work to do.
       }
