@@ -16,6 +16,11 @@ const LOCK_PATH = join(TEND_DIR, "state.lock");
 const LOCK_TIMEOUT_MS = 10_000;
 const LOCK_RETRY_MS = 50;
 
+// Fallback snapshot committed to the repo — used on serverless (Vercel)
+// where ~/.tend/state.json does not exist. The snapshot is generated
+// locally via `npm run snapshot:state` and stripped of wallet secrets.
+const SNAPSHOT_PATH = join(process.cwd(), "public", "state-snapshot.json");
+
 const DEFAULT_STATE: TendState = {
   managedTokens: {},
   walletPool: [],
@@ -45,15 +50,25 @@ export function isAgentRunning(): boolean {
 }
 
 export async function loadTendState(): Promise<TendState> {
-  if (!existsSync(STATE_PATH)) {
-    return { ...DEFAULT_STATE };
+  // Prefer the live local file (agent machine / dev)
+  if (existsSync(STATE_PATH)) {
+    const raw = await readFile(STATE_PATH, "utf-8");
+    const state = JSON.parse(raw) as TendState;
+    if (state.campaigns) {
+      state.campaigns = state.campaigns.map(migrateCampaign);
+    }
+    return state;
   }
-  const raw = await readFile(STATE_PATH, "utf-8");
-  const state = JSON.parse(raw) as TendState;
-  if (state.campaigns) {
-    state.campaigns = state.campaigns.map(migrateCampaign);
+  // Fall back to committed snapshot (serverless / Vercel)
+  if (existsSync(SNAPSHOT_PATH)) {
+    const raw = await readFile(SNAPSHOT_PATH, "utf-8");
+    const state = { ...DEFAULT_STATE, ...(JSON.parse(raw) as TendState) };
+    if (state.campaigns) {
+      state.campaigns = state.campaigns.map(migrateCampaign);
+    }
+    return state;
   }
-  return state;
+  return { ...DEFAULT_STATE };
 }
 
 export async function getManagedTokens(): Promise<ManagedToken[]> {

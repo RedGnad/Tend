@@ -349,9 +349,9 @@ export default function HomePage() {
           </h1>
 
           <p className="text-[17px] text-[var(--text-secondary)] leading-relaxed max-w-[600px] mx-auto mb-9">
-            Tend is a programmable growth layer for Bags tokens. Four campaign
-            types, one AI fraud gate, every payout auditable on-chain — no
-            platform middleman, no points, no airdrops.
+            Tend is a programmable growth layer for Bags tokens. Three live
+            campaign types, one AI fraud gate, every payout auditable on-chain
+            — no platform middleman, no points, no airdrops.
           </p>
 
           <div className="flex items-center justify-center gap-3 flex-wrap mb-12">
@@ -455,7 +455,7 @@ export default function HomePage() {
       <section className="pb-20">
         <div className="text-center mb-8">
           <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
-            Four campaign types
+            Three live · referral coming
           </p>
           <h2 className="text-[clamp(1.4rem,3vw,2rem)] font-bold font-display tracking-tight mb-3">
             Pick the growth loop that fits your token
