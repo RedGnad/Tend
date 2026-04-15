@@ -124,12 +124,13 @@ export interface AllocationRecommendation {
   overall_assessment: string;
 }
 
-// ── Live growth campaigns (pivot 2026-04-14) ──
+// ── Live growth campaigns (Plan E — discriminated union, 2026-04-15) ──
 
-export interface Campaign {
+export type CampaignType = "cashback" | "holder" | "sprint" | "referral";
+
+export interface BaseCampaign {
   tokenMint: string;
   creatorWallet: string;
-  cashbackBps: number;
   poolCapLamports: string;
   poolSpentLamports: string;
   status: "live" | "paused" | "depleted";
@@ -139,6 +140,76 @@ export interface Campaign {
     symbol: string;
     image?: string;
   };
+}
+
+export interface CashbackCampaign extends BaseCampaign {
+  type: "cashback";
+  config: {
+    cashbackBps: number;
+  };
+}
+
+export interface HolderCampaign extends BaseCampaign {
+  type: "holder";
+  config: {
+    rewardBps: number;
+    minHoldHours: number;
+    snapshotCronHours: number;
+  };
+}
+
+export interface SprintCampaign extends BaseCampaign {
+  type: "sprint";
+  config: {
+    minBuyLamports: string;
+    maxWinners: number;
+    bonusLamports: string;
+  };
+}
+
+export interface ReferralCampaign extends BaseCampaign {
+  type: "referral";
+  config: {
+    referrerBps: number;
+  };
+}
+
+export type Campaign =
+  | CashbackCampaign
+  | HolderCampaign
+  | SprintCampaign
+  | ReferralCampaign;
+
+/**
+ * Migrate a raw campaign shape into the current Plan E discriminated union.
+ * Idempotent: new-format campaigns pass through. Legacy cashback-only shape
+ * (pre-2026-04-15) had cashbackBps at the top level — coerced into
+ * { type: "cashback", config: { cashbackBps } }.
+ */
+export function migrateCampaign(raw: unknown): Campaign {
+  if (raw === null || typeof raw !== "object") {
+    throw new Error(`migrateCampaign: non-object input ${JSON.stringify(raw)}`);
+  }
+  const r = raw as Record<string, unknown>;
+  if ("type" in r && "config" in r) {
+    return r as unknown as Campaign;
+  }
+  if (typeof r.cashbackBps === "number") {
+    const { cashbackBps, ...rest } = r as { cashbackBps: number } & Record<string, unknown>;
+    return {
+      ...(rest as unknown as BaseCampaign),
+      type: "cashback",
+      config: { cashbackBps },
+    };
+  }
+  throw new Error(
+    `migrateCampaign: cannot recognize campaign shape — missing type/config and cashbackBps`
+  );
+}
+
+export function migrateCampaigns(list: unknown[] | undefined): Campaign[] {
+  if (!list) return [];
+  return list.map(migrateCampaign);
 }
 
 export interface RewardPayout {

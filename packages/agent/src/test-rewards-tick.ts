@@ -43,7 +43,8 @@ async function main() {
       {
         tokenMint: "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
         creatorWallet: keypair.publicKey.toBase58(),
-        cashbackBps: 500,
+        type: "cashback",
+        config: { cashbackBps: 500 },
         poolCapLamports: "10000000",
         poolSpentLamports: "0",
         status: "live",

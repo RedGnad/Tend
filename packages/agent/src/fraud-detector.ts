@@ -128,13 +128,26 @@ function makeDecisionId(swapTxSig: string, traderWallet: string): string {
   return `${swapTxSig.slice(0, 16)}-${traderWallet.slice(0, 8)}`;
 }
 
+function describeCampaign(campaign: Campaign): string {
+  const symbol = campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4);
+  switch (campaign.type) {
+    case "cashback":
+      return `$${symbol} (cashback ${(campaign.config.cashbackBps / 100).toFixed(1)}%)`;
+    case "holder":
+      return `$${symbol} (holder dividends ${(campaign.config.rewardBps / 100).toFixed(1)}%)`;
+    case "sprint":
+      return `$${symbol} (launch sprint)`;
+    case "referral":
+      return `$${symbol} (referral ${(campaign.config.referrerBps / 100).toFixed(1)}%)`;
+  }
+}
+
 function buildUserMessage(
   campaign: Campaign,
   traderWallet: string,
   solSpentLamports: bigint,
   ctx: WalletContext
 ): string {
-  const symbol = campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4);
   const solSpent = (Number(solSpentLamports) / 1_000_000_000).toFixed(6);
   const ageStr =
     ctx.walletAgeHours === null
@@ -144,7 +157,7 @@ function buildUserMessage(
         : `${Math.floor(ctx.walletAgeHours / 24)}d`;
   const txStr = ctx.txCount === null ? "unknown" : `${ctx.txCount}`;
 
-  return `Campaign $${symbol} (cashback ${(campaign.cashbackBps / 100).toFixed(1)}%).
+  return `Campaign ${describeCampaign(campaign)}.
 Trader ${traderWallet.slice(0, 6)}..${traderWallet.slice(-4)} bought for ${solSpent} SOL.
 Wallet age: ${ageStr}. On-chain tx count: ${txStr}. Prior Tend payouts on this campaign: ${ctx.priorTendPayouts}.
 Decide: allow, reject, or hold.`;

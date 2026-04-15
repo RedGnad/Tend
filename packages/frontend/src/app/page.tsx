@@ -13,13 +13,13 @@ import {
 } from "lucide-react";
 import type { Campaign } from "@tend/shared";
 
-interface CampaignWithStats extends Campaign {
+type CampaignWithStats = Campaign & {
   stats: {
     uniqueTraders: number;
     totalPayouts: number;
     totalPaidLamports: string;
   };
-}
+};
 
 interface GlobalStats {
   liveCampaigns: number;
@@ -101,7 +101,7 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
                 Cashback on every buy
               </p>
               <p className="text-4xl md:text-5xl font-bold font-mono gradient-text leading-none">
-                {(c.cashbackBps / 100).toFixed(1)}%
+                {((c.type === "cashback" ? c.config.cashbackBps : 0) / 100).toFixed(1)}%
               </p>
             </div>
           </div>
@@ -185,7 +185,7 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="bg-[var(--bg)] rounded-lg p-3">
           <p className="text-lg font-semibold font-mono gradient-text">
-            {(c.cashbackBps / 100).toFixed(1)}%
+            {((c.type === "cashback" ? c.config.cashbackBps : 0) / 100).toFixed(1)}%
           </p>
           <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
             Cashback

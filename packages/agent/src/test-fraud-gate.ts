@@ -9,7 +9,7 @@
  * dashboard can surface them). Re-runs are idempotent (id dedup).
  */
 
-import { BagsClient, loadKeypair, type Campaign } from "@tend/shared";
+import { BagsClient, loadKeypair, type CashbackCampaign } from "@tend/shared";
 import { checkFraud } from "./fraud-detector.js";
 
 const MINT = "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS";
@@ -49,10 +49,11 @@ async function main() {
   const keypair = loadKeypair(privateKey);
   const bags = new BagsClient({ apiKey, rpcUrl, privateKey: keypair });
 
-  const campaign: Campaign = {
+  const campaign: CashbackCampaign = {
     tokenMint: MINT,
     creatorWallet: keypair.publicKey.toBase58(),
-    cashbackBps: 500, // 5%
+    type: "cashback",
+    config: { cashbackBps: 500 }, // 5%
     poolCapLamports: "10000000",
     poolSpentLamports: "0",
     status: "live",

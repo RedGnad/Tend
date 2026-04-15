@@ -92,6 +92,10 @@ export default function CampaignDetailPage() {
   const symbol =
     campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4).toUpperCase();
   const name = campaign.tokenInfo?.name ?? symbol;
+  const cashbackPct =
+    campaign.type === "cashback"
+      ? (campaign.config.cashbackBps / 100).toFixed(1)
+      : "0.0";
   const remaining =
     BigInt(campaign.poolCapLamports) - BigInt(campaign.poolSpentLamports);
   const progress = Math.min(
@@ -166,7 +170,7 @@ export default function CampaignDetailPage() {
         <div className="grid grid-cols-3 gap-3 mb-5">
           <div className="bg-[var(--bg)] rounded-lg p-3">
             <p className="text-xl font-semibold font-mono gradient-text">
-              {(campaign.cashbackBps / 100).toFixed(1)}%
+              {cashbackPct}%
             </p>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
               Cashback on buys
@@ -209,12 +213,11 @@ export default function CampaignDetailPage() {
         </p>
         <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed mb-5">
           Buy ${symbol} on any Solana exchange. The Tend agent detects your
-          trade on-chain, computes{" "}
+          trade on-chain, runs an AI fraud gate, and computes{" "}
           <span className="text-[var(--accent)] font-semibold">
-            {(campaign.cashbackBps / 100).toFixed(1)}% cashback
+            {cashbackPct}% cashback
           </span>{" "}
-          on the SOL you spent, and sends it to your wallet — usually within a
-          few minutes.
+          on the SOL you spent — sent to your wallet within minutes.
         </p>
         {isLive ? (
           <a

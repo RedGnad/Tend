@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { PublicKey } from "@solana/web3.js";
-import type { BagsClient, Campaign } from "@tend/shared";
+import type { BagsClient, CashbackCampaign } from "@tend/shared";
 import {
   getCampaign,
   listCampaigns,
@@ -86,7 +86,7 @@ export function registerCampaignTools(
       }
 
       // Best-effort token metadata
-      let tokenInfo: Campaign["tokenInfo"] | undefined;
+      let tokenInfo: CashbackCampaign["tokenInfo"] | undefined;
       try {
         const meta = await bags.getTokenMetadata(tokenMint);
         if (meta) tokenInfo = { name: meta.name, symbol: meta.symbol };
@@ -94,10 +94,11 @@ export function registerCampaignTools(
         /* metadata optional */
       }
 
-      const campaign: Campaign = {
+      const campaign: CashbackCampaign = {
         tokenMint,
         creatorWallet,
-        cashbackBps,
+        type: "cashback",
+        config: { cashbackBps },
         poolCapLamports: solToLamports(poolSol).toString(),
         poolSpentLamports: existing?.poolSpentLamports ?? "0",
         status: "live",
@@ -262,6 +263,11 @@ export function registerCampaignTools(
       const remaining = cap - spent;
       const pct = cap > 0n ? Number((spent * 100n) / cap) : 0;
 
+      const rateLine =
+        campaign.type === "cashback"
+          ? `   cashback    ${(campaign.config.cashbackBps / 100).toFixed(2)}%`
+          : `   type        ${campaign.type}`;
+
       return {
         content: [
           {
@@ -269,7 +275,7 @@ export function registerCampaignTools(
             text: [
               `📊 Campaign $${symbol} — ${campaign.status.toUpperCase()}`,
               `   mint        ${tokenMint}`,
-              `   cashback    ${(campaign.cashbackBps / 100).toFixed(2)}%`,
+              rateLine,
               ``,
               `Pool`,
               `   cap         ${lamportsToSol(cap)} SOL`,

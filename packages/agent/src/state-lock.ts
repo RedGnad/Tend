@@ -3,7 +3,14 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { TendState } from "@tend/shared";
-import { TEND_STATE_DIR, TEND_STATE_FILE, encryptSecret, decryptSecret, isEncrypted } from "@tend/shared";
+import {
+  TEND_STATE_DIR,
+  TEND_STATE_FILE,
+  encryptSecret,
+  decryptSecret,
+  isEncrypted,
+  migrateCampaign,
+} from "@tend/shared";
 
 const TEND_DIR = join(homedir(), TEND_STATE_DIR);
 const STATE_PATH = join(TEND_DIR, TEND_STATE_FILE);
@@ -82,6 +89,9 @@ export async function withStateLock(
     if (!state.rewardPayouts) state.rewardPayouts = [];
     if (!state.swapCursors) state.swapCursors = {};
     if (!state.fraudDecisions) state.fraudDecisions = [];
+
+    // Migrate legacy campaign shapes on read (Plan E discriminated union).
+    state.campaigns = state.campaigns.map(migrateCampaign);
 
     // Decrypt wallet secrets for in-memory use
     for (const w of state.walletPool) {

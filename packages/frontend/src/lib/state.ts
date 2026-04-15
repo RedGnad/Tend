@@ -3,7 +3,12 @@ import { existsSync, statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { TendState, ManagedToken } from "@tend/shared";
-import { encryptSecret, decryptSecret, isEncrypted } from "@tend/shared";
+import {
+  encryptSecret,
+  decryptSecret,
+  isEncrypted,
+  migrateCampaign,
+} from "@tend/shared";
 
 const TEND_DIR = join(homedir(), ".tend");
 const STATE_PATH = join(TEND_DIR, "state.json");
@@ -43,7 +48,11 @@ export async function loadTendState(): Promise<TendState> {
     return { ...DEFAULT_STATE };
   }
   const raw = await readFile(STATE_PATH, "utf-8");
-  return JSON.parse(raw);
+  const state = JSON.parse(raw) as TendState;
+  if (state.campaigns) {
+    state.campaigns = state.campaigns.map(migrateCampaign);
+  }
+  return state;
 }
 
 export async function getManagedTokens(): Promise<ManagedToken[]> {
@@ -113,6 +122,9 @@ export async function withStateLock(
     if (!state.rewardPayouts) state.rewardPayouts = [];
     if (!state.swapCursors) state.swapCursors = {};
     if (!state.fraudDecisions) state.fraudDecisions = [];
+
+    // Migrate legacy campaign shapes on read (Plan E discriminated union).
+    state.campaigns = state.campaigns.map(migrateCampaign);
 
     // Decrypt wallet secrets for in-memory use
     for (const w of state.walletPool) {

@@ -3,7 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { TendState, Campaign, RewardPayout, FraudDecision } from "@tend/shared";
-import { TEND_STATE_DIR, TEND_STATE_FILE } from "@tend/shared";
+import { TEND_STATE_DIR, TEND_STATE_FILE, migrateCampaign } from "@tend/shared";
 
 const TEND_DIR = join(homedir(), TEND_STATE_DIR);
 const STATE_PATH = join(TEND_DIR, TEND_STATE_FILE);
@@ -62,7 +62,12 @@ async function readStateRaw(): Promise<TendState> {
     };
   }
   const raw = await readFile(STATE_PATH, "utf-8");
-  return JSON.parse(raw);
+  const state = JSON.parse(raw) as TendState;
+  // Coerce legacy campaign shapes into the Plan E discriminated union.
+  if (state.campaigns) {
+    state.campaigns = state.campaigns.map(migrateCampaign);
+  }
+  return state;
 }
 
 async function mutate(fn: (state: TendState) => void | Promise<void>): Promise<void> {
