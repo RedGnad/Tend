@@ -10,6 +10,10 @@ import {
   TrendingUp,
   Gift,
   Sparkles,
+  ShieldCheck,
+  Coins,
+  Trophy,
+  Share2,
 } from "lucide-react";
 import type { Campaign } from "@tend/shared";
 
@@ -328,9 +332,15 @@ export default function HomePage() {
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full blur-[160px] bg-[var(--accent)] opacity-[0.06] pointer-events-none" />
 
         <div className="relative">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] text-[11px] text-[var(--text-muted)] font-mono uppercase tracking-wider mb-7">
-            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
-            Live on Solana Mainnet
+          <div className="inline-flex items-center gap-2 flex-wrap justify-center mb-7">
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] text-[11px] text-[var(--text-muted)] font-mono uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
+              Live on Solana Mainnet
+            </span>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[rgba(0,255,178,0.2)] bg-[var(--accent-dim)] text-[11px] text-[var(--accent)] font-mono uppercase tracking-wider">
+              <ShieldCheck size={11} />
+              AI-protected payouts
+            </span>
           </div>
 
           <h1 className="text-[clamp(2.4rem,5.5vw,4rem)] font-bold font-display tracking-tight leading-[1.04] mb-6 max-w-[860px] mx-auto">
@@ -338,10 +348,10 @@ export default function HomePage() {
             <span className="gradient-text">paid by the creators themselves</span>.
           </h1>
 
-          <p className="text-[17px] text-[var(--text-secondary)] leading-relaxed max-w-[580px] mx-auto mb-9">
-            Tend turns creator fees into live reward campaigns. AI vets every
-            payout before it goes out. Every tx on Solscan — no platform
-            middleman, no points, no airdrops.
+          <p className="text-[17px] text-[var(--text-secondary)] leading-relaxed max-w-[600px] mx-auto mb-9">
+            Tend is a programmable growth layer for Bags tokens. Four campaign
+            types, one AI fraud gate, every payout auditable on-chain — no
+            platform middleman, no points, no airdrops.
           </p>
 
           <div className="flex items-center justify-center gap-3 flex-wrap mb-12">
@@ -441,6 +451,87 @@ export default function HomePage() {
         )}
       </section>
 
+      {/* Campaign types */}
+      <section className="pb-20">
+        <div className="text-center mb-8">
+          <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
+            Four campaign types
+          </p>
+          <h2 className="text-[clamp(1.4rem,3vw,2rem)] font-bold font-display tracking-tight mb-3">
+            Pick the growth loop that fits your token
+          </h2>
+          <p className="text-[13px] text-[var(--text-muted)] max-w-[540px] mx-auto">
+            Every type shares the same fraud gate, the same on-chain payout
+            rail, and the same creator console. Mix and match as you grow.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              icon: Gift,
+              name: "Cashback",
+              tag: "Live",
+              live: true,
+              desc: "Reward every qualifying buy with a % of the trade back in SOL. Best for steady volume.",
+            },
+            {
+              icon: Coins,
+              name: "Holder dividends",
+              tag: "Live",
+              live: true,
+              desc: "Pay holders pro-rata on each snapshot, gated by a minimum hold time. Best for loyalty.",
+            },
+            {
+              icon: Trophy,
+              name: "Launch sprint",
+              tag: "Live",
+              live: true,
+              desc: "Flat SOL bonus to the first N qualifying buyers. Best for launch-day momentum.",
+            },
+            {
+              icon: Share2,
+              name: "Referral",
+              tag: "Q3",
+              live: false,
+              desc: "Pay referrers a share of trades from wallets they bring. Best for sustained acquisition.",
+            },
+          ].map((t) => (
+            <div
+              key={t.name}
+              className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center">
+                  <t.icon size={16} className="text-[var(--accent)]" />
+                </div>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                    t.live
+                      ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                      : "bg-[rgba(113,113,122,0.12)] text-[#a1a1aa]"
+                  }`}
+                >
+                  {t.tag}
+                </span>
+              </div>
+              <h3 className="text-[15px] font-semibold font-display mb-2">
+                {t.name}
+              </h3>
+              <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
+                {t.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-6 flex items-center justify-center gap-2 text-[12px] text-[var(--text-muted)]">
+          <ShieldCheck size={13} className="text-[var(--accent)]" />
+          <span>
+            Every payout — across all types — passes through the same Claude
+            fraud gate before it ships on-chain.
+          </span>
+        </div>
+      </section>
+
       {/* How it works */}
       <section className="pb-20">
         <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2 text-center">
@@ -454,17 +545,17 @@ export default function HomePage() {
             {
               step: "01",
               title: "Pick a campaign",
-              desc: "Browse live campaigns. Each one shows the cashback % and the SOL pool remaining.",
+              desc: "Browse live campaigns. Each one shows the reward type, rate, and SOL pool remaining.",
             },
             {
               step: "02",
-              title: "Trade on Jupiter",
-              desc: "Buy the token through any Solana frontend. The Tend agent watches qualifying trades on-chain.",
+              title: "Trade or hold",
+              desc: "Buy or hold the token. The Tend agent watches the chain and collects qualifying events.",
             },
             {
               step: "03",
               title: "Get SOL back",
-              desc: "The agent sends your cashback directly to your wallet. Every payout has a Solscan tx link.",
+              desc: "The AI fraud gate clears each payout, then the agent ships SOL to your wallet with a Solscan tx link.",
             },
           ].map((s) => (
             <div key={s.step} className="bg-[var(--bg-card)] p-8">
