@@ -1,64 +1,67 @@
 # Tend
 
-**Turn Bags.fm trading fees into measurable token growth.**
+**Programmable growth layer for Bags.fm tokens.** Four campaign types, one AI fraud gate, every payout auditable on-chain.
 
-Every Bags.fm token generates trading fees. Today, creators claim them manually — or forget entirely. Tend changes that: allocate a share of your fees to AI services that claim, analyze, and reinvest automatically. No subscriptions. No upfront cost. Services earn only when your token has volume.
+Creators allocate a slice of their Bags fee-share to a live reward pool. Traders earn real SOL back when they qualify. The Tend agent watches the chain, a Claude fraud gate vets every payout, and the SOL ships to the trader's wallet with a Solscan tx link. No platform middleman, no points, no airdrops.
 
-## Before / After
+## Campaign types
 
-| | Without Tend | With Tend |
+| Type | How it works | Status |
 |---|---|---|
-| **Fee claiming** | Manual, forgotten | Automatic, every 5 min |
-| **Buyback timing** | Guesswork or never | AI-decided (buy/hold/partial) with reasoning |
-| **Token health** | No visibility | Health score, trend, risks, opportunities |
-| **Fee allocation** | Static, set once | AI recommends optimal splits |
-| **Security** | N/A | AES-256-GCM encrypted wallets, bounded AI |
+| **Cashback** | Reward every qualifying buy with a % of the trade back in SOL | Live |
+| **Holder dividends** | Pay holders pro-rata on each snapshot, gated by a minimum hold time | Live |
+| **Launch sprint** | Flat SOL bonus to the first N qualifying buyers | Live |
+| **Referral** | Pay referrers a share of trades from wallets they bring | Q3 (stub) |
+
+All four types share the same infrastructure: Bags SDK integration, on-chain fee routing, Claude Haiku fraud gate, SOL payout executor, file-locked shared state, and frontend UI. The agent dispatcher picks the right trigger per campaign type on each tick.
+
+## AI fraud gate — in the critical money path
+
+Every payout — across all types — passes through a Claude Haiku 4.5 fraud gate before it ships on-chain. The gate takes the campaign, the event (swap or holder snapshot), and recent history, and returns one of `allow / reject / hold` with a structured reason. Rejected payouts never touch the chain; held ones queue for creator review.
+
+This is not AI decoration. If the gate is down, payouts stop. If the gate says no, no SOL moves.
+
+Bounded authority: the agent can only emit payouts inside campaign budgets, has per-wallet and per-campaign cooldowns, and cannot withdraw or transfer funds outside the payout rail.
 
 ## How it works
 
 ```
-Trading fees (1%) ──→ On-chain fee split
-                         ├── Creator (configurable %)
-                         ├── Buyback Bot (claims → AI decision → buy token)
-                         └── Analytics Engine (monitors → reports via Claude)
-                              ↓
-                         Allocation Advisor (recommends optimal split)
+ Creator activates campaign ──→ Bags fee-share routes % to pool wallet
+                                       │
+                                       ▼
+       Agent tick (every minute) ──→ per-type trigger
+       ├── cashback / sprint: scan new swaps on the mint
+       └── holder: snapshot token holders (cron-throttled)
+                                       │
+                                       ▼
+            Claude Haiku fraud gate  ──→ allow / reject / hold
+                                       │
+                                       ▼
+               Accrue RewardPayout ──→ Shared payout executor
+                                       │
+                                       ▼
+              SOL sent to trader ──→ Solscan tx link in dashboard
 ```
 
-One on-chain transaction to activate. Fully revocable anytime.
+## Stack
 
-## What's live
-
-Three AI services forming a closed feedback loop — each uses Claude API, every decision is logged with inputs, reasoning, and on-chain outcome.
-
-| Service | How it works | Cycle |
-|---------|-------------|-------|
-| **Buyback Bot** | Claims fees → collects market snapshot → Claude decides buy/hold/partial → executes swap → logs decision | 5 min |
-| **Analytics Engine** | Collects on-chain data → Claude generates health score, trend, risks/opportunities | 2 hours |
-| **Allocation Advisor** | Reads performance data → Claude recommends optimal fee splits (advisory-only, free) | 6 hours |
-
-The $TEND token runs all three on Solana mainnet: [`6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
+- **Monorepo**: npm workspaces (`shared`, `agent`, `mcp-server`, `frontend`)
+- **AI**: Claude Haiku 4.5 with structured outputs (Zod v4) via `@anthropic-ai/sdk`
+- **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk`
+- **MCP**: `@modelcontextprotocol/sdk` (STDIO) — creator console
+- **Frontend**: Next.js 15, Tailwind CSS v4, wallet-adapter
 
 ## Interfaces
 
-**Dashboard** — Connect your wallet, explore tokens, view fee distributions, track agent decisions and analytics reports. Self-service UI for managing services.
+**Public dashboard** — `/` landing, `/campaigns` live lineup, `/campaigns/[mint]` detail with payout feed, `/me` user rewards, `/creator` creator activation flow.
 
-**Claude Desktop (MCP)** — 21 tools via Model Context Protocol. Manage everything through natural language:
+**MCP creator console** — 6 tools callable from Claude Desktop:
 
 ```
-"Add the buyback bot to my token with 15% allocation"
-"Show me the agent's recent decisions"
-"What's the health score for $TEND?"
+"Create a 2% cashback campaign on $TEND with a 0.5 SOL pool"
+"Show me the stats for my holder campaign"
+"Top up the sprint pool with 0.3 SOL"
 ```
-
-## Security
-
-- **AES-256-GCM encryption at rest** — Service wallet private keys encrypted before writing to disk
-- **Local-first** — State lives on your machine. The deployed dashboard is read-only
-- **Bounded AI** — Every action has a finite action space, max amounts, cooldowns. The agent cannot withdraw or transfer
-- **File-level locking** — Cross-process mutex prevents concurrent state corruption
-- **Intent chain** — prepare→submit flow with prepareId prevents replay attacks
-- **Heartbeat liveness** — Agent heartbeat every 60s, frontend detects stale agents
 
 ## Quick start
 
@@ -71,7 +74,7 @@ npm run build
 
 ```bash
 npm run dev:dashboard    # Dashboard at http://localhost:3000
-npm run start:agent      # Agent runtime (buyback 5m, claims 30m, analytics 2h, allocation 6h)
+npm run dev:agent        # Rewards dispatcher + payout executor
 ```
 
 **Claude Desktop** — Add to `claude_desktop_config.json`:
@@ -85,7 +88,8 @@ npm run start:agent      # Agent runtime (buyback 5m, claims 30m, analytics 2h, 
       "env": {
         "BAGS_API_KEY": "...",
         "SOLANA_RPC_URL": "...",
-        "TEND_PRIVATE_KEY": "..."
+        "TEND_PRIVATE_KEY": "...",
+        "ANTHROPIC_API_KEY": "..."
       }
     }
   }
@@ -96,27 +100,40 @@ npm run start:agent      # Agent runtime (buyback 5m, claims 30m, analytics 2h, 
 
 ```
 packages/
-├── shared/       # Types, Bags SDK wrapper, Solana utils, crypto
-├── agent/        # Buyback bot + fee claimer + analytics + allocation advisor
-├── mcp-server/   # 21 MCP tools (STDIO transport), 48 tests
-└── frontend/     # Next.js 15, Tailwind v4, wallet connect, 12 API routes
+├── shared/       # Campaign/payout types, Bags SDK wrapper, Solana utils, crypto
+├── agent/        # Rewards dispatcher, per-type triggers, fraud gate, payout executor
+├── mcp-server/   # 6 MCP tools (STDIO transport) — creator console
+└── frontend/     # Next.js 15 dashboard + read-only API routes
 ```
 
-## Stack
+Agent dispatcher (`packages/agent/src/rewards-distributor.ts`):
 
-- **AI**: Claude Haiku with structured outputs (Zod schemas) via `@anthropic-ai/sdk`
-- **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk`
-- **MCP**: `@modelcontextprotocol/sdk` (STDIO)
-- **Frontend**: Next.js 15, Tailwind CSS v4
+```
+cashback → runCashbackTrigger   swap-driven · shared swapCursors
+holder   → runHolderTrigger     cron-driven · holderSnapshotCursors
+sprint   → runSprintTrigger     swap-driven + maxWinners gate · swapCursors
+referral → no-op                Q3
+```
+
+## Security
+
+- **AES-256-GCM at rest** — service wallet private keys encrypted before writing to disk
+- **File-level locking** — cross-process mutex on `~/.tend/state.json` prevents concurrent corruption
+- **Intent chain** — prepare→submit flow with `prepareId` prevents replay attacks
+- **Heartbeat liveness** — agent emits every 60s, frontend detects stale agents
+- **Bounded fraud gate** — every payout vetted by Claude before the on-chain leg; rejected = no tx
+- **Local-first state** — deployed dashboard is read-only; all writes require local agent or wallet-sign flow
 
 ## Hackathon tracks
 
 Built for [Bags Hackathon](https://bags.fm/hackathon)
 
-- **AI Agents** — Autonomous buyback agent with Claude-powered decisions
-- **Claude Skills** — First MCP server for Bags.fm
-- **Bags API** — Deep integration across fee-share, claims, trades, launch
-- **Fee Sharing** — Fee-sharing as a programmable growth engine
+- **Fee Sharing** — Programmable growth engine on top of Bags fee-share
+- **AI Agents** — Claude Haiku in the critical payout path, not decoration
+- **Claude Skills** — MCP server as the creator console for all four campaign types
+- **Bags API** — Deep integration across fee-share, claims, trades, on-chain routing
+
+The $TEND token runs live on Solana mainnet: [`6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
 
 ## License
 
