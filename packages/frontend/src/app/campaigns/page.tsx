@@ -242,11 +242,6 @@ export default function CampaignsPage() {
           Pick a campaign, trade the token, earn SOL. Every payout on-chain,
           every wallet vetted by the AI fraud gate.
         </p>
-        <p className="text-[11px] text-[var(--text-muted)] max-w-[520px] mt-2">
-          Note — if a token ran multiple campaign types, the detail page shows
-          the highest-priority entry (live &gt; paused &gt; completed). Past
-          payouts from every type stay visible in its history.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-px rounded-2xl overflow-hidden bg-[var(--border)] mb-10">

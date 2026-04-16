@@ -72,9 +72,11 @@ export async function runRewardsDistributor(
 
   log(`[rewards] Dispatching ${liveCampaigns.length} live campaign(s)`);
 
+  const poolWallets = (state.walletPool ?? []).map((w) => w.publicKey);
   const excludeWallets = new Set<string>([
     bags.keypair.publicKey.toBase58(),
     ...liveCampaigns.map((c) => c.creatorWallet),
+    ...poolWallets,
   ]);
 
   for (const campaign of liveCampaigns) {

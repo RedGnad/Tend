@@ -118,8 +118,26 @@ export async function snapshotHolders(
     }
   }
 
+  // Filter out bonding-curve / LP vaults: any wallet holding >50% of total
+  // supply among scanned accounts is not a real user.
+  const totalSupply = [...merged.values()].reduce(
+    (sum, h) => sum + h.balanceRaw,
+    0n
+  );
+  const filtered = [...merged.values()].filter((h) => {
+    if (totalSupply === 0n) return true;
+    const pct = (h.balanceRaw * 10_000n) / totalSupply;
+    if (pct > 5_000n) {
+      log(
+        `[holder-snapshot] excluding vault ${h.ownerWallet.slice(0, 8)} (${Number(pct) / 100}% of supply)`
+      );
+      return false;
+    }
+    return true;
+  });
+
   // Sort by balance desc and cap.
-  const sorted = [...merged.values()].sort((a, b) =>
+  const sorted = filtered.sort((a, b) =>
     a.balanceRaw < b.balanceRaw ? 1 : a.balanceRaw > b.balanceRaw ? -1 : 0
   );
   const top = sorted.slice(0, MAX_HOLDERS_SCANNED);
