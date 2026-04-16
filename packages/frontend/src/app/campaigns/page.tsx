@@ -82,7 +82,7 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
 
   return (
     <Link
-      href={`/campaigns/${c.tokenMint}`}
+      href={`/campaigns/${c.tokenMint}?type=${c.type}`}
       className="block bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 hover:border-[var(--border-hover)] transition-colors group"
     >
       <div className="flex items-center justify-between mb-4">

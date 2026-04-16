@@ -4,25 +4,33 @@ import { loadTendState } from "@/lib/state";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ mint: string }> }
 ) {
   const { mint } = await params;
   const state = await loadTendState();
 
-  // If multiple campaign types coexist on a mint (sequential demo — e.g.
-  // cashback then sprint then holder), surface the highest-priority one.
   const forMint = (state.campaigns ?? []).filter((c) => c.tokenMint === mint);
-  const priority = ["live", "paused", "depleted"] as const;
+
+  // If ?type= is specified, return that exact campaign type
+  const url = new URL(request.url);
+  const requestedType = url.searchParams.get("type");
+
   let campaign = null as (typeof forMint)[number] | null;
-  for (const status of priority) {
-    const hit = forMint.find((c) => c.status === status);
-    if (hit) {
-      campaign = hit;
-      break;
+  if (requestedType) {
+    campaign = forMint.find((c) => c.type === requestedType) ?? null;
+  } else {
+    // Fallback: highest-priority status
+    const priority = ["live", "paused", "depleted"] as const;
+    for (const status of priority) {
+      const hit = forMint.find((c) => c.status === status);
+      if (hit) {
+        campaign = hit;
+        break;
+      }
     }
+    if (!campaign) campaign = forMint[0] ?? null;
   }
-  if (!campaign) campaign = forMint[0] ?? null;
   if (!campaign) {
     return NextResponse.json({ error: "Campaign not found" }, { status: 404 });
   }

@@ -172,7 +172,7 @@ export default function MePage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <Link
-                          href={`/campaigns/${p.tokenMint}`}
+                          href={`/campaigns/${p.tokenMint}${p.campaignType ? `?type=${p.campaignType}` : ""}`}
                           className="font-semibold text-[13px] hover:text-[var(--accent)]"
                         >
                           ${symbol}

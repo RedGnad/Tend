@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useWallet } from "@solana/wallet-adapter-react";
 import {
   ArrowLeft,
@@ -49,7 +49,9 @@ function timeAgo(ts: number): string {
 
 export default function CampaignDetailPage() {
   const params = useParams<{ mint: string }>();
+  const searchParams = useSearchParams();
   const mint = params.mint;
+  const campaignType = searchParams.get("type");
   const { publicKey, connected } = useWallet();
 
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
@@ -58,7 +60,8 @@ export default function CampaignDetailPage() {
 
   useEffect(() => {
     if (!mint) return;
-    fetch(`/api/campaigns/${mint}`)
+    const qs = campaignType ? `?type=${campaignType}` : "";
+    fetch(`/api/campaigns/${mint}${qs}`)
       .then((r) => {
         if (r.status === 404) {
           setNotFound(true);
@@ -68,7 +71,7 @@ export default function CampaignDetailPage() {
       })
       .then((d) => d && setDetail(d))
       .catch(() => setNotFound(true));
-  }, [mint]);
+  }, [mint, campaignType]);
 
   if (notFound) {
     return (
