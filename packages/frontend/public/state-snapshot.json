@@ -6638,7 +6638,7 @@
       "creatorWallet": "38ZqhybcgDqEM2iUiwQRv3AuU7eTBo3G5HVnszryfofi",
       "poolCapLamports": "100000000",
       "poolSpentLamports": "61082085",
-      "status": "paused",
+      "status": "live",
       "createdAt": 1709000000000,
       "tokenInfo": {
         "name": "Tend",
@@ -6906,25 +6906,6 @@
       "checkedAt": 1776294677816,
       "walletContext": {
         "walletAgeHours": 10860,
-        "txCount": 100,
-        "priorTendPayouts": 0
-      }
-    },
-    {
-      "id": "holder-6qa9oCyp--FhVo3mqL",
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "traderWallet": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM",
-      "swapTxSig": "holder-6qa9oCyp-1776295515-FhVo3mqL",
-      "swapVolumeLamports": "999456680306672972",
-      "decision": "hold",
-      "reasoning": "Gate error (Failed to parse structured output: Error: Failed to parse structured output: [\n ) \u2014 held for manual review",
-      "flags": [
-        "gate_error"
-      ],
-      "model": "claude-haiku-4-5-20251001",
-      "checkedAt": 1776295519058,
-      "walletContext": {
-        "walletAgeHours": 0,
         "txCount": 100,
         "priorTendPayouts": 0
       }
