@@ -7,25 +7,19 @@ import {
 import { TOTAL_BPS } from "@tend/shared";
 
 describe("Service Registry", () => {
-  it("has 7 services defined", () => {
-    expect(SERVICE_REGISTRY).toHaveLength(7);
+  it("has 3 services defined", () => {
+    expect(SERVICE_REGISTRY).toHaveLength(3);
   });
 
-  it("has 3 available and 4 coming-soon", () => {
-    const available = SERVICE_REGISTRY.filter((s) => s.status === "available");
-    const comingSoon = SERVICE_REGISTRY.filter(
-      (s) => s.status === "coming-soon"
-    );
-    expect(available).toHaveLength(3);
-    expect(comingSoon).toHaveLength(4);
+  it("all services are available", () => {
+    SERVICE_REGISTRY.forEach((s) => expect(s.status).toBe("available"));
   });
 
-  it("getAvailableServices returns only available services", () => {
+  it("getAvailableServices returns all services", () => {
     const services = getAvailableServices();
     expect(services).toHaveLength(3);
     const ids = services.map((s) => s.id).sort();
     expect(ids).toEqual(["allocation-advisor", "analytics", "buyback-bot"]);
-    services.forEach((s) => expect(s.status).toBe("available"));
   });
 
   it("getService returns correct service by id", () => {
@@ -60,7 +54,7 @@ describe("Service Registry", () => {
       expect(s.name).toBeTruthy();
       expect(s.description).toBeTruthy();
       expect(s.category).toBeTruthy();
-      expect(["available", "coming-soon"]).toContain(s.status);
+      expect(s.status).toBe("available");
     });
   });
 });

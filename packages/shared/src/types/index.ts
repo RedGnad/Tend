@@ -126,7 +126,7 @@ export interface AllocationRecommendation {
 
 // ── Live growth campaigns (Plan E — discriminated union, 2026-04-15) ──
 
-export type CampaignType = "cashback" | "holder" | "sprint" | "referral";
+export type CampaignType = "cashback" | "holder" | "sprint";
 
 export interface BaseCampaign {
   tokenMint: string;
@@ -167,18 +167,10 @@ export interface SprintCampaign extends BaseCampaign {
   };
 }
 
-export interface ReferralCampaign extends BaseCampaign {
-  type: "referral";
-  config: {
-    referrerBps: number;
-  };
-}
-
 export type Campaign =
   | CashbackCampaign
   | HolderCampaign
-  | SprintCampaign
-  | ReferralCampaign;
+  | SprintCampaign;
 
 /**
  * Migrate a raw campaign shape into the current Plan E discriminated union.
@@ -228,7 +220,7 @@ export interface RewardPayout {
   // Optional — populated by the triggers so sprint slot accounting and
   // detail-page grouping don't cross-contaminate when multiple campaign
   // types have run on the same mint over time.
-  campaignType?: "cashback" | "holder" | "sprint" | "referral";
+  campaignType?: "cashback" | "holder" | "sprint";
 }
 
 /**

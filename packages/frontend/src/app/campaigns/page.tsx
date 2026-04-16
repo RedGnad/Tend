@@ -57,11 +57,6 @@ function campaignHeadline(c: Campaign): { value: string; label: string } {
         label: `Bonus · ${c.config.maxWinners} winners`,
       };
     }
-    case "referral":
-      return {
-        value: `${(c.config.referrerBps / 100).toFixed(1)}%`,
-        label: "Referral",
-      };
   }
 }
 
@@ -73,8 +68,6 @@ function campaignTypeBadge(c: Campaign): string {
       return "HOLDER";
     case "sprint":
       return "SPRINT";
-    case "referral":
-      return "REFERRAL";
   }
 }
 

@@ -1,10 +1,6 @@
 import {
   ArrowDownUp,
-  Repeat,
   BarChart3,
-  TrendingUp,
-  LineChart,
-  Gift,
   Zap,
   Settings,
   Coins,
@@ -15,11 +11,7 @@ import type { ComponentType } from "react";
 
 const ICON_MAP: Record<string, ComponentType<LucideProps>> = {
   "buyback-bot": ArrowDownUp,
-  "fee-compounder": Repeat,
   analytics: BarChart3,
-  "growth-agent": TrendingUp,
-  "market-maker": LineChart,
-  "community-rewards": Gift,
   "allocation-advisor": PieChart,
 };
 
@@ -33,4 +25,4 @@ export function ServiceIcon({
   return <Icon size={size} className={className} strokeWidth={1.8} {...props} />;
 }
 
-export { Zap, Coins, ArrowDownUp, Repeat, BarChart3, TrendingUp, LineChart, Gift };
+export { Zap, Coins, ArrowDownUp, BarChart3 };

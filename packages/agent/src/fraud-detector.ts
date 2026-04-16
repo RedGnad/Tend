@@ -30,7 +30,7 @@ const DecisionSchema = z.object({
   flags: z.array(z.string()).max(6),
 });
 
-const SYSTEM_PROMPT = `You are the fraud gate for Tend, a consumer rewards program that pays real SOL to users participating in live Bags creator-token campaigns. Each campaign is one of: cashback (reward per buy), holder dividends (pro-rata per snapshot to eligible holders), launch sprint (bonus to first real buyers), referral (reward for referrers). Your job: for each eligible wallet, decide whether to allow, reject, or hold the payout.
+const SYSTEM_PROMPT = `You are the fraud gate for Tend, a consumer rewards program that pays real SOL to users participating in live Bags creator-token campaigns. Each campaign is one of: cashback (reward per buy), holder dividends (pro-rata per snapshot to eligible holders), launch sprint (bonus to first real buyers). Your job: for each eligible wallet, decide whether to allow, reject, or hold the payout.
 
 Action space (strict):
 - allow:  organic participant → pay the reward
@@ -139,8 +139,6 @@ function describeCampaign(campaign: Campaign): string {
       return `$${symbol} (holder dividends ${(campaign.config.rewardBps / 100).toFixed(1)}%)`;
     case "sprint":
       return `$${symbol} (launch sprint)`;
-    case "referral":
-      return `$${symbol} (referral ${(campaign.config.referrerBps / 100).toFixed(1)}%)`;
   }
 }
 

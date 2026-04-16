@@ -18,7 +18,6 @@ import { log, logError } from "./logger.js";
  *        cashback → runCashbackTrigger  (real, S1)
  *        holder   → runHolderTrigger    (real, S2)
  *        sprint   → runSprintTrigger    (real, S4)
- *        referral → no-op               (Q3)
  *   3. Triggers accrue RewardPayout rows into state
  *   4. Shared payout-executor owns the on-chain SOL leg for all types
  */
@@ -141,8 +140,6 @@ export async function runRewardsDistributor(
             s.swapCursors[campaign.tokenMint] = maxFreshBlockTime;
           });
         }
-      } else if (campaign.type === "referral") {
-        // Coming Q3 — skip silently, no work to do.
       }
 
       result.campaignsProcessed += 1;

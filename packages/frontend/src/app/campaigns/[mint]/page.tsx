@@ -173,20 +173,14 @@ export default function CampaignDetailPage() {
                 ? `${(campaign.config.cashbackBps / 100).toFixed(1)}%`
                 : campaign.type === "holder"
                   ? `${(campaign.config.rewardBps / 100).toFixed(1)}%`
-                  : campaign.type === "sprint"
-                    ? `${formatSol(campaign.config.bonusLamports)} SOL`
-                    : campaign.type === "referral"
-                      ? `${(campaign.config.referrerBps / 100).toFixed(1)}%`
-                      : "—"}
+                  : `${formatSol(campaign.config.bonusLamports)} SOL`}
             </p>
             <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
               {campaign.type === "cashback"
                 ? "Cashback on buys"
                 : campaign.type === "holder"
                   ? `Per snapshot · ${campaign.config.minHoldHours}h min`
-                  : campaign.type === "sprint"
-                    ? `Flat bonus · ${campaign.config.maxWinners} winners`
-                    : "Referral payout"}
+                  : `Flat bonus · ${campaign.config.maxWinners} winners`}
             </p>
           </div>
           <div className="bg-[var(--bg)] rounded-lg p-3">

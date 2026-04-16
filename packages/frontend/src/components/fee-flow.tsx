@@ -10,11 +10,8 @@ interface FlowItem {
 
 const SERVICE_COLORS: Record<string, string> = {
   "buyback-bot": "#10b981",
-  "fee-compounder": "#06b6d4",
   analytics: "#8b5cf6",
-  "growth-agent": "#f59e0b",
-  "market-maker": "#ec4899",
-  "community-rewards": "#6366f1",
+  "allocation-advisor": "#f59e0b",
 };
 
 export function FeeFlow({ token }: { token: ManagedToken }) {

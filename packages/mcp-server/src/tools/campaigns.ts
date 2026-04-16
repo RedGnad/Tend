@@ -509,8 +509,6 @@ export function registerCampaignTools(
         case "sprint":
           rateLine = `   sprint      ${lamportsToSol(campaign.config.bonusLamports)} SOL bonus · up to ${campaign.config.maxWinners} winners · min buy ${lamportsToSol(campaign.config.minBuyLamports)} SOL`;
           break;
-        default:
-          rateLine = `   type        ${campaign.type}`;
       }
 
       return {

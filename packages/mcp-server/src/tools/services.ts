@@ -31,7 +31,7 @@ export function registerServiceTools(
             type: "text" as const,
             text: [
               "=== Tend Service Marketplace ===",
-              `${SERVICE_REGISTRY.filter((s) => s.status === "available").length} available, ${SERVICE_REGISTRY.filter((s) => s.status === "coming-soon").length} coming soon`,
+              `${SERVICE_REGISTRY.length} services available`,
               "",
               "BPS = Basis Points (100 BPS = 1% of fee revenue)",
               "",
