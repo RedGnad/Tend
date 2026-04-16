@@ -1,5 +1,6 @@
 import type {
   BagsClient,
+  Campaign,
   FraudDecision,
   RewardPayout,
   SprintCampaign,
@@ -48,10 +49,10 @@ async function tryAccrueSprintPayout(
     if (!state.campaigns) state.campaigns = [];
 
     const id = makePayoutId(buy.signature, buy.traderWallet);
-    if (state.rewardPayouts.some((p) => p.id === id)) return;
+    if (state.rewardPayouts.some((p: RewardPayout) => p.id === id)) return;
 
     const liveCampaign = state.campaigns.find(
-      (c): c is SprintCampaign =>
+      (c: Campaign): c is SprintCampaign =>
         c.tokenMint === campaign.tokenMint && c.type === "sprint"
     );
     if (!liveCampaign || liveCampaign.status !== "live") return;
@@ -60,7 +61,7 @@ async function tryAccrueSprintPayout(
     // a failed payout still used a slot). Filter by campaignType so payouts
     // from a prior cashback/holder campaign on the same mint don't bleed in.
     const priorWinners = state.rewardPayouts.filter(
-      (p) =>
+      (p: RewardPayout) =>
         p.tokenMint === campaign.tokenMint &&
         (p.campaignType ?? "cashback") === "sprint"
     );
