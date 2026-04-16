@@ -2,15 +2,15 @@
 
 **Programmable growth layer for Bags.fm tokens.** Four campaign types, one AI fraud gate, every payout auditable on-chain.
 
-Creators allocate a slice of their Bags fee-share to a live reward pool. Traders earn real SOL back when they qualify. The Tend agent watches the chain, a Claude fraud gate vets every payout, and the SOL ships to the trader's wallet with a Solscan tx link. No platform middleman, no points, no airdrops.
+Creators allocate a slice of their Bags fee-share to a live reward pool. Traders earn real SOL back when they qualify. The Tend agent watches the chain, a Claude fraud gate vets every payout, and the SOL ships to the trader's wallet with a Solscan tx link. 
 
 ## Campaign types
 
 | Type | How it works | Status |
 |---|---|---|
-| **Cashback** | Reward every qualifying buy with a % of the trade back in SOL | Live |
-| **Holder dividends** | Pay holders pro-rata on each snapshot, gated by a minimum hold time | Live |
-| **Launch sprint** | Flat SOL bonus to the first N qualifying buyers | Live |
+| **Cashback** | Reward every qualifying buy with a % of the trade back in SOL | Shipped — 2 real payouts on $TEND |
+| **Launch sprint** | Flat SOL bonus to the first N qualifying buyers | Shipped — 1 HOLD + 1 ALLOW + 1 real payout on $TEND |
+| **Holder dividends** | Pay holders pro-rata on each snapshot, gated by a minimum hold time | Shipped — live on $TEND, hourly snapshots |
 | **Referral** | Pay referrers a share of trades from wallets they bring | Q3 (stub) |
 
 All four types share the same infrastructure: Bags SDK integration, on-chain fee routing, Claude Haiku fraud gate, SOL payout executor, file-locked shared state, and frontend UI. The agent dispatcher picks the right trigger per campaign type on each tick.
@@ -23,11 +23,21 @@ This is not AI decoration. If the gate is down, payouts stop. If the gate says n
 
 Bounded authority: the agent can only emit payouts inside campaign budgets, has per-wallet and per-campaign cooldowns, and cannot withdraw or transfer funds outside the payout rail.
 
-**Real example from the $TEND launch sprint** — a fresh wallet (6 days old, 6 txs) tried to claim a sprint bonus. Claude Haiku held it:
+**Two real buys on the $TEND launch sprint, same campaign, same gate, opposite verdicts.**
+
+**Buy #1 — HOLD.** A 6-day-old wallet with 6 lifetime transactions bought 0.008 SOL of $TEND. Claude Haiku blocked the sprint slot:
 
 > *"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping, and while the wallet shows some activity, the minimal transaction history combined with young age warrants human review to confirm legitimacy before payout."*
 
-Flags: `new_wallet_6days`, `low_tx_count`, `launch_sprint_campaign`. The sprint slot was not consumed, the pool was not debited, and the decision is persisted in `state.json`. Full JSON + narrative in [`docs/fraud-gate-example.md`](docs/fraud-gate-example.md).
+Flags: `new_wallet_6days`, `low_tx_count`, `launch_sprint_campaign`. Sprint slot preserved, pool untouched. Buy tx: [`4uSsFZbZ...`](https://solscan.io/tx/4uSsFZbZPJjyDkC1ingT9RzocxrZ3ksQrFdEnAeDdCjdUpYrZfat2UWHFijf72QKFpwkrMyBVqJSANH5srDWgnvF)
+
+**Buy #2 — ALLOW.** A 1090-day-old wallet with 1000+ prior transactions bought the same 0.008 SOL. Same gate. Opposite verdict:
+
+> *"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign reducing sybil/farm risk. Purchase amount appears organic and not a suspicious pattern. Meets all criteria for organic launch sprint participant."*
+
+Result: 0.005 SOL bonus shipped on-chain. Buy tx: [`5rVWNpiR...`](https://solscan.io/tx/5rVWNpiRNikiyRPygLkBSaLtM4rgguMAbBgmtgJ5VeruhzENxx77g1cHFaVhRo4hjcbEGKcktLb3z32fCQxB9ksk) · Payout tx: [`4kdjsRMZ...`](https://solscan.io/tx/4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb)
+
+Both decisions are persisted in `state.json` — the gate discriminates in the critical money path, not after the fact. Full JSON for the HOLD case: [`docs/fraud-gate-example.md`](docs/fraud-gate-example.md).
 
 ## How it works
 
@@ -139,7 +149,21 @@ Built for [Bags Hackathon](https://bags.fm/hackathon)
 - **Claude Skills** — MCP server as the creator console for all four campaign types
 - **Bags API** — Deep integration across fee-share, claims, trades, on-chain routing
 
-The $TEND token runs live on Solana mainnet: [`6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
+## Live on mainnet
+
+The $TEND token is Tend's own dogfood deployment on Solana mainnet: [`6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS).
+
+Three campaign types have run sequentially on this mint so creators (and judges) can see the full lifecycle in one place.
+
+**Real payouts shipped on-chain:**
+
+| Campaign | Wallet | Amount | Tx |
+|---|---|---|---|
+| Cashback | `2ZEgCyxU…` | 0.000206 SOL | [`uJXZXahd…`](https://solscan.io/tx/uJXZXahd2hXJSGg6LYoBKFMDXkrMbBdN221ojo1R8Przm2tShPZwLXSXzKY6YzrQfUYzFA58MU5q4ovFyoyiqf3) |
+| Cashback | `M5q9egYv…` | 0.060876 SOL | [`3xJdN7th…`](https://solscan.io/tx/3xJdN7thAvRUYrsbb3kEJL9PNM32tKRZrrE1v7LCHAfs6PAaxwFPQKEMB2gupBLdZKDmqzvW3uc4bUuKuf2C8qni) |
+| Launch sprint | `8y2Eo1dk…` | 0.005 SOL | [`4kdjsRMZ…`](https://solscan.io/tx/4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb) |
+
+Plus 1 sprint buy held by the fraud gate (see above). Holder campaign is currently live — snapshots fire hourly.
 
 ## License
 
