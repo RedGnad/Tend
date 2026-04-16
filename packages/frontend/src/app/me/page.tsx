@@ -121,10 +121,10 @@ export default function MePage() {
         </div>
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5">
           <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
-            Qualifying trades
+            Qualifying events
           </p>
           <p className="text-2xl font-bold font-mono">{totalCount}</p>
-          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">buys</p>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">payouts</p>
         </div>
       </div>
 
@@ -188,8 +188,10 @@ export default function MePage() {
                         </span>
                       </div>
                       <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                        swap {formatSol(p.swapVolumeLamports)} SOL ·{" "}
-                        {timeAgo(p.createdAt)}
+                        {p.campaignType === "holder"
+                          ? "holder snapshot"
+                          : `swap ${formatSol(p.swapVolumeLamports)} SOL`}{" "}
+                        · {timeAgo(p.createdAt)}
                       </p>
                     </div>
                   </div>

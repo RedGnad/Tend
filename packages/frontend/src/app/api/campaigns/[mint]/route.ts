@@ -40,6 +40,11 @@ export async function GET(
     0n
   );
 
+  const fraudDecisions = (state.fraudDecisions ?? [])
+    .filter((d) => d.tokenMint === mint)
+    .sort((a, b) => b.checkedAt - a.checkedAt)
+    .slice(0, 20);
+
   return NextResponse.json({
     campaign,
     stats: {
@@ -49,5 +54,6 @@ export async function GET(
       totalVolumeLamports: totalVolumeLamports.toString(),
     },
     recentPayouts: payouts.slice(0, 20),
+    fraudDecisions,
   });
 }

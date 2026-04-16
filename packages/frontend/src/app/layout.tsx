@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import { JetBrains_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { SolanaProvider } from "@/components/wallet-provider";
 import { LayoutShell } from "@/components/layout-shell";
@@ -65,6 +66,10 @@ export default function RootLayout({
       className={`dark ${clashDisplay.variable} ${satoshi.variable} ${jetbrainsMono.variable}`}
     >
       <body className="min-h-screen antialiased">
+        <Script
+          src="https://plugin.jup.ag/plugin-v1.js"
+          strategy="afterInteractive"
+        />
         <SolanaProvider>
           <LayoutShell>{children}</LayoutShell>
         </SolanaProvider>

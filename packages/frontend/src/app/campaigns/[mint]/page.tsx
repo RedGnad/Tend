@@ -10,8 +10,10 @@ import {
   Users,
   TrendingUp,
   Zap,
+  Shield,
 } from "lucide-react";
-import type { Campaign, RewardPayout } from "@tend/shared";
+import type { Campaign, RewardPayout, FraudDecision } from "@tend/shared";
+import { JupiterSwap } from "@/components/jupiter-swap";
 
 interface CampaignDetail {
   campaign: Campaign;
@@ -22,6 +24,7 @@ interface CampaignDetail {
     totalVolumeLamports: string;
   };
   recentPayouts: RewardPayout[];
+  fraudDecisions?: FraudDecision[];
 }
 
 function formatSol(lamports: number | string | bigint): string {
@@ -49,6 +52,7 @@ export default function CampaignDetailPage() {
 
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [showSwap, setShowSwap] = useState(false);
 
   useEffect(() => {
     if (!mint) return;
@@ -88,7 +92,7 @@ export default function CampaignDetailPage() {
     );
   }
 
-  const { campaign, stats, recentPayouts } = detail;
+  const { campaign, stats, recentPayouts, fraudDecisions = [] } = detail;
   const symbol =
     campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4).toUpperCase();
   const name = campaign.tokenInfo?.name ?? symbol;
@@ -266,18 +270,24 @@ export default function CampaignDetailPage() {
           </p>
         )}
         {isLive ? (
-          <a
-            href={`https://jup.ag/swap/SOL-${campaign.tokenMint}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="gradient-btn px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
-          >
-            <Zap size={14} />
-            {campaign.type === "holder"
-              ? "Buy & hold on Jupiter"
-              : "Trade on Jupiter"}{" "}
-            <ExternalLink size={12} />
-          </a>
+          <>
+            <button
+              onClick={() => setShowSwap((v) => !v)}
+              className="gradient-btn px-6 py-3 rounded-xl text-sm font-semibold inline-flex items-center gap-2"
+            >
+              <Zap size={14} />
+              {showSwap
+                ? "Hide swap"
+                : campaign.type === "holder"
+                  ? "Buy & hold"
+                  : "Trade now"}
+            </button>
+            {showSwap && (
+              <div className="mt-4">
+                <JupiterSwap outputMint={campaign.tokenMint} />
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-[12px] text-[var(--text-muted)]">
             This campaign&apos;s pool has been fully distributed.
@@ -323,6 +333,86 @@ export default function CampaignDetailPage() {
                   : `No rewards yet. Trade $${symbol} to start earning.`}
             </p>
           )}
+        </div>
+      )}
+
+      {/* AI Fraud Gate */}
+      {fraudDecisions.length > 0 && (
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 mb-4">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Shield size={13} className="text-[var(--accent)]" />
+              <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                AI fraud gate
+              </p>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+              <span className="font-mono">
+                {fraudDecisions.filter((d) => d.decision === "allow").length} allowed
+              </span>
+              <span>·</span>
+              <span className="font-mono">
+                {fraudDecisions.filter((d) => d.decision !== "allow").length} blocked
+              </span>
+            </div>
+          </div>
+
+          <p className="text-[12px] text-[var(--text-muted)] mb-4">
+            Every payout passes through Claude Haiku before SOL moves on-chain.
+          </p>
+
+          <div className="divide-y divide-[var(--border)]">
+            {fraudDecisions.map((d) => (
+              <div key={d.id} className="py-3">
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-[12px] text-[var(--text-secondary)]">
+                      {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                        d.decision === "allow"
+                          ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                          : d.decision === "reject"
+                            ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
+                            : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                      }`}
+                    >
+                      {d.decision}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)] font-mono">
+                    {d.walletContext.walletAgeHours != null && (
+                      <span>
+                        {d.walletContext.walletAgeHours >= 24
+                          ? `${Math.floor(d.walletContext.walletAgeHours / 24)}d old`
+                          : `${Math.round(d.walletContext.walletAgeHours)}h old`}
+                      </span>
+                    )}
+                    {d.walletContext.txCount != null && (
+                      <span>{d.walletContext.txCount} txs</span>
+                    )}
+                    <span>{timeAgo(d.checkedAt)}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed italic">
+                  &ldquo;{d.reasoning}&rdquo;
+                </p>
+                {d.flags.length > 0 && (
+                  <div className="flex gap-1.5 mt-1.5 flex-wrap">
+                    {d.flags.map((f) => (
+                      <span
+                        key={f}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg)] text-[var(--text-muted)] font-mono border border-[var(--border)]"
+                      >
+                        {f}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
