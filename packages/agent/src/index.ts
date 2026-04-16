@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 
-import { BagsClient, loadKeypair } from "@tend/shared";
+import { createServer } from "node:http";
+import { existsSync, copyFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+import { BagsClient, loadKeypair, TEND_STATE_DIR, TEND_STATE_FILE } from "@tend/shared";
 import type { MarketSnapshot } from "@tend/shared";
 import { Scheduler } from "./scheduler.js";
 import { getAdvisorDecision } from "./ai-advisor.js";
@@ -58,6 +62,24 @@ async function main() {
     process.exit(0);
   }
 
+  // Seed state from snapshot if missing (Render ephemeral disk)
+  const stateDir = join(homedir(), TEND_STATE_DIR);
+  const statePath = join(stateDir, TEND_STATE_FILE);
+  if (!existsSync(statePath)) {
+    const snapshotPath = join(
+      process.cwd(),
+      "packages",
+      "frontend",
+      "public",
+      "state-snapshot.json"
+    );
+    if (existsSync(snapshotPath)) {
+      mkdirSync(stateDir, { recursive: true });
+      copyFileSync(snapshotPath, statePath);
+      log(`Seeded state from snapshot`);
+    }
+  }
+
   const keypair = loadKeypair(privateKey);
   log(`Agent wallet: ${keypair.publicKey.toBase58()}`);
 
@@ -70,10 +92,24 @@ async function main() {
   const scheduler = new Scheduler(bags);
   scheduler.start();
 
+  // Health server for Render free tier keep-alive
+  const port = parseInt(process.env.PORT || "3001", 10);
+  const server = createServer((req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok", uptime: process.uptime() }));
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
+  server.listen(port, () => log(`Health server on :${port}`));
+
   // Graceful shutdown
   const shutdown = () => {
     log("Shutting down...");
     scheduler.stop();
+    server.close();
     process.exit(0);
   };
 

@@ -1,0 +1,24 @@
+FROM node:20-slim
+
+WORKDIR /app
+
+# Copy package files for install
+COPY package.json package-lock.json ./
+COPY packages/shared/package.json packages/shared/
+COPY packages/agent/package.json packages/agent/
+# Snapshot for state seeding on fresh deploys
+COPY packages/frontend/public/state-snapshot.json packages/frontend/public/
+
+# Install dependencies (delete lockfile to avoid cross-platform native dep issues)
+RUN rm -f package-lock.json && npm install --ignore-scripts
+
+# Copy source
+COPY packages/shared/ packages/shared/
+COPY packages/agent/ packages/agent/
+
+# Build shared then agent
+RUN npm run build -w packages/shared && npm run build -w packages/agent
+
+EXPOSE 3001
+
+CMD ["node", "packages/agent/build/index.js"]
