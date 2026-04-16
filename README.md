@@ -89,7 +89,7 @@ Three AI services running in production via `@anthropic-ai/sdk`:
 
 All three use Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome.
 
-**MCP creator console** — 6 tools callable from Claude Desktop for campaign management:
+**MCP creator console** — 27 tools across 8 groups, callable from Claude Desktop:
 
 ```
 "Create a 2% cashback campaign on $TEND with a 0.5 SOL pool"
@@ -112,7 +112,7 @@ All three use Zod v4 structured outputs. Decision logs persisted with full input
 packages/
   shared/       Types, Bags SDK wrapper, Solana utils, AES-256-GCM crypto
   agent/        Rewards dispatcher, per-type triggers, fraud gate, payout executor
-  mcp-server/   6 MCP tools (STDIO) — creator console
+  mcp-server/   27 MCP tools (STDIO) — creator console
   frontend/     Next.js 15 dashboard + read-only API routes
 ```
 
