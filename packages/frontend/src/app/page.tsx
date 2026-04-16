@@ -144,9 +144,21 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
               <Sparkles size={10} />
               Featured
             </span>
-            <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider bg-[var(--accent-dim)] text-[var(--accent)]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]" />
-              Live now
+            <span
+              className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
+                c.status === "live"
+                  ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                  : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  c.status === "live"
+                    ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]"
+                    : "bg-[#eab308]"
+                }`}
+              />
+              {c.status === "live" ? "Live now" : c.status}
             </span>
           </div>
 
@@ -251,9 +263,21 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
             </p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider bg-[var(--accent-dim)] text-[var(--accent)]">
-          <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]" />
-          live
+        <span
+          className={`inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+            c.status === "live"
+              ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+              : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+          }`}
+        >
+          <span
+            className={`w-1.5 h-1.5 rounded-full ${
+              c.status === "live"
+                ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]"
+                : "bg-[#eab308]"
+            }`}
+          />
+          {c.status}
         </span>
       </div>
 
@@ -366,9 +390,10 @@ export default function HomePage() {
       .catch(() => setStats(null));
   }, []);
 
-  const live = (campaigns ?? []).filter((c) => c.status === "live");
-  const featured = live[0];
-  const others = live.slice(1, 4);
+  const all = campaigns ?? [];
+  const live = all.filter((c) => c.status === "live");
+  const featured = live[0] ?? all[0];
+  const others = all.filter((c) => c !== featured).slice(0, 3);
 
   return (
     <div className="max-w-[1080px] mx-auto px-6">
@@ -397,9 +422,8 @@ export default function HomePage() {
           <div className="text-[17px] text-[var(--text-secondary)] leading-[1.65] max-w-[640px] mx-auto mb-9 space-y-2">
             <p>Creators fund the rewards from their Bags fees.</p>
             <p>
-              Three ways to earn: cashback on buys, dividends for holders,
-              bonuses for launch sprinters. All paid in SOL, straight to your
-              wallet.
+              Three ways to earn: Trade, Hold, Sprint and participate campains.
+              All paid in SOL, straight to your wallet.
             </p>
           </div>
 
@@ -436,13 +460,13 @@ export default function HomePage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-1">
-              {featured ? "More live campaigns" : "Live now"}
+              {featured ? "More campaigns" : "Campaigns"}
             </p>
             <h2 className="text-[clamp(1.3rem,3vw,1.8rem)] font-bold font-display tracking-tight">
-              {featured ? "Explore the lineup" : "Earn SOL on these tokens"}
+              {featured ? "All $TEND campaigns" : "Earn SOL on these tokens"}
             </h2>
           </div>
-          {live.length > (featured ? 4 : 3) && (
+          {all.length > (featured ? 4 : 3) && (
             <Link
               href="/campaigns"
               className="text-sm text-[var(--accent)] hover:underline inline-flex items-center gap-1"

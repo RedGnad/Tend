@@ -4,10 +4,14 @@ import {
   Coins,
   Sparkles,
   Shield,
-  Terminal,
   Zap,
   Gift,
   Trophy,
+  GitBranch,
+  Play,
+  Settings,
+  Terminal,
+  ExternalLink,
 } from "lucide-react";
 
 export default function CreatorPage() {
@@ -146,30 +150,92 @@ export default function CreatorPage() {
         </p>
       </section>
 
-      {/* How to activate — via MCP */}
+      {/* How to activate — 3 steps */}
       <section id="activate" className="mb-16 scroll-mt-20">
         <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
           How to activate
         </p>
         <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold font-display tracking-tight mb-2">
-          Your control plane lives in Claude Desktop
+          Three steps to launch your first campaign
         </h2>
         <p className="text-[14px] text-[var(--text-muted)] mb-8 max-w-[640px]">
-          Tend ships as an MCP server — the creator console is natural
-          language. Install once, then drive every campaign from a chat.
+          Tend is open-source. Clone the repo, configure your token, and the
+          agent handles everything from swap detection to payout.
         </p>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 mb-6">
-          <div className="flex items-center gap-2 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--border)] rounded-2xl overflow-hidden mb-8">
+          {[
+            {
+              step: "01",
+              icon: GitBranch,
+              title: "Clone & configure",
+              desc: "Clone the repo, add your BAGS_API_KEY, SOLANA_RPC_URL, and TEND_PRIVATE_KEY. Define your campaign type and parameters in the agent config.",
+            },
+            {
+              step: "02",
+              icon: Play,
+              title: "Run the agent",
+              desc: "Start the Tend agent. It watches the chain for qualifying swaps, runs every wallet through the Claude AI fraud gate, and pays out SOL automatically.",
+            },
+            {
+              step: "03",
+              icon: Settings,
+              title: "Monitor & adjust",
+              desc: "Check the dashboard for live stats, payout history, and fraud verdicts. Pause, top-up, or launch new campaigns as you go.",
+            },
+          ].map((s) => (
+            <div key={s.step} className="bg-[var(--bg-card)] p-8">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-[32px] font-bold font-display text-[var(--border-hover)] leading-none">
+                  {s.step}
+                </span>
+                <div className="w-8 h-8 rounded-lg bg-[var(--accent-dim)] flex items-center justify-center">
+                  <s.icon size={14} className="text-[var(--accent)]" />
+                </div>
+              </div>
+              <h3 className="text-base font-semibold mb-2">{s.title}</h3>
+              <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+                {s.desc}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-center gap-3 flex-wrap">
+          <a
+            href="https://github.com/RedGnad/Tend"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="gradient-btn px-6 py-3 rounded-xl text-[14px] font-semibold inline-flex items-center gap-2"
+          >
+            View on GitHub <ExternalLink size={13} />
+          </a>
+          <a
+            href="#mcp"
+            className="btn-secondary px-6 py-3 rounded-xl text-[14px] inline-flex items-center gap-2"
+          >
+            <Terminal size={14} />
+            Advanced: Claude Desktop
+          </a>
+        </div>
+      </section>
+
+      {/* MCP — secondary, collapsed feel */}
+      <section id="mcp" className="mb-16 scroll-mt-20">
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6">
+          <div className="flex items-center gap-2 mb-2">
             <Terminal size={14} className="text-[var(--accent)]" />
-            <h3 className="text-[13px] font-semibold font-mono uppercase tracking-wider">
-              1 · Add Tend to{" "}
-              <code className="text-[var(--accent)]">
-                claude_desktop_config.json
-              </code>
-            </h3>
+            <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+              Advanced: Claude Desktop MCP
+            </p>
           </div>
-          <pre className="text-[11px] font-mono bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4 overflow-x-auto leading-relaxed">
+          <p className="text-[14px] text-[var(--text-muted)] mb-5 max-w-[640px]">
+            Tend also ships as an MCP server. Power users can manage campaigns
+            in natural language from Claude Desktop — create, pause, top-up,
+            and review payouts from a chat.
+          </p>
+
+          <pre className="text-[11px] font-mono bg-[var(--bg)] border border-[var(--border)] rounded-lg p-4 overflow-x-auto leading-relaxed mb-5">
 {`{
   "mcpServers": {
     "tend": {
@@ -185,63 +251,24 @@ export default function CreatorPage() {
   }
 }`}
           </pre>
-        </div>
 
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Terminal size={14} className="text-[var(--accent)]" />
-            <h3 className="text-[13px] font-semibold font-mono uppercase tracking-wider">
-              2 · Six creator tools, one conversation
-            </h3>
-          </div>
-          <div className="space-y-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
-              {
-                tool: "create_campaign",
-                example:
-                  '"Create a 2% cashback campaign on <mint> with a 0.04 SOL pool"',
-              },
-              {
-                tool: "create_holder_campaign",
-                example:
-                  '"Create a holder campaign on <mint>: 1% per snapshot, 1h min hold, every 2h, 0.02 SOL pool"',
-              },
-              {
-                tool: "create_sprint_campaign",
-                example:
-                  '"Launch a sprint on <mint>: 0.005 SOL bonus, 6 winners, min buy 0.01 SOL, 0.03 SOL pool"',
-              },
-              {
-                tool: "view_campaign_stats",
-                example: '"Show me the stats for my <mint> campaign"',
-              },
-              {
-                tool: "topup_pool",
-                example: '"Top up the <mint> pool with 0.02 SOL"',
-              },
-              {
-                tool: "pause_campaign",
-                example: '"Pause the <mint> campaign"',
-              },
-            ].map((cmd) => (
+              "create_campaign",
+              "view_campaign_stats",
+              "topup_pool",
+              "pause_campaign",
+              "create_holder_campaign",
+              "create_sprint_campaign",
+            ].map((tool) => (
               <div
-                key={cmd.tool}
-                className="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-4 text-[12px]"
+                key={tool}
+                className="text-[10px] font-mono text-[var(--accent)] bg-[var(--bg)] rounded-md px-2 py-1.5 border border-[var(--border)] truncate"
               >
-                <code className="font-mono text-[var(--accent)] sm:w-[200px] flex-shrink-0">
-                  {cmd.tool}
-                </code>
-                <span className="text-[var(--text-muted)] italic leading-relaxed">
-                  {cmd.example}
-                </span>
+                {tool}
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-[var(--text-muted)] mt-5 pt-4 border-t border-[var(--border)]">
-            Under the hood each tool calls the Bags SDK, writes the canonical
-            state, and (for creation) broadcasts a real on-chain tx. No hidden
-            writes, no local-only fantasy.
-          </p>
         </div>
       </section>
 
@@ -252,11 +279,11 @@ export default function CreatorPage() {
           style={{ borderColor: "rgba(0, 255, 178, 0.12)" }}
         >
           <h2 className="text-[clamp(1.3rem,3vw,1.8rem)] font-bold font-display tracking-tight mb-3">
-            Running Bags Tend on your own token?
+            Running Tend on your own token?
           </h2>
           <p className="text-[13px] text-[var(--text-muted)] max-w-[520px] mx-auto mb-6">
             The repo is open-source. Clone it, plug in your keys, and your
-            control plane is live in under five minutes.
+            first campaign is live in under five minutes.
           </p>
           <a
             href="https://github.com/RedGnad/Tend"
