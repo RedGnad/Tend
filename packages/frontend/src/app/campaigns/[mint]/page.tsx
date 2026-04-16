@@ -10,6 +10,8 @@ import {
   Users,
   TrendingUp,
   Shield,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import type { Campaign, RewardPayout, FraudDecision } from "@tend/shared";
 import { JupiterSwap } from "@/components/jupiter-swap";
@@ -52,6 +54,7 @@ export default function CampaignDetailPage() {
 
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [showAllFraud, setShowAllFraud] = useState(false);
 
   useEffect(() => {
     if (!mint) return;
@@ -69,7 +72,7 @@ export default function CampaignDetailPage() {
 
   if (notFound) {
     return (
-      <div className="max-w-[800px] mx-auto px-6 py-20 text-center">
+      <div className="max-w-[900px] mx-auto px-6 py-20 text-center">
         <p className="text-[var(--text-secondary)] mb-3">Campaign not found.</p>
         <Link
           href="/campaigns"
@@ -83,11 +86,11 @@ export default function CampaignDetailPage() {
 
   if (!detail) {
     return (
-      <div className="max-w-[1200px] mx-auto px-6 py-20">
-        <div className="h-8 w-48 bg-[var(--border)] rounded shimmer mb-6" />
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
-          <div className="h-64 bg-[var(--bg-card)] rounded-2xl shimmer" />
-          <div className="h-96 bg-[var(--bg-card)] rounded-2xl shimmer" />
+      <div className="max-w-[1280px] mx-auto px-6 py-10">
+        <div className="h-16 bg-[var(--bg-card)] rounded-2xl shimmer mb-4" />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-4">
+          <div className="h-[420px] bg-[var(--bg-card)] rounded-2xl shimmer" />
+          <div className="h-[420px] bg-[var(--bg-card)] rounded-2xl shimmer" />
         </div>
       </div>
     );
@@ -114,394 +117,314 @@ export default function CampaignDetailPage() {
     0n
   );
 
-  return (
-    <div className="max-w-[1200px] mx-auto px-6 py-10">
-      <Link
-        href="/campaigns"
-        className="text-[12px] text-[var(--text-muted)] hover:text-[var(--accent)] inline-flex items-center gap-1 mb-6"
-      >
-        <ArrowLeft size={12} /> All campaigns
-      </Link>
+  const visibleFraud = showAllFraud
+    ? fraudDecisions
+    : fraudDecisions.slice(0, 3);
 
-      {/* Header — full width */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 mb-4">
-        <div className="flex items-center justify-between mb-5">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center text-xl font-bold font-display gradient-text">
-              {symbol.charAt(0)}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold font-display">${symbol}</h1>
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg)] text-[var(--text-muted)] font-mono font-semibold tracking-wider border border-[var(--border)]">
-                  {campaign.type.toUpperCase()}
-                </span>
-                {name !== symbol && (
-                  <span className="text-[13px] text-[var(--text-muted)]">
-                    {name}
-                  </span>
-                )}
-              </div>
-              <a
-                href={`https://solscan.io/token/${campaign.tokenMint}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-[var(--text-muted)] font-mono hover:text-[var(--accent)] inline-flex items-center gap-1"
-              >
-                {campaign.tokenMint.slice(0, 6)}...
-                {campaign.tokenMint.slice(-4)}
-                <ExternalLink size={9} />
-              </a>
-            </div>
+  return (
+    <div className="max-w-[1280px] mx-auto px-6 py-6">
+      {/* Top bar: back + token identity + stats inline */}
+      <div className="flex items-center gap-4 mb-4">
+        <Link
+          href="/campaigns"
+          className="text-[var(--text-muted)] hover:text-[var(--accent)] flex-shrink-0"
+        >
+          <ArrowLeft size={16} />
+        </Link>
+
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center text-lg font-bold font-display gradient-text flex-shrink-0">
+            {symbol.charAt(0)}
           </div>
-          <span
-            className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
-              isLive
-                ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                : "bg-[rgba(113,113,122,0.12)] text-[#a1a1aa]"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                isLive
-                  ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]"
-                  : "bg-[#a1a1aa]"
-              }`}
-            />
-            {campaign.status}
-          </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold font-display">${symbol}</h1>
+              {name !== symbol && (
+                <span className="text-[13px] text-[var(--text-muted)] truncate">
+                  {name}
+                </span>
+              )}
+              <span
+                className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                  isLive
+                    ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                    : "bg-[rgba(113,113,122,0.12)] text-[#a1a1aa]"
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isLive
+                      ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]"
+                      : "bg-[#a1a1aa]"
+                  }`}
+                />
+                {campaign.status}
+              </span>
+            </div>
+            <a
+              href={`https://solscan.io/token/${campaign.tokenMint}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-[var(--text-muted)] font-mono hover:text-[var(--accent)] inline-flex items-center gap-1"
+            >
+              {campaign.tokenMint.slice(0, 6)}...
+              {campaign.tokenMint.slice(-4)}
+              <ExternalLink size={9} />
+            </a>
+          </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-5">
-          <div className="bg-[var(--bg)] rounded-lg p-3">
-            <p className="text-xl font-semibold font-mono gradient-text">
+        {/* Inline stats */}
+        <div className="hidden md:flex items-center gap-6 flex-shrink-0">
+          <div className="text-right">
+            <p className="text-lg font-semibold font-mono gradient-text leading-tight">
               {campaign.type === "cashback"
                 ? `${(campaign.config.cashbackBps / 100).toFixed(1)}%`
                 : campaign.type === "holder"
                   ? `${(campaign.config.rewardBps / 100).toFixed(1)}%`
                   : `${formatSol(campaign.config.bonusLamports)} SOL`}
             </p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
+            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider">
               {campaign.type === "cashback"
-                ? "Cashback on buys"
+                ? "Cashback"
                 : campaign.type === "holder"
-                  ? `Per snapshot · ${campaign.config.minHoldHours}h min`
-                  : `Flat bonus · ${campaign.config.maxWinners} winners`}
+                  ? "Per snapshot"
+                  : "Bonus"}
             </p>
           </div>
-          <div className="bg-[var(--bg)] rounded-lg p-3">
-            <p className="text-xl font-semibold font-mono">
-              {formatSol(remaining)} SOL
+          <div className="w-px h-8 bg-[var(--border)]" />
+          <div className="text-right">
+            <p className="text-lg font-semibold font-mono leading-tight">
+              {formatSol(remaining)}
             </p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
-              Pool remaining
+            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider">
+              SOL left
             </p>
           </div>
-          <div className="bg-[var(--bg)] rounded-lg p-3">
-            <p className="text-xl font-semibold font-mono">
-              {formatSol(campaign.poolCapLamports)} SOL
+          <div className="w-px h-8 bg-[var(--border)]" />
+          <div className="text-right">
+            <p className="text-lg font-semibold font-mono leading-tight">
+              {stats.uniqueTraders}
             </p>
-            <p className="text-[10px] text-[var(--text-muted)] mt-0.5 uppercase tracking-wider">
-              Pool size
+            <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider">
+              Traders
             </p>
           </div>
         </div>
+      </div>
 
-        <div className="h-1.5 w-full bg-[var(--bg)] rounded-full overflow-hidden mb-2">
+      {/* Pool progress — thin, full width */}
+      <div className="mb-4">
+        <div className="h-1 w-full bg-[var(--bg-card)] rounded-full overflow-hidden">
           <div
             className="h-full bg-[var(--accent)] transition-all"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
+        <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-1">
           <span>{progress.toFixed(1)}% distributed</span>
-          <span>{formatSol(campaign.poolSpentLamports)} SOL paid out</span>
+          <span>
+            {formatSol(campaign.poolSpentLamports)} /{" "}
+            {formatSol(campaign.poolCapLamports)} SOL
+          </span>
         </div>
       </div>
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-4">
-        {/* Left column — campaign info */}
-        <div className="space-y-4">
-          {/* How to earn */}
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6">
-            <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-3">
-              How to earn
-            </p>
-            {campaign.type === "cashback" ? (
-              <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed">
-                Buy ${symbol} on any Solana exchange. The Tend agent detects your
-                trade on-chain, runs an AI fraud gate, and pays{" "}
-                <span className="text-[var(--accent)] font-semibold">
-                  {(campaign.config.cashbackBps / 100).toFixed(1)}% cashback
-                </span>{" "}
-                on the SOL you spent — sent to your wallet within minutes.
-              </p>
-            ) : campaign.type === "holder" ? (
-              <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed">
-                Hold ${symbol} for at least{" "}
-                <span className="text-[var(--accent)] font-semibold">
-                  {campaign.config.minHoldHours}h
-                </span>
-                . Every {campaign.config.snapshotCronHours}h the Tend agent
-                snapshots eligible holders, runs each wallet through the AI fraud
-                gate, and pays a pro-rata share of{" "}
-                <span className="text-[var(--accent)] font-semibold">
-                  {(campaign.config.rewardBps / 100).toFixed(1)}% of the pool
-                </span>{" "}
-                — sent to your wallet within minutes.
-              </p>
-            ) : campaign.type === "sprint" ? (
-              <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed">
-                Be one of the first{" "}
-                <span className="text-[var(--accent)] font-semibold">
-                  {campaign.config.maxWinners}
-                </span>{" "}
-                wallets to buy at least{" "}
-                <span className="text-[var(--accent)] font-semibold">
-                  {formatSol(campaign.config.minBuyLamports)} SOL
-                </span>{" "}
-                of ${symbol}. The Tend agent runs an AI fraud gate (snipe bots
-                and fresh-wallet farms are rejected) and pays a flat{" "}
-                <span className="text-[var(--accent)] font-semibold">
-                  {formatSol(campaign.config.bonusLamports)} SOL
-                </span>{" "}
-                bonus to each qualifying winner. One bonus per wallet.
-              </p>
-            ) : (
-              <p className="text-[14px] text-[var(--text-secondary)] leading-relaxed">
-                This campaign type is live on-chain. The Tend agent handles
-                eligibility, the AI fraud gate checks every wallet, and payouts
-                hit your wallet within minutes.
-              </p>
-            )}
-          </div>
-
-          {/* My earnings (if connected) */}
-          {connected && (
-            <div
-              className="bg-[var(--bg-card)] border rounded-2xl p-6"
-              style={{ borderColor: "rgba(0, 255, 178, 0.12)" }}
-            >
-              <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-3">
-                Your rewards on this campaign
-              </p>
-              {myPayouts.length > 0 ? (
-                <div>
-                  <p className="text-2xl font-bold font-mono gradient-text mb-1">
-                    {formatSol(myEarnedLamports)} SOL
-                  </p>
-                  <p className="text-[12px] text-[var(--text-muted)]">
-                    from {myPayouts.length} qualifying{" "}
-                    {campaign.type === "holder"
-                      ? myPayouts.length === 1
-                        ? "snapshot"
-                        : "snapshots"
-                      : campaign.type === "sprint"
-                        ? myPayouts.length === 1
-                          ? "winning buy"
-                          : "winning buys"
-                        : myPayouts.length === 1
-                          ? "trade"
-                          : "trades"}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-[13px] text-[var(--text-muted)]">
-                  {campaign.type === "holder"
-                    ? `No rewards yet. Hold $${symbol} for ${campaign.config.minHoldHours}h+ to qualify.`
-                    : campaign.type === "sprint"
-                      ? `No bonus yet. Buy ≥ ${formatSol(campaign.config.minBuyLamports)} SOL of $${symbol} before the sprint fills.`
-                      : `No rewards yet. Trade $${symbol} to start earning.`}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* AI Fraud Gate */}
-          {fraudDecisions.length > 0 && (
-            <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Shield size={13} className="text-[var(--accent)]" />
-                  <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
-                    AI fraud gate
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
-                  <span className="font-mono">
-                    {
-                      fraudDecisions.filter((d) => d.decision === "allow")
-                        .length
-                    }{" "}
-                    allowed
-                  </span>
-                  <span>·</span>
-                  <span className="font-mono">
-                    {
-                      fraudDecisions.filter((d) => d.decision !== "allow")
-                        .length
-                    }{" "}
-                    blocked
-                  </span>
-                </div>
-              </div>
-
-              <p className="text-[12px] text-[var(--text-muted)] mb-4">
-                Every payout passes through Claude Haiku before SOL moves
-                on-chain.
-              </p>
-
-              <div className="divide-y divide-[var(--border)]">
-                {fraudDecisions.map((d) => (
-                  <div key={d.id} className="py-3">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-[12px] text-[var(--text-secondary)]">
-                          {d.traderWallet.slice(0, 4)}...
-                          {d.traderWallet.slice(-4)}
-                        </span>
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
-                            d.decision === "allow"
-                              ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                              : d.decision === "reject"
-                                ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
-                                : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
-                          }`}
-                        >
-                          {d.decision}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-[10px] text-[var(--text-muted)] font-mono">
-                        {d.walletContext.walletAgeHours != null && (
-                          <span>
-                            {d.walletContext.walletAgeHours >= 24
-                              ? `${Math.floor(d.walletContext.walletAgeHours / 24)}d old`
-                              : `${Math.round(d.walletContext.walletAgeHours)}h old`}
-                          </span>
-                        )}
-                        {d.walletContext.txCount != null && (
-                          <span>{d.walletContext.txCount} txs</span>
-                        )}
-                        <span>{timeAgo(d.checkedAt)}</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed italic">
-                      &ldquo;{d.reasoning}&rdquo;
-                    </p>
-                    {d.flags.length > 0 && (
-                      <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                        {d.flags.map((f) => (
-                          <span
-                            key={f}
-                            className="text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg)] text-[var(--text-muted)] font-mono border border-[var(--border)]"
-                          >
-                            {f}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Recent payouts */}
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={13} className="text-[var(--accent)]" />
-                <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
-                  Recent payouts
-                </p>
-              </div>
-              <div className="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
-                <span className="inline-flex items-center gap-1">
-                  <Users size={11} />
-                  {stats.uniqueTraders}
-                </span>
-                <span>·</span>
-                <span className="font-mono">
-                  {formatSol(stats.totalPaidLamports)} SOL paid
-                </span>
-              </div>
-            </div>
-
-            {recentPayouts.length === 0 ? (
-              <p className="text-[13px] text-[var(--text-muted)] py-6 text-center">
-                No payouts yet. Be the first.
-              </p>
-            ) : (
-              <div className="divide-y divide-[var(--border)]">
-                {recentPayouts.map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between py-3 gap-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="font-mono text-[12px] truncate text-[var(--text-secondary)]">
-                          {p.traderWallet.slice(0, 4)}...
-                          {p.traderWallet.slice(-4)}
-                        </span>
-                        <span
-                          className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
-                            p.status === "paid"
-                              ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                              : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
-                          }`}
-                        >
-                          {p.status}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                        {campaign.type === "holder"
-                          ? "holder snapshot"
-                          : `swap ${formatSol(p.swapVolumeLamports)} SOL`}{" "}
-                        · {timeAgo(p.createdAt)}
-                      </p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-mono text-[13px] text-[var(--accent)] font-semibold">
-                        +{formatSol(p.rewardLamports)} SOL
-                      </p>
-                      {p.payoutTxSig && p.payoutTxSig !== "DRY_RUN" && (
-                        <a
-                          href={`https://solscan.io/tx/${p.payoutTxSig}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] inline-flex items-center gap-0.5 font-mono"
-                        >
-                          tx <ExternalLink size={8} />
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+      {/* Main: chart (large) + swap (sidebar) */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-4 mb-4">
+        {/* Chart — takes most of the width */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4 min-h-[420px]">
+          <PriceChart mint={campaign.tokenMint} />
         </div>
 
-        {/* Right column — chart + swap (sticky) */}
-        <div className="lg:sticky lg:top-6 lg:self-start space-y-4">
-          {/* Price chart */}
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
-            <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-3">
-              Price
+        {/* Swap panel */}
+        <div className="space-y-3">
+          {/* Earn banner — the hook */}
+          <div className="rounded-2xl p-4 border border-[rgba(0,255,178,0.2)] bg-[rgba(0,255,178,0.04)]">
+            <div className="flex items-center gap-3 mb-1.5">
+              <span className="text-3xl font-bold font-mono gradient-text leading-none">
+                {campaign.type === "cashback"
+                  ? `${(campaign.config.cashbackBps / 100).toFixed(0)}%`
+                  : campaign.type === "holder"
+                    ? `${(campaign.config.rewardBps / 100).toFixed(0)}%`
+                    : `${formatSol(campaign.config.bonusLamports)} SOL`}
+              </span>
+              <span className="text-[13px] text-[var(--text-secondary)] font-semibold leading-tight">
+                {campaign.type === "cashback"
+                  ? "cashback on every buy"
+                  : campaign.type === "holder"
+                    ? "rewards per snapshot"
+                    : "bonus per winner"}
+              </span>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+              {campaign.type === "cashback"
+                ? `Buy $${symbol} below → get SOL back in your wallet within minutes. AI fraud gate protects every payout.`
+                : campaign.type === "holder"
+                  ? `Hold $${symbol} for ${campaign.config.minHoldHours}h+ to qualify. Snapshots every ${campaign.config.snapshotCronHours}h. AI fraud gate protects every payout.`
+                  : `${campaign.config.maxWinners} spots left. Buy ≥ ${formatSol(campaign.config.minBuyLamports)} SOL below to qualify. AI fraud gate protects every payout.`}
             </p>
-            <PriceChart mint={campaign.tokenMint} />
+            <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-[var(--text-muted)]">
+              <span>{formatSol(remaining)} SOL left in pool</span>
+              <span>·</span>
+              <span>{stats.uniqueTraders} traders</span>
+            </div>
           </div>
 
-          {/* Swap — always visible when live */}
+          {/* My rewards (if connected) */}
+          {connected && myPayouts.length > 0 && (
+            <div className="flex items-center justify-between rounded-xl p-3 bg-[var(--bg-card)] border border-[var(--border)]">
+              <p className="text-[11px] text-[var(--text-muted)]">
+                Your rewards
+              </p>
+              <p className="font-mono text-[var(--accent)] font-semibold text-[14px]">
+                +{formatSol(myEarnedLamports)} SOL
+              </p>
+            </div>
+          )}
+
+          {/* Swap */}
           {isLive && (
             <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
-              <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-3">
-                {campaign.type === "holder" ? "Buy & hold" : "Trade"}
-              </p>
               <JupiterSwap outputMint={campaign.tokenMint} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom row: fraud gate + recent payouts side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* AI Fraud Gate — compact table */}
+        {fraudDecisions.length > 0 && (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Shield size={12} className="text-[var(--accent)]" />
+                <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                  AI fraud gate
+                </p>
+              </div>
+              <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                {fraudDecisions.filter((d) => d.decision === "allow").length}{" "}
+                allowed ·{" "}
+                {fraudDecisions.filter((d) => d.decision !== "allow").length}{" "}
+                blocked
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              {visibleFraud.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                >
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
+                      d.decision === "allow"
+                        ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                        : d.decision === "reject"
+                          ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
+                          : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                    }`}
+                  >
+                    {d.decision}
+                  </span>
+                  <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
+                    {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
+                  </span>
+                  <span className="text-[var(--text-muted)] truncate flex-1 text-[11px] italic">
+                    {d.reasoning}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0">
+                    {timeAgo(d.checkedAt)}
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            {fraudDecisions.length > 3 && (
+              <button
+                onClick={() => setShowAllFraud((v) => !v)}
+                className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--accent)] mt-2 mx-auto"
+              >
+                {showAllFraud ? (
+                  <>
+                    Show less <ChevronUp size={12} />
+                  </>
+                ) : (
+                  <>
+                    Show {fraudDecisions.length - 3} more{" "}
+                    <ChevronDown size={12} />
+                  </>
+                )}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Recent payouts — compact */}
+        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={12} className="text-[var(--accent)]" />
+              <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                Recent payouts
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
+              <Users size={10} />
+              <span className="font-mono">
+                {stats.uniqueTraders} traders ·{" "}
+                {formatSol(stats.totalPaidLamports)} SOL
+              </span>
+            </div>
+          </div>
+
+          {recentPayouts.length === 0 ? (
+            <p className="text-[12px] text-[var(--text-muted)] py-4 text-center">
+              No payouts yet. Be the first.
+            </p>
+          ) : (
+            <div className="space-y-1.5">
+              {recentPayouts.slice(0, 8).map((p) => (
+                <div
+                  key={p.id}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                >
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
+                      p.status === "paid"
+                        ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                        : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                    }`}
+                  >
+                    {p.status}
+                  </span>
+                  <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
+                    {p.traderWallet.slice(0, 4)}...{p.traderWallet.slice(-4)}
+                  </span>
+                  <span className="text-[var(--text-muted)] flex-1 text-[11px] font-mono">
+                    {campaign.type === "holder"
+                      ? "snapshot"
+                      : `${formatSol(p.swapVolumeLamports)} SOL`}
+                  </span>
+                  <span className="font-mono text-[var(--accent)] font-semibold flex-shrink-0">
+                    +{formatSol(p.rewardLamports)}
+                  </span>
+                  {p.payoutTxSig && p.payoutTxSig !== "DRY_RUN" ? (
+                    <a
+                      href={`https://solscan.io/tx/${p.payoutTxSig}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex-shrink-0"
+                    >
+                      <ExternalLink size={10} />
+                    </a>
+                  ) : (
+                    <span className="w-[10px] flex-shrink-0" />
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>
