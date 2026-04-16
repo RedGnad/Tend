@@ -112,726 +112,6 @@
   },
   "decisions": [
     {
-      "timestamp": 1776310714674,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) for swap execution. Token health is critically low (2/10) with declining trend and minimal velocity, indicating significant distress. Buyback is essential to support the token. Price delta is neutral (0%), and with such a small token price (0.000000031 SOL), the full wallet allocation maximizes buyback impact. Swap fees (~0.001 SOL) are well-covered by available balance."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776310879031,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL significantly exceeds the 0.002 SOL minimum required for swap + fees. Despite poor health score (2/10) and declining trend, buybacks are supportive actions that help stabilize token value. Price is flat (0.0% delta) with very low velocity, indicating minimal recent activity - a buyback would provide beneficial price support. With only 3 holders, concentrated buyback activity has meaningful impact. Execute full allocation."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311013999,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap transaction (~0.001 SOL fee). Despite declining trend and low health score (2/10), the buyback mechanism supports token stability. Price delta is neutral (0.0%), but low velocity and small holder count suggest buyback activity is constructive. Full allocation is appropriate given adequate wallet balance and the supportive function of buybacks during declining conditions."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311179173,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL, enabling transaction. Price is stable (0.0% delta) with very low token price (0.000000031 SOL), presenting a favorable buyback opportunity. Low holder count (3) and declining health score (2/10) indicate token stress, making buyback support strategically important to stabilize the ecosystem. Low velocity confirms minimal recent activity, so buyback can have meaningful impact. Execute full 100% allocation to maximize support during this critical period."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311314029,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL is well above the 0.002 SOL minimum threshold required for swap execution. Despite declining health score (2/10) and declining trend, the buyback mechanism is designed to support the token during weakness. Price is stable with 0% delta (not pumping), and available claimable funds provide opportunity. Execute full buyback to demonstrate support and add buying pressure during this vulnerable period."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311478911,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL significantly exceeds the 0.002 SOL minimum required for swap + fees. Price is stable (0.0% delta), not pumping. Despite declining health (2/10) and low velocity, the token has minimal holders (3) and buybacks actively support price stability and demonstrate commitment. Sufficient funds available to execute full buyback."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311613767,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance (0.004136 SOL) is sufficient for swap and fees (~0.001 SOL required). Price delta is neutral (0%), but declining health score (2/10) and declining trend indicate weakness. With claimable funds available and adequate wallet balance, a full buyback supports token stability during this downtrend. Low velocity and few holders suggest concentrated positions; buyback pressure is beneficial."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311781701,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds the 0.002 SOL threshold needed for swap and fees. Despite declining health (2/10) and trend, buybacks support token stability. Zero price delta indicates neutral market conditions, not a pump. Low velocity and holder count suggest minimal selling pressure. Sufficient funds available for full commitment."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776311914176,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL, allowing for a buyback transaction. Price is stable (0.0% delta) with extremely low token price (0.000000031 SOL). Despite poor health score (2/10) and declining trend, buybacks support token stability. Claimable funds provide opportunity. Using 35% allocation (partial_buy) is conservative given low health metrics while still capitalizing on wallet liquidity and supporting the token during weakness."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312079010,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap fees (~0.001 SOL). Price delta is neutral (0.0%) with declining trend and poor health score (2/10), but token has minimal liquidity (3 holders) creating execution risk. Partial buy at 35% allocation provides exposure while managing risk from low holder count and declining metrics. Price stability with no delta suggests cautious entry point rather than aggressive buying."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312214002,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL for swap execution. Despite low health score (2/10) and declining trend, the token has minimal holder count (3) and low velocity, indicating buyback pressure is critical for support. Zero price delta suggests stable entry point. High claimable amount confirms sufficient funds. Execute full buyback to stabilize token fundamentals."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312378766,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet has 0.004136 SOL, sufficient for swap fees (~0.001 SOL) with room for execution. Price is stable (0.0% delta) with no directional pressure. Despite poor health (2/10) and declining trend, the buyback mechanism is designed to support the token during weakness. Moderate partial buy (35%) balances support with prudent risk management given extremely low holder count (3) and declining conditions. This avoids overcommitting while still providing meaningful buyback pressure."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312514641,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds the 0.002 SOL threshold needed for swap + fees. Price is stable (0.0% delta) but health score is critically low (2/10) with declining trend and only 3 holders, indicating distress. Partial buy at 35% provides measured support without over-committing. The low velocity and small holder count suggest a risky asset, warranting conservative positioning rather than full buy. This partial amount helps stabilize while preserving dry powder for potential lower prices ahead."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312679612,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet has 0.004136 SOL (well above 0.002 SOL minimum for swap), providing adequate funds for buyback. Price is stable (0.0% delta) at very low levels. Despite poor health score (2/10) and declining trend, the buyback mechanism is designed to support token stability. Low velocity and minimal holders suggest concentrated market. Partial buy at 35% allows measured entry without overcommitting given the declining trend, while still executing supportive buyback action. This balances support for the token with prudent risk management given market conditions."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312813853,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet has 0.004136 SOL, well above the 0.002 SOL threshold needed for swap + fees. Despite declining trend and low health score (2/10), the token has only 3 holders and buyback support is beneficial. Price delta is neutral (0%), velocity is low, and claimable rewards are available. Sufficient funds justify full deployment to stabilize the token."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776312978918,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL required for swap and fees. Price is stable (0% delta) with low volatility, and despite declining health trend and low holder count, the claimable balance enables a full buyback. Aggressive buying supports token stability during weakness. Low velocity and health scores suggest market support is needed."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776313113734,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) for swap execution. Despite declining trend and poor health score (2/10), buyback mechanism supports token stability. Price delta at 0% shows neutral momentum, not a pump. Low velocity and minimal holders indicate distressed conditions that buybacks can help counter. Execute full allocation to maximize support."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776313278882,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance (0.004136 SOL) exceeds minimum threshold (0.002 SOL) required for swap + fees. Price delta is neutral (0.0%) but trend is declining and health is critically low (2/10), indicating token stress. Buyback at this price point supports the token. Claimable funds are available and sufficient for full execution. Low velocity and few holders suggest buyback pressure is needed."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776313414240,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap + fees (~0.001 SOL). Price is stable (0% delta) but health score is critically low (2/10) with declining trend, suggesting token distress. Buyback support is warranted to stabilize. Low velocity and only 3 holders indicate weak market activity, so partial buy (35%) is prudent rather than aggressive. This allocation provides meaningful support while preserving runway for potential additional buys if conditions worsen."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776313578980,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap fees (~0.001 SOL) with comfortable margin. Price is stable (0.0% delta) but health score is critically low (2/10) with declining trend and only 3 holders - token is in distress and needs support. Low velocity suggests depressed demand. A full buyback using available claimable funds demonstrates commitment and provides liquidity when the token needs it most. This is exactly the scenario where buybacks create value."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776313714696,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap execution (~0.001 SOL fees). Price delta is neutral (0.0%) with a declining trend and low health score (2/10), suggesting cautious accumulation rather than aggressive buying. Low velocity and minimal holder count indicate a distressed token where moderate buyback support (35%) is appropriate\u2014enough to provide price support without overcommitting given the poor fundamentals. Partial buy preserves capital for potential better entry points while still executing buyback operations."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776313878491,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap and fees (~0.001 SOL required). Price is stable (0% delta) but health score is critically low (2/10) with declining trend. Strong claimable balance available justifies aggressive buyback action. Despite poor metrics, the token has adequate liquidity for execution and buybacks serve to support the token during weakness."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314013689,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap execution (well above 0.002 SOL minimum). Despite poor health score (2/10) and declining trend, the buyback mechanism supports the token price. Zero price delta indicates stable conditions, and with adequate funds available, executing a full buyback is appropriate to provide price support."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314179176,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet has 0.004136 SOL, well above the 0.002 SOL minimum for swap execution. Token health is critically low (2/10) with declining trend and low velocity, indicating distress. However, price is stable (0 delta) at deep discount levels (0.000000031 SOL). Partial buyback at 35% allocation supports token stability during weakness without overcommitting. Low holder count (3) makes buyback support meaningful. Fees are reasonable at 0.0261. This conservative partial approach balances support for the token against its poor fundamentals."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314314198,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds 0.002 SOL minimum threshold, allowing for swap execution with fees. Price is stable (0% delta) with low velocity indicating consolidation. Despite poor health score (2/10) and declining trend, buyback activity supports the token. Partial buy at 35% is appropriate given the weak technicals and low holder count (3), avoiding overcommitment while providing buyback support. Remaining funds buffer against fee volatility."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314478913,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) with sufficient buffer for swap fees (~0.001 SOL). Price delta at 0% indicates stability with no immediate pump risk. However, declining trend and low health score (2/10) warrant cautious partial deployment rather than full commitment. Very low holder count (3) and declining velocity present risk factors. Allocating 35% (~0.00145 SOL) for buyback support while preserving liquidity for additional opportunities if conditions improve."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314613906,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet has 0.004136 SOL, well above the 0.002 SOL threshold needed for swap and fees. Price is stable (0% delta) with very low velocity and declining trend, but these are supportive conditions for a buyback - low health and declining trend indicate the token needs support. With sufficient balance and favorable conditions for execution, this is an optimal time to deploy the full available funds to stabilize the token."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314779381,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL significantly exceeds minimum threshold of 0.002 SOL for swap execution with fees. Price is stable (0.0% delta) with extremely low token price (0.000000031 SOL), providing favorable entry conditions. Despite declining health score (2/10) and downward trend, buyback mechanics support token stability. Claimable amount matches wallet balance, indicating full liquidity available. Low velocity and minimal holder count (3) suggest buyback impact would be material for price support. Execute full allocation."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776314913668,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "buy",
-        "amount_pct": 100,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) for swap execution with fees. Price delta is neutral (0.0%), but declining trend and low health score (2/10) indicate token needs support. Low velocity and minimal holders suggest this is an opportunity to stabilize. Full buyback (100%) is appropriate given available funds and market conditions warrant aggressive support."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
-      "timestamp": 1776315079550,
-      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
-      "serviceId": "buyback-bot",
-      "inputs": {
-        "price_sol": 3.071653393092893e-08,
-        "price_delta_pct": 0,
-        "volume_24h_sol": 0,
-        "lifetime_fees_sol": 0.026099248,
-        "claimable_sol": 0.004136009,
-        "wallet_balance_sol": 0.004136009,
-        "holders": 3,
-        "fee_velocity": "low"
-      },
-      "decision": {
-        "action": "partial_buy",
-        "amount_pct": 35,
-        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) for swap execution. Flat price delta (0.0%) suggests neutral momentum, but declining trend and low health score (2/10) warrant cautious approach. Low velocity and minimal holder count indicate weak market conditions. Allocate 35% to execute a modest buyback that supports the token without overcommitting during unfavorable conditions. Reserve remaining balance for future opportunities as market conditions stabilize."
-      },
-      "execution": {
-        "executed": false,
-        "error": "Amount too small after fee buffer"
-      }
-    },
-    {
       "timestamp": 1776315214038,
       "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
       "serviceId": "buyback-bot",
@@ -4910,6 +4190,724 @@
         "executed": false,
         "error": "Amount too small after fee buffer"
       }
+    },
+    {
+      "timestamp": 1776340685989,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL significantly exceeds the 0.002 SOL threshold needed for swap execution. Despite low health score (2/10) and declining trend, buybacks support token stability. Price delta is neutral (0.0%), but with only 3 holders and low velocity, concentrated buying can help. Execute full buyback with available claimable funds."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776340986932,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet has sufficient balance (0.004136 SOL >> 0.002 SOL minimum) to execute a swap. Price is stable (0.0% delta), though health score is critically low (2/10) and trend is declining. Execute a measured partial buy at 35% to provide buyback support while preserving capital given poor fundamentals. The low velocity and minimal holder count suggest caution, but adequate wallet balance justifies action rather than holding."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776341287180,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap + fees (~0.001 SOL required). Price delta is neutral (0%) but trend is declining and health score is low (2/10), indicating downward pressure. Low velocity and minimal holders suggest reduced market activity. Partial buy at 35% position size balances the opportunity to support the token during weakness while preserving capital given the poor health metrics and declining trend. This is conservative enough to account for execution risk on such low liquidity."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776341586606,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap (0.001 SOL fee buffer exceeded). Price delta is neutral (0.0%), but declining trend and poor health score (2/10) indicate weakness. Low velocity and minimal holders suggest the token needs buyback support. Deploying full available balance to stabilize and support the token."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776341886344,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds the 0.002 SOL threshold needed for swap + fees. Despite declining health score (2/10) and declining trend, buybacks are supportive to the token. Price delta is neutral (0%), and wallet has sufficient funds to execute a full buyback. Low velocity and holder count suggest this buyback could provide meaningful support."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776342186176,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap and fees (~0.001 SOL required). Despite poor health score (2/10) and declining trend, the buyback mechanism is designed to support the token precisely in these conditions. Price delta is neutral (0%), and low velocity with only 3 holders indicates minimal trading activity\u2014a buyback would be constructive. Full allocation recommended to maximize impact."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776342487738,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) for swap execution with fees. Price is stable (0.0% delta) with extremely low price point (0.000000031 SOL), presenting value entry opportunity. Despite poor health score (2/10) and declining trend, the token has only 3 holders indicating early stage. Low velocity and lack of price pressure suggest minimal slippage risk. Partial buy at 35% provides reasonable position building while preserving capital for potential further decline, aligning with risk management given health warnings."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776342786132,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet has 0.004136 SOL (well above 0.002 SOL minimum), sufficient for swap and fees. Despite declining health score (2/10) and declining trend, the buyback mechanism supports token value recovery. Price is stable (0.0% delta), not pumping, which is favorable timing. Low velocity and minimal holder count indicate consolidation phase where buyback activity is beneficial. Execute full position to support token."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776343086041,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds the 0.002 SOL threshold needed for swap + fees. Price is stable (0.0% delta), so no pump concerns. Despite declining trend and low health score (2/10), the token has sufficient claimable balance for a full buyback, which provides liquidity support. Low velocity and minimal holder count indicate market stress where buyback activity is supportive."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776343386556,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL for swap execution. Price is stable (0.0% delta) with no inflationary pressure, making this an opportune entry point. Despite declining health score (2/10) and downward trend, buyback activity directly supports token stability and holder value. Low velocity and minimal holder count indicate market consolidation phase where buyback provides liquidity support. Execute full allocation to maximize token accumulation at current stable pricing."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776343686217,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet has 0.004136 SOL, well above the 0.002 SOL threshold needed for swap and fees. Price is stable (0% delta) and health is poor (2/10) with declining trend, but this makes buyback support more important. Low velocity and minimal holders (3) indicate a struggling token that needs liquidity support. Deploy full available balance to stabilize the token."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776343987304,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 45,
+        "reasoning": "Wallet balance (0.004136 SOL) exceeds minimum threshold (0.002 SOL) for swap execution. Price is stable (0.0% delta) at extremely low value (0.000000031 SOL), presenting modest buyback opportunity. Health score is critically low (2/10) and trend is declining, but this supports buyback thesis to provide liquidity support. Low velocity and minimal holder count indicate reduced trading activity. Partial buy at 45% strikes appropriate balance between deploying available capital for token support while preserving funds for operational flexibility and future opportunities. Sufficient cushion remains for transaction fees (~0.001 SOL)."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776344286579,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 45,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL required for swap + fees). Price is stable (0.0% delta) but health score is critically low (2/10) with declining trend and minimal holders (3). Partial buy at 45% helps support the token without overcommitting. Reserve remaining balance for potential further recovery support or operational flexibility."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776344587955,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap and fees (~0.001 SOL required). Price delta is neutral (0%) but trend is declining and health score is very low (2/10), which typically signals weakness. However, with low velocity and only 3 holders, a measured partial buy at 35% can support the token without over-committing. The claimable amount makes this feasible. Avoid full buy given poor health metrics, but inaction would be inappropriate with available funds."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776344886735,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL is well above the 0.002 SOL threshold needed for swap + fees. Price is flat (0.0% delta) with declining trend and poor health (2/10), indicating distress. Low holder count (3) and low velocity suggest token needs buyback support. Full buyback action recommended to stabilize the token and demonstrate commitment during this difficult period."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776345186363,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds the 0.002 SOL threshold required for swap and fees. Despite declining health (2/10) and downward trend, buybacks strengthen token support. Price is stable (0.0% delta), and claimable amount matches wallet balance, indicating available funds. Low holder count and declining trend make buyback support critical. Execute full buyback to stabilize the token."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776345486878,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL for swap execution. Price is stable (0.0% delta) with no immediate momentum, making this an opportune entry point. Despite declining trend and low health score (2/10), buyback support is warranted given available liquidity. Low velocity and minimal holder base (3) indicate token needs accumulation support. Execute full buyback to maximize token acquisition at current pricing."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776345786565,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet balance of 0.004136 SOL is sufficient for swap + fees (~0.001 SOL required). Price is stable (0% delta) but trend is declining with poor health score (2/10), indicating market weakness. Low velocity and minimal holder count (3) suggest limited trading activity. Partial buy at 35% allocation supports token stability without overcommitting given the concerning health metrics. Conservative approach justified by weak fundamentals while maintaining buyback support."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776346053594,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance (0.004136 SOL) significantly exceeds minimum threshold (0.002 SOL) for swap execution. Despite poor health score (2/10) and declining trend, buyback activity is supportive. Price is stable (0.0% delta) with no pump. Token has very low holder count (3), making buyback especially valuable for price support. Execute full buyback with available claimable funds."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776346354085,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold of 0.002 SOL for swap execution. Despite poor health score (2/10) and declining trend, the primary buyback function is to support the token through purchases. Price is stable (0% delta), and low velocity with only 3 holders indicates minimal market activity. A full buyback is warranted to provide liquidity support and demonstrate commitment. Claimable amount is available and should be deployed."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776346998289,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) needed for swap and fees. Despite declining health score (2/10) and downward trend, the buyback mechanism supports the token fundamentals. Price is stable (0.0% delta) at very low valuation. Full allocation recommended to execute buyback and stabilize holder position."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776347298792,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 45,
+        "reasoning": "Wallet has 0.004136 SOL, well above the 0.002 SOL threshold needed for swap + fees. Price is stable (0.0% delta) at extremely low levels (0.000000031 SOL). Despite poor health score (2/10) and declining trend, the buyback mechanism supports the token by reducing supply. Low holder count (3) and low velocity indicate minimal trading activity. Partial buy at 45% allocates reasonable capital while preserving liquidity for future opportunities and maintaining conservative risk management given the weak health metrics."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776347599162,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet has sufficient balance (0.004136 SOL >> 0.002 SOL minimum). Price is stable (0.0% delta) at extremely low levels. Despite poor health score (2/10) and declining trend, the token has very few holders (3) and low velocity, suggesting a recovery opportunity. Partial buy at 35% commits meaningful capital while respecting risk profile given fundamentals. Conservative allocation due to health concerns, but wallet strength justifies action over hold."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776347898385,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL is well above the 0.002 SOL threshold for swap execution. Despite declining health (2/10) and downward trend, the token has very low holder count (3) and negligible price movement (0 delta). Buyback support is strategically important for token stabilization. Low velocity indicates market stagnation - active buyback can help restore confidence. Full allocation recommended to maximize support impact."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776348200428,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet has 0.004136 SOL (well above 0.002 SOL minimum for swap + fees). Price is stable (0.0% delta) with claimable rewards available. Despite low health score and declining trend, the token has sufficient liquidity (3 holders) and buyback activity supports the token fundamentals. Full buyback recommended to capitalize on available funds and support price stability during the declining trend."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776348498643,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "partial_buy",
+        "amount_pct": 35,
+        "reasoning": "Wallet balance of 0.004136 SOL exceeds minimum threshold (0.002 SOL) for swap execution. Price delta is neutral (0.0%), but declining trend and low health score (2/10) indicate token stress\u2014buyback support is warranted. Low velocity and minimal holder count (3) suggest reduced market activity. Executing a 35% partial buy (~0.00145 SOL spent) leaves sufficient buffer for future actions while providing meaningful support. The ultra-low price point makes this capital efficient despite poor fundamentals."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776348804480,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance (0.004136 SOL) exceeds minimum threshold (0.002 SOL) required for swap + fees. Price is stable (0% delta) and declining trend suggests accumulation opportunity. Low health score (2/10) and declining trend are not holdback reasons - buybacks actively support token recovery. Execute full buyback with available claimable balance to strengthen liquidity and token stability."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776349112113,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "buy",
+        "amount_pct": 100,
+        "reasoning": "Wallet balance of 0.004136 SOL significantly exceeds the 0.002 SOL minimum threshold needed for swap and fees. Price is stable (0.0% delta) with very low volatility. Despite poor health score (2/10) and declining trend, buyback activity supports token stability. Low holder count (3) and low velocity indicate concentrated state. Sufficient funds warrant full allocation to buyback operation."
+      },
+      "execution": {
+        "executed": false,
+        "error": "Amount too small after fee buffer"
+      }
+    },
+    {
+      "timestamp": 1776349410098,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "hold",
+        "amount_pct": 0,
+        "reasoning": "AI response could not be parsed \u2014 holding as safety fallback"
+      },
+      "execution": {
+        "executed": false
+      }
+    },
+    {
+      "timestamp": 1776349711026,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "serviceId": "buyback-bot",
+      "inputs": {
+        "price_sol": 3.071653393092893e-08,
+        "price_delta_pct": 0,
+        "volume_24h_sol": 0,
+        "lifetime_fees_sol": 0.026099248,
+        "claimable_sol": 0.004136009,
+        "wallet_balance_sol": 0.004136009,
+        "holders": 3,
+        "fee_velocity": "low"
+      },
+      "decision": {
+        "action": "hold",
+        "amount_pct": 0,
+        "reasoning": "AI response could not be parsed \u2014 holding as safety fallback"
+      },
+      "execution": {
+        "executed": false
+      }
     }
   ],
   "reports": [
@@ -6093,6 +6091,35 @@
         "buyback_count": 0,
         "buyback_success_rate": 0
       }
+    },
+    {
+      "timestamp": 1776346053563,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "health_score": 2,
+      "trend": "declining",
+      "key_insights": [
+        "Minimal lifetime fees and extremely low holder count indicate struggling token economy",
+        "Zero buyback activity with failed success rate shows no value support mechanisms",
+        "Very low token price and velocity suggest minimal trading activity and adoption"
+      ],
+      "risks": [
+        "Token faces complete abandonment with only 3 holders and no trading volume",
+        "Absence of buyback program prevents any price stabilization or holder protection",
+        "Negligible fee generation cannot sustain ecosystem development or maintenance"
+      ],
+      "opportunities": [
+        "Implement buyback mechanism to create price support and rebuild holder confidence",
+        "Increase marketing and community engagement to attract new holders and trading activity",
+        "Introduce utility mechanisms to drive fee generation and token velocity"
+      ],
+      "data": {
+        "lifetime_fees_sol": 0.026099248,
+        "fee_velocity": "low",
+        "holders": 3,
+        "price_sol": 3.071653393092893e-08,
+        "buyback_count": 0,
+        "buyback_success_rate": 0
+      }
     }
   ],
   "allocations": [
@@ -6576,10 +6603,35 @@
         }
       ],
       "overall_assessment": "Token 6qa9oCyp is in critical condition with 2/10 health and declining trend. The 0% execution rate on buyback decisions indicates a severe operational breakdown. Reallocation focuses on: (1) reducing creator fees to minimum 5000 BPS to fund service improvements, (2) increasing analytics to 2000 BPS for diagnostic capability, and (3) boosting buyback-bot to maximum 3000 BPS as an incentive to resolve execution failures. This configuration prioritizes recovery of the token's core buyback mechanism while maintaining creator incentives and improving observability. Monitor closely for execution improvements within 1-2 assessment cycles."
+    },
+    {
+      "timestamp": 1776346056258,
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "recommendations": [
+        {
+          "serviceId": "creator",
+          "currentBps": 8000,
+          "suggestedBps": 2500,
+          "reasoning": "Creator allocation exceeds minimum requirement (>=5000 BPS). Reducing from 8000 to 7000 BPS allows reallocation to underperforming services while maintaining healthy creator incentives."
+        },
+        {
+          "serviceId": "buyback-bot",
+          "currentBps": 1500,
+          "suggestedBps": 2083,
+          "reasoning": "Buyback-bot shows critical failure (200 decisions, 0 executed). Current 1500 BPS is insufficient incentive for this service to improve execution rate. Increasing to 2500 BPS (still under 3000 BPS cap) provides stronger motivation to fix execution failures and restore health."
+        },
+        {
+          "serviceId": "analytics",
+          "currentBps": 500,
+          "suggestedBps": 416,
+          "reasoning": "Analytics service allocation is appropriate at 500 BPS. Current level is reasonable for passive monitoring service."
+        }
+      ],
+      "overall_assessment": "Token health is critically declining (2/10) with buyback-bot experiencing severe execution failures (0% execution rate despite 200 decisions). Current fee structure fails to incentivize resolution of core issues. Recommended reallocation reduces creator share by 1000 BPS (still well above 5000 BPS minimum) and redirects 1000 BPS to buyback-bot to create stronger performance incentives. This maintains compliance with all guardrails while addressing the execution crisis. Monitor execution rates closely after reallocation."
     }
   ],
   "pendingPrepares": [],
-  "agentHeartbeat": 1776340622601,
+  "agentHeartbeat": 1776349874639,
   "campaigns": [
     {
       "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
@@ -6625,7 +6677,7 @@
         "snapshotCronHours": 1
       },
       "poolCapLamports": "50000000",
-      "poolSpentLamports": "2499999",
+      "poolSpentLamports": "7499997",
       "status": "live",
       "createdAt": 1776295479949,
       "tokenInfo": {
@@ -6699,13 +6751,65 @@
       "createdAt": 1776339187898,
       "campaignType": "holder",
       "paidAt": 1776339189086
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776342782-zCu1hXVf",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "zCu1hXVfBF2uqpBeTR71smPUyStNJQ3YJLnPdBbkfPc",
+      "swapTxSig": "holder-6qa9oCyp-1776342782-zCu1hXVf",
+      "swapVolumeLamports": "202478246928782",
+      "rewardLamports": "1250202",
+      "payoutTxSig": "aJFEhE1gCQibmhHCecxLx4b9eSsXbeC3JGhBiHQgavxx4wHcFowinsnDGQH5mjtw6nwwoeMJdjeBq1zgXH6H11q",
+      "status": "paid",
+      "createdAt": 1776342783101,
+      "campaignType": "holder",
+      "paidAt": 1776342784500
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776342782-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "holder-6qa9oCyp-1776342782-8y2Eo1dk",
+      "swapVolumeLamports": "202412698769404",
+      "rewardLamports": "1249797",
+      "payoutTxSig": "5U8gyJnQHA4UdEpUDYPCavDUeipfqRBQenSay4nWktbSBJsKoE6ACHPjmmvzxeY6pDXefwaCDtyycWHX3UrQBzjR",
+      "status": "paid",
+      "createdAt": 1776342783126,
+      "campaignType": "holder",
+      "paidAt": 1776342785310
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776346409-zCu1hXVf",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "zCu1hXVfBF2uqpBeTR71smPUyStNJQ3YJLnPdBbkfPc",
+      "swapTxSig": "holder-6qa9oCyp-1776346409-zCu1hXVf",
+      "swapVolumeLamports": "202478246928782",
+      "rewardLamports": "1250202",
+      "payoutTxSig": "28Ubaf1dmCYLoskgbu6BZRX2J47bHG72vHKyedqta9mEMrAfJ9oMWo8SNffc7kZLeVyx3JybarRHduH8C1C8SCHZ",
+      "status": "paid",
+      "createdAt": 1776346410467,
+      "campaignType": "holder",
+      "paidAt": 1776346412898
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776346409-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "holder-6qa9oCyp-1776346409-8y2Eo1dk",
+      "swapVolumeLamports": "202412698769404",
+      "rewardLamports": "1249797",
+      "payoutTxSig": "4Jkptw7CHacqsG5E1j6KdQDLV6KXQZznZx9Ce1xGSPoHKBQM3VVyRz4hHXx9D72u7LUvsBNUmfcKYXzRtoPhMMfz",
+      "status": "paid",
+      "createdAt": 1776346410544,
+      "campaignType": "holder",
+      "paidAt": 1776346414347
     }
   ],
   "swapCursors": {
     "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776294679
   },
   "holderSnapshotCursors": {
-    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776339182
+    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776346409
   },
   "fraudDecisions": [
     {
