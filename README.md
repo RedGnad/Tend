@@ -26,7 +26,7 @@
 Creator activates campaign  -->  Bags fee-share routes % to reward pool
                                         |
                                         v
-      Agent tick (every 60s)  -->  per-type trigger
+      Agent tick (every ~2 min)  -->  per-type trigger
       |-- cashback / sprint: scan new swaps on the mint
       |-- holder: snapshot token holders (hourly)
                                         |

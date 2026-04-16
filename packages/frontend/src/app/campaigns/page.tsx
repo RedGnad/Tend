@@ -237,17 +237,20 @@ export default function CampaignsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-px rounded-2xl overflow-hidden bg-[var(--border)] mb-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
         {statItems.map((it) => (
-          <div key={it.label} className="bg-[var(--bg-card)] p-5 flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
-              <it.icon size={16} className="text-[var(--accent)]" />
+          <div
+            key={it.label}
+            className="bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)] rounded-2xl p-5 flex items-center gap-4"
+          >
+            <div className="w-11 h-11 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
+              <it.icon size={18} className="text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
+              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">
                 {it.label}
               </p>
-              <p className="text-xl font-bold font-mono">{it.value}</p>
+              <p className="text-2xl font-bold font-mono gradient-text">{it.value}</p>
             </div>
           </div>
         ))}

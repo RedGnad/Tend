@@ -284,6 +284,8 @@ export default function CampaignDetailPage() {
                 {stats.uniqueTraders}
               </span>
               <span className="text-[var(--text-muted)]">traders</span>
+              <span className="text-[var(--border)]">·</span>
+              <span className="text-[var(--text-muted)]">processed every ~2 min</span>
             </div>
           </div>
 

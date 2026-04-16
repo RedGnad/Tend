@@ -470,7 +470,7 @@ export function registerCampaignTools(
               Number(c.poolCapLamports) > 0
                 ? ((Number(c.poolSpentLamports) / Number(c.poolCapLamports)) * 100).toFixed(0)
                 : "0";
-            return `  $${symbol}  ${c.status.padEnd(8)}  pool ${spent}/${cap} SOL (${pct}%)  earners ${stats.uniqueEarners}  paid ${stats.payoutsPaid}`;
+            return `  $${symbol} [${c.type.toUpperCase()}]  ${c.status.padEnd(8)}  pool ${spent}/${cap} SOL (${pct}%)  earners ${stats.uniqueEarners}  paid ${stats.payoutsPaid}`;
           })
         );
         return {

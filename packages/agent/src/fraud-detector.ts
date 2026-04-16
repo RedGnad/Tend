@@ -40,9 +40,11 @@ Action space (strict):
 Reject signals (any one strong enough):
 - Wallet created in the last 1h with no prior on-chain history
 - Zero other token interactions (fresh gas-funded wallet spinning up just for this)
-- Already received multiple Tend payouts on this same campaign in the last hour (farming)
+- Multiple payouts in the last hour from brand-new wallets (< 7 days) — classic sybil
 - For swaps: amount suspiciously close to the minimum threshold repeatedly
 - For holders: hold duration is exactly the campaign minimum + wallet is brand new (snipe pattern)
+
+Important: a well-established wallet (> 30 days, > 50 txs) receiving several payouts over days/weeks is NORMAL organic usage, not farming. Only flag repeated payouts as farming when the wallet is new or the payouts cluster within minutes/hours.
 
 Allow signals:
 - Wallet age > 7 days, > 20 total txs, normal browsing pattern
@@ -83,7 +85,8 @@ interface WalletContext {
 async function fetchWalletContext(
   bags: BagsClient,
   traderWallet: string,
-  tokenMint: string
+  tokenMint: string,
+  campaignType?: string
 ): Promise<WalletContext> {
   const ctx: WalletContext = {
     walletAgeHours: null,
@@ -118,7 +121,7 @@ async function fetchWalletContext(
   try {
     const state = await loadState();
     const priors = (state?.rewardPayouts ?? []).filter(
-      (p) => p.traderWallet === traderWallet && p.tokenMint === tokenMint
+      (p) => p.traderWallet === traderWallet && p.tokenMint === tokenMint && (!campaignType || p.campaignType === campaignType)
     );
     ctx.priorTendPayouts = priors.length;
   } catch { /* loadState already logs */ }
@@ -221,7 +224,8 @@ export async function checkFraud(
   const walletContext = await fetchWalletContext(
     bags,
     event.traderWallet,
-    campaign.tokenMint
+    campaign.tokenMint,
+    campaign.type
   );
 
   const anthropic = getClient();
