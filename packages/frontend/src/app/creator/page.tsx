@@ -14,7 +14,6 @@ import {
   Trophy,
   CheckCircle,
   Loader2,
-  Terminal,
 } from "lucide-react";
 
 type CampaignType = "cashback" | "holder" | "sprint";
@@ -526,40 +525,6 @@ export default function CreatorPage() {
             )}
           </div>
         )}
-      </section>
-
-      {/* MCP — compact secondary section */}
-      <section className="mb-16">
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6">
-          <div className="flex items-center gap-2 mb-2">
-            <Terminal size={14} className="text-[var(--accent)]" />
-            <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
-              Advanced: Claude Desktop
-            </p>
-          </div>
-          <p className="text-[13px] text-[var(--text-muted)] mb-4 max-w-[640px]">
-            Power users can also manage campaigns in natural language from
-            Claude Desktop via MCP. Create, pause, top-up, and review payouts
-            from a conversation.
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {[
-              "create_campaign",
-              "view_campaign_stats",
-              "topup_pool",
-              "pause_campaign",
-              "create_holder_campaign",
-              "create_sprint_campaign",
-            ].map((tool) => (
-              <div
-                key={tool}
-                className="text-[10px] font-mono text-[var(--accent)] bg-[var(--bg)] rounded-md px-2 py-1.5 border border-[var(--border)] truncate"
-              >
-                {tool}
-              </div>
-            ))}
-          </div>
-        </div>
       </section>
 
       {/* Bottom CTA */}
