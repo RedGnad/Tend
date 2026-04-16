@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
-  ExternalLink,
   Zap,
   Users,
   TrendingUp,
@@ -667,7 +666,7 @@ export default function HomePage() {
               href="/creator"
               className="gradient-btn px-6 py-2.5 rounded-lg text-sm font-semibold inline-flex items-center gap-2"
             >
-              Activate Tend on your token <ExternalLink size={13} />
+              Launch a campaign <ArrowRight size={13} />
             </Link>
           </div>
         </div>
