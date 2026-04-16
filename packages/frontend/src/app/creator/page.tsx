@@ -527,6 +527,83 @@ export default function CreatorPage() {
         )}
       </section>
 
+      {/* Claude Desktop — visual conversation mockup */}
+      <section className="mb-16">
+        <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
+          Also available
+        </p>
+        <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold font-display tracking-tight mb-2">
+          Manage campaigns from a conversation
+        </h2>
+        <p className="text-[14px] text-[var(--text-muted)] mb-6 max-w-[640px]">
+          Prefer natural language? Connect Tend to Claude Desktop and manage
+          everything from a chat.
+        </p>
+
+        <div className="bg-[#1a1a1a] border border-[var(--border)] rounded-2xl overflow-hidden">
+          {/* Fake window bar */}
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)]">
+            <span className="w-3 h-3 rounded-full bg-[#ff5f57]" />
+            <span className="w-3 h-3 rounded-full bg-[#febc2e]" />
+            <span className="w-3 h-3 rounded-full bg-[#28c840]" />
+            <span className="text-[11px] text-[var(--text-muted)] ml-3 font-mono">
+              Claude Desktop
+            </span>
+          </div>
+
+          <div className="p-6 space-y-5">
+            {/* User message */}
+            <div className="flex justify-end">
+              <div className="bg-[var(--accent-dim)] border border-[rgba(0,255,178,0.15)] rounded-2xl rounded-br-md px-4 py-3 max-w-[420px]">
+                <p className="text-[13px] text-[var(--text-secondary)]">
+                  Create a 5% cashback campaign on $TEND with a 0.1 SOL pool
+                </p>
+              </div>
+            </div>
+
+            {/* Claude response */}
+            <div className="flex justify-start">
+              <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl rounded-bl-md px-4 py-3 max-w-[480px]">
+                <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+                  Done. Cashback campaign created on $TEND:
+                </p>
+                <div className="mt-2 bg-[var(--bg)] rounded-lg p-3 space-y-1 text-[12px] font-mono">
+                  <p><span className="text-[var(--text-muted)]">Type:</span> <span className="text-[var(--accent)]">Cashback 5%</span></p>
+                  <p><span className="text-[var(--text-muted)]">Pool:</span> 0.1 SOL</p>
+                  <p><span className="text-[var(--text-muted)]">Status:</span> <span className="text-[var(--accent)]">Live</span></p>
+                </div>
+                <p className="text-[12px] text-[var(--text-muted)] mt-2">
+                  The agent is now watching for qualifying swaps.
+                </p>
+              </div>
+            </div>
+
+            {/* User follow-up */}
+            <div className="flex justify-end">
+              <div className="bg-[var(--accent-dim)] border border-[rgba(0,255,178,0.15)] rounded-2xl rounded-br-md px-4 py-3 max-w-[420px]">
+                <p className="text-[13px] text-[var(--text-secondary)]">
+                  How&apos;s the campaign doing? Any payouts yet?
+                </p>
+              </div>
+            </div>
+
+            {/* Claude stats response */}
+            <div className="flex justify-start">
+              <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl rounded-bl-md px-4 py-3 max-w-[480px]">
+                <p className="text-[13px] text-[var(--text-secondary)] leading-relaxed">
+                  3 payouts so far, 2 unique earners:
+                </p>
+                <div className="mt-2 bg-[var(--bg)] rounded-lg p-3 space-y-1 text-[12px] font-mono">
+                  <p><span className="text-[var(--text-muted)]">Paid:</span> 0.066 SOL</p>
+                  <p><span className="text-[var(--text-muted)]">Pool left:</span> 0.034 SOL</p>
+                  <p><span className="text-[var(--text-muted)]">Fraud blocked:</span> 1 wallet (sybil pattern)</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Bottom CTA */}
       <section>
         <div
