@@ -47,8 +47,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Tend — Earn SOL from live Bags token campaigns",
-    description:
-      "Trade Bags tokens, earn real SOL cashback from creator-funded campaigns.",
+    description: "Trade Bags tokens, earn real SOL.",
   },
   icons: {
     icon: "/favicon.svg",

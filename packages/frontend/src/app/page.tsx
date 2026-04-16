@@ -61,9 +61,9 @@ function campaignHeadline(c: Campaign): { value: string; label: string } {
         label: `Holder reward · ${c.config.minHoldHours}h min`,
       };
     case "sprint": {
-      const bonusSol = (
-        Number(c.config.bonusLamports) / 1_000_000_000
-      ).toFixed(3);
+      const bonusSol = (Number(c.config.bonusLamports) / 1_000_000_000).toFixed(
+        3,
+      );
       return {
         value: `${bonusSol} SOL`,
         label: `Bonus · ${c.config.maxWinners} winners`,
@@ -75,6 +75,50 @@ function campaignHeadline(c: Campaign): { value: string; label: string } {
         label: "Referral payout",
       };
   }
+}
+
+function CyclingWord({
+  words,
+  interval = 2200,
+}: {
+  words: string[];
+  interval?: number;
+}) {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (words.length <= 1) return;
+    const t = setInterval(
+      () => setIdx((i) => (i + 1) % words.length),
+      interval,
+    );
+    return () => clearInterval(t);
+  }, [words, interval]);
+
+  const longest = words.reduce((a, b) => (b.length > a.length ? b : a), "");
+  return (
+    <span
+      className="relative inline-block align-baseline text-right"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <span className="invisible" aria-hidden="true">
+        {longest}
+      </span>
+      {words.map((w, i) => (
+        <span
+          key={w}
+          className={`absolute inset-0 text-right transition-all duration-500 ease-out ${
+            i === idx
+              ? "opacity-100 translate-y-0"
+              : "opacity-0 -translate-y-2 pointer-events-none"
+          }`}
+          aria-hidden={i !== idx}
+        >
+          {w}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
@@ -93,9 +137,7 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
       }}
     >
       <div className="relative bg-[var(--bg-card)] rounded-[23px] p-8 md:p-10">
-        <div
-          className="absolute -top-20 -right-20 w-[320px] h-[320px] rounded-full blur-[100px] bg-[var(--accent)] opacity-[0.08] pointer-events-none"
-        />
+        <div className="absolute -top-20 -right-20 w-[320px] h-[320px] rounded-full blur-[100px] bg-[var(--accent)] opacity-[0.08] pointer-events-none" />
         <div className="relative">
           <div className="flex items-center gap-2 mb-6">
             <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider bg-[var(--accent-dim)] text-[var(--accent)]">
@@ -285,7 +327,10 @@ function StatsBar({ stats }: { stats: GlobalStats | null }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-px rounded-2xl overflow-hidden bg-[var(--border)]">
       {items.map((it) => (
-        <div key={it.label} className="bg-[var(--bg-card)] p-5 flex items-center gap-4">
+        <div
+          key={it.label}
+          className="bg-[var(--bg-card)] p-5 flex items-center gap-4"
+        >
           <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
             <it.icon size={16} className="text-[var(--accent)]" />
           </div>
@@ -343,16 +388,20 @@ export default function HomePage() {
             </span>
           </div>
 
-          <h1 className="text-[clamp(2.4rem,5.5vw,4rem)] font-bold font-display tracking-tight leading-[1.04] mb-6 max-w-[860px] mx-auto">
-            Trade Bags tokens. Get real SOL back —{" "}
-            <span className="gradient-text">paid by the creators themselves</span>.
+          <h1 className="text-[clamp(2.4rem,5.4vw,4rem)] font-bold font-display tracking-tight leading-[1.05] mb-6 max-w-[820px] mx-auto">
+            <CyclingWord words={["Trade", "Hold", "Sprint"]} /> Bags tokens.
+            <br />
+            Earn <span className="gradient-text">real SOL</span>.
           </h1>
 
-          <p className="text-[17px] text-[var(--text-secondary)] leading-relaxed max-w-[600px] mx-auto mb-9">
-            Tend is a programmable growth layer for Bags tokens. Three live
-            campaign types, one AI fraud gate, every payout auditable on-chain
-            — no platform middleman, no points, no airdrops.
-          </p>
+          <div className="text-[17px] text-[var(--text-secondary)] leading-[1.65] max-w-[640px] mx-auto mb-9 space-y-2">
+            <p>Creators fund the rewards from their Bags fees.</p>
+            <p>
+              Three ways to earn: cashback on buys, dividends for holders,
+              bonuses for launch sprinters. All paid in SOL, straight to your
+              wallet.
+            </p>
+          </div>
 
           <div className="flex items-center justify-center gap-3 flex-wrap mb-12">
             <Link
