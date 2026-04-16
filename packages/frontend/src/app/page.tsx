@@ -12,7 +12,6 @@ import {
   ShieldCheck,
   Coins,
   Trophy,
-  Share2,
 } from "lucide-react";
 import type { Campaign } from "@tend/shared";
 
@@ -527,7 +526,7 @@ export default function HomePage() {
       <section className="pb-20">
         <div className="text-center mb-8">
           <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
-            Three live · referral coming
+            Three campaign types
           </p>
           <h2 className="text-[clamp(1.4rem,3vw,2rem)] font-bold font-display tracking-tight mb-3">
             Pick the growth loop that fits your token
@@ -537,7 +536,7 @@ export default function HomePage() {
             rail, and the same creator console. Mix and match as you grow.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             {
               icon: Gift,
@@ -559,13 +558,6 @@ export default function HomePage() {
               tag: "Live",
               live: true,
               desc: "Flat SOL bonus to the first N qualifying buyers. Best for launch-day momentum.",
-            },
-            {
-              icon: Share2,
-              name: "Referral",
-              tag: "Q3",
-              live: false,
-              desc: "Pay referrers a share of trades from wallets they bring. Best for sustained acquisition.",
             },
           ].map((t) => (
             <div
