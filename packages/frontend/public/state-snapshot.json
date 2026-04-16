@@ -1,0 +1,224 @@
+{
+  "campaigns": [
+    {
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "creatorWallet": "38ZqhybcgDqEM2iUiwQRv3AuU7eTBo3G5HVnszryfofi",
+      "poolCapLamports": "100000000",
+      "poolSpentLamports": "61082085",
+      "status": "paused",
+      "createdAt": 1709000000000,
+      "tokenInfo": {
+        "name": "Tend",
+        "symbol": "TEND"
+      },
+      "type": "cashback",
+      "config": {
+        "cashbackBps": 500
+      }
+    },
+    {
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "creatorWallet": "38ZqhybcgDqEM2iUiwQRv3AuU7eTBo3G5HVnszryfofi",
+      "type": "sprint",
+      "config": {
+        "minBuyLamports": "5000000",
+        "maxWinners": 3,
+        "bonusLamports": "5000000"
+      },
+      "poolCapLamports": "15000000",
+      "poolSpentLamports": "5000000",
+      "status": "paused",
+      "createdAt": 1776284531076,
+      "tokenInfo": {
+        "name": "Tend",
+        "symbol": "TEND"
+      }
+    },
+    {
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "creatorWallet": "38ZqhybcgDqEM2iUiwQRv3AuU7eTBo3G5HVnszryfofi",
+      "type": "holder",
+      "config": {
+        "rewardBps": 500,
+        "minHoldHours": 10,
+        "snapshotCronHours": 1
+      },
+      "poolCapLamports": "50000000",
+      "poolSpentLamports": "0",
+      "status": "live",
+      "createdAt": 1776295479949,
+      "tokenInfo": {
+        "name": "Tend",
+        "symbol": "TEND"
+      }
+    }
+  ],
+  "rewardPayouts": [
+    {
+      "id": "5oLjTJfjEWmJkc7r-2ZEgCyxU",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "2ZEgCyxUfnT7GZY9S8ZcjAaoqM8XpP98ZJ2rVjAX3nYK",
+      "swapTxSig": "5oLjTJfjEWmJkc7rJp8sxdS9g5DyQX1sCRWoto7AbttY5iPv8GFqpaaCPWo26iX8ot3McBqwLt8cMiS96am4wA4z",
+      "swapVolumeLamports": "4122661",
+      "rewardLamports": "206133",
+      "payoutTxSig": "uJXZXahd2hXJSGg6LYoBKFMDXkrMbBdN221ojo1R8Przm2tShPZwLXSXzKY6YzrQfUYzFA58MU5q4ovFyoyiqf3",
+      "status": "paid",
+      "createdAt": 1776281628887,
+      "campaignType": "cashback",
+      "paidAt": 1776281632918
+    },
+    {
+      "id": "5G93JsEvzoq2QNt8-M5q9egYv",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "M5q9egYvpRaxsPDJyDkrZZHL2STNneU6X3nUeBLoF73",
+      "swapTxSig": "5G93JsEvzoq2QNt83AMzmTwFTSmnV4erPeJ2HBCkiJ1abxVa1DhdmPDeFMcBANdnDcz4YYvCAMerDzXSh1D69JMC",
+      "swapVolumeLamports": "1217519058",
+      "rewardLamports": "60875952",
+      "payoutTxSig": "3xJdN7thAvRUYrsbb3kEJL9PNM32tKRZrrE1v7LCHAfs6PAaxwFPQKEMB2gupBLdZKDmqzvW3uc4bUuKuf2C8qni",
+      "status": "paid",
+      "createdAt": 1776281631579,
+      "campaignType": "cashback",
+      "paidAt": 1776281633710
+    },
+    {
+      "id": "5rVWNpiRNikiyRPy-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "5rVWNpiRNikiyRPygLkBSaLtM4rgguMAbBgmtgJ5VeruhzENxx77g1cHFaVhRo4hjcbEGKcktLb3z32fCQxB9ksk",
+      "swapVolumeLamports": "8056644",
+      "rewardLamports": "5000000",
+      "payoutTxSig": "4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb",
+      "status": "paid",
+      "createdAt": 1776294677852,
+      "campaignType": "sprint",
+      "paidAt": 1776294680085
+    }
+  ],
+  "fraudDecisions": [
+    {
+      "id": "2nL1QR6HmpXq12jv-2ZEgCyxU",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "2ZEgCyxUfnT7GZY9S8ZcjAaoqM8XpP98ZJ2rVjAX3nYK",
+      "swapTxSig": "2nL1QR6HmpXq12jvF2k96sXNKpH6oXNgHaTwowaihPEWGKBjsgPBZSFnWEdBUu8TVvvuvpkr8DYaAQSrwZfKBMSQ",
+      "swapVolumeLamports": "1834038",
+      "decision": "allow",
+      "reasoning": "Wallet shows legitimate activity: 2 days old with 9 prior transactions indicates genuine on-chain presence. Single organic buy of 0.001834 SOL is reasonable amount (not suspiciously rounded). No prior payouts on this campaign rules out farming. Age exceeds 1-hour freshness threshold and transaction count suggests established wallet behavior. Meets allow criteria.",
+      "flags": [
+        "low_transaction_count",
+        "recent_wallet_creation"
+      ],
+      "model": "claude-haiku-4-5-20251001",
+      "checkedAt": 1776281624392,
+      "walletContext": {
+        "walletAgeHours": 67,
+        "txCount": 9,
+        "priorTendPayouts": 0
+      }
+    },
+    {
+      "id": "5oLjTJfjEWmJkc7r-2ZEgCyxU",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "2ZEgCyxUfnT7GZY9S8ZcjAaoqM8XpP98ZJ2rVjAX3nYK",
+      "swapTxSig": "5oLjTJfjEWmJkc7rJp8sxdS9g5DyQX1sCRWoto7AbttY5iPv8GFqpaaCPWo26iX8ot3McBqwLt8cMiS96am4wA4z",
+      "swapVolumeLamports": "4122661",
+      "decision": "allow",
+      "reasoning": "Wallet age of 2 days with 9 prior transactions shows legitimate activity beyond a fresh gas-funded account. Small purchase amount (0.004123 SOL) is consistent with organic participation. No prior Tend payouts on this campaign eliminates farming concerns. Prior on-chain history and reasonable transaction count suggest authentic user behavior.",
+      "flags": [
+        "relatively_new_wallet",
+        "small_transaction_amount"
+      ],
+      "model": "claude-haiku-4-5-20251001",
+      "checkedAt": 1776281628789,
+      "walletContext": {
+        "walletAgeHours": 67,
+        "txCount": 9,
+        "priorTendPayouts": 0
+      }
+    },
+    {
+      "id": "5G93JsEvzoq2QNt8-M5q9egYv",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "M5q9egYvpRaxsPDJyDkrZZHL2STNneU6X3nUeBLoF73",
+      "swapTxSig": "5G93JsEvzoq2QNt83AMzmTwFTSmnV4erPeJ2HBCkiJ1abxVa1DhdmPDeFMcBANdnDcz4YYvCAMerDzXSh1D69JMC",
+      "swapVolumeLamports": "1217519058",
+      "decision": "allow",
+      "reasoning": "Wallet age of 6 days with 100 total transactions demonstrates legitimate on-chain activity and engagement. No prior payouts on this campaign rules out farming. The purchase amount of 1.217519 SOL appears organic and non-suspicious. Trading history suggests an active, genuine participant rather than a fresh sybil wallet.",
+      "flags": [
+        "age_near_threshold",
+        "legitimate_tx_count"
+      ],
+      "model": "claude-haiku-4-5-20251001",
+      "checkedAt": 1776281631556,
+      "walletContext": {
+        "walletAgeHours": 163,
+        "txCount": 100,
+        "priorTendPayouts": 0
+      }
+    },
+    {
+      "id": "4uSsFZbZPJjyDkC1-zCu1hXVf",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "zCu1hXVfBF2uqpBeTR71smPUyStNJQ3YJLnPdBbkfPc",
+      "swapTxSig": "4uSsFZbZPJjyDkC1ingT9RzocxrZ3ksQrFdEnAeDdCjdUpYrZfat2UWHFijf72QKFpwkrMyBVqJSANH5srDWgnvF",
+      "swapVolumeLamports": "8049547",
+      "decision": "hold",
+      "reasoning": "Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping, and while the wallet shows some activity, the minimal transaction history combined with young age warrants human review to confirm legitimacy before payout.",
+      "flags": [
+        "new_wallet_6days",
+        "low_tx_count",
+        "launch_sprint_campaign"
+      ],
+      "model": "claude-haiku-4-5-20251001",
+      "checkedAt": 1776284853734,
+      "walletContext": {
+        "walletAgeHours": 165,
+        "txCount": 6,
+        "priorTendPayouts": 0
+      }
+    },
+    {
+      "id": "5rVWNpiRNikiyRPy-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "5rVWNpiRNikiyRPygLkBSaLtM4rgguMAbBgmtgJ5VeruhzENxx77g1cHFaVhRo4hjcbEGKcktLb3z32fCQxB9ksk",
+      "swapVolumeLamports": "8056644",
+      "decision": "allow",
+      "reasoning": "Wallet shows strong legitimacy signals: 452 days old (well-established), 100 prior transactions indicating active on-chain history, no previous payouts on this campaign reducing sybil/farm risk. Purchase amount of 0.008057 SOL appears organic and not a suspicious pattern. Meets all criteria for organic launch sprint participant.",
+      "flags": [],
+      "model": "claude-haiku-4-5-20251001",
+      "checkedAt": 1776294677816,
+      "walletContext": {
+        "walletAgeHours": 10860,
+        "txCount": 100,
+        "priorTendPayouts": 0
+      }
+    },
+    {
+      "id": "holder-6qa9oCyp--FhVo3mqL",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM",
+      "swapTxSig": "holder-6qa9oCyp-1776295515-FhVo3mqL",
+      "swapVolumeLamports": "999456680306672972",
+      "decision": "hold",
+      "reasoning": "Gate error (Failed to parse structured output: Error: Failed to parse structured output: [\n ) — held for manual review",
+      "flags": [
+        "gate_error"
+      ],
+      "model": "claude-haiku-4-5-20251001",
+      "checkedAt": 1776295519058,
+      "walletContext": {
+        "walletAgeHours": 0,
+        "txCount": 100,
+        "priorTendPayouts": 0
+      }
+    }
+  ],
+  "swapCursors": {
+    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776294679
+  },
+  "holderSnapshotCursors": {
+    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776302715
+  },
+  "agentHeartbeat": 1776304050758,
+  "snapshottedAt": 1776304066551
+}
