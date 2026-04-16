@@ -73,11 +73,13 @@ export default function CreatorPage() {
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [agentWarning, setAgentWarning] = useState<string | null>(null);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError(null);
     setSuccess(false);
+    setAgentWarning(null);
   }
 
   async function handleSubmit() {
@@ -126,11 +128,14 @@ export default function CreatorPage() {
         }),
       });
 
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to create campaign");
       }
 
+      if (data.warning) {
+        setAgentWarning(data.warning);
+      }
       setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -235,10 +240,17 @@ export default function CreatorPage() {
             <h3 className="text-xl font-bold font-display mb-2">
               Campaign created
             </h3>
-            <p className="text-[14px] text-[var(--text-muted)] mb-6">
+            <p className="text-[14px] text-[var(--text-muted)] mb-4">
               Your {TYPE_INFO[form.type].label.toLowerCase()} campaign is live.
-              The Tend agent will start processing qualifying events.
+              {agentWarning
+                ? " Start the Tend agent to begin processing payouts."
+                : " The Tend agent will start processing qualifying events."}
             </p>
+            {agentWarning && (
+              <p className="text-[12px] text-[#eab308] bg-[rgba(234,179,8,0.08)] border border-[rgba(234,179,8,0.2)] rounded-lg px-4 py-2 mb-4">
+                {agentWarning}
+              </p>
+            )}
             <div className="flex items-center justify-center gap-3">
               <Link
                 href="/campaigns"

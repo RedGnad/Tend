@@ -1,16 +1,14 @@
 import { NextResponse } from "next/server";
 import { existsSync } from "node:fs";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { Campaign } from "@tend/shared";
-import { migrateCampaign } from "@tend/shared";
+import { withStateLock, isAgentRunning } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
 
 const TEND_DIR = join(homedir(), ".tend");
 const STATE_PATH = join(TEND_DIR, "state.json");
-const SNAPSHOT_PATH = join(process.cwd(), "public", "state-snapshot.json");
 
 interface CreateBody {
   tokenMint: string;
@@ -86,34 +84,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid parameters" }, { status: 400 });
     }
 
+    // Serverless (Vercel) — no local state, creation is not supported
+    if (!existsSync(STATE_PATH)) {
+      return NextResponse.json(
+        {
+          error:
+            "Campaign creation requires the Tend agent running locally. This instance is read-only.",
+        },
+        { status: 503 },
+      );
+    }
+
     const campaign = buildCampaign(body);
 
-    // Try to write to live state (local dev / agent machine)
-    if (existsSync(STATE_PATH)) {
-      const stateRaw = await readFile(STATE_PATH, "utf-8");
-      const state = JSON.parse(stateRaw);
+    // Write with file lock — safe even if agent is writing concurrently
+    await withStateLock((state) => {
       if (!state.campaigns) state.campaigns = [];
-      state.campaigns = state.campaigns.map(migrateCampaign);
       state.campaigns.push(campaign);
-      await writeFile(STATE_PATH, JSON.stringify(state, null, 2));
-      return NextResponse.json({ campaign, persisted: "state" });
-    }
+    });
 
-    // Fallback: write to snapshot (Vercel ephemeral)
-    try {
-      let snap = { campaigns: [] as Campaign[], rewardPayouts: [] as unknown[] };
-      if (existsSync(SNAPSHOT_PATH)) {
-        snap = JSON.parse(await readFile(SNAPSHOT_PATH, "utf-8"));
-        if (!snap.campaigns) snap.campaigns = [];
-      }
-      snap.campaigns.push(campaign);
-      await writeFile(SNAPSHOT_PATH, JSON.stringify(snap, null, 2));
-      return NextResponse.json({ campaign, persisted: "snapshot" });
-    } catch {
-      // If we can't write at all (read-only filesystem on Vercel),
-      // still return success — campaign is valid, just not persisted
-      return NextResponse.json({ campaign, persisted: "memory" });
-    }
+    const agentRunning = isAgentRunning();
+
+    return NextResponse.json({
+      campaign,
+      persisted: "state",
+      agentRunning,
+      warning: agentRunning
+        ? undefined
+        : "Campaign saved but the Tend agent is not running. Start the agent for payouts to be processed.",
+    });
   } catch {
     return NextResponse.json(
       { error: "Internal error" },
