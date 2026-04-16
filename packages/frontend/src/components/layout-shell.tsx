@@ -93,13 +93,6 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-1.5 text-[11px] text-[var(--text-muted)] font-mono mr-2">
-              <span
-                className="pulse-dot"
-                style={{ width: 5, height: 5 }}
-              />
-              <span className="text-[var(--accent)]">Mainnet</span>
-            </div>
             <NavWalletButton />
           </div>
         </div>

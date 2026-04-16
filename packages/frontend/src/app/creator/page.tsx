@@ -320,7 +320,7 @@ export default function CreatorPage() {
             {/* Pool cap */}
             <div className="mb-5">
               <label className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-semibold mb-2 block">
-                Pool budget (SOL)
+                Reward budget (SOL)
               </label>
               <input
                 type="number"
@@ -332,7 +332,7 @@ export default function CreatorPage() {
                 className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3 text-[13px] font-mono focus:outline-none focus:border-[var(--accent)] transition-colors"
               />
               <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                Total SOL allocated to this campaign&apos;s reward pool
+                Maximum SOL to distribute. Funded from your token&apos;s trading fees.
               </p>
             </div>
 
