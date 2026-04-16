@@ -197,7 +197,7 @@ export default function CampaignDetailPage() {
           </div>
           <div className="w-px h-8 bg-[var(--border)]" />
           <div className="text-right">
-            <p className="text-lg font-semibold font-mono leading-tight">
+            <p className="text-lg font-semibold font-mono leading-tight text-[var(--accent)]">
               {formatSol(remaining)}
             </p>
             <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider">
@@ -224,11 +224,18 @@ export default function CampaignDetailPage() {
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] mt-1">
-          <span>{progress.toFixed(1)}% distributed</span>
-          <span>
-            {formatSol(campaign.poolSpentLamports)} /{" "}
-            {formatSol(campaign.poolCapLamports)} SOL
+        <div className="flex items-center justify-between text-[11px] mt-1.5">
+          <span className="text-[var(--text-secondary)]">
+            <span className="font-mono font-semibold text-[var(--text-primary)]">
+              {progress.toFixed(1)}%
+            </span>{" "}
+            distributed
+          </span>
+          <span className="text-[var(--text-secondary)]">
+            <span className="font-mono font-semibold text-[var(--accent)]">
+              {formatSol(remaining)} SOL
+            </span>{" "}
+            remaining
           </span>
         </div>
       </div>
@@ -267,10 +274,16 @@ export default function CampaignDetailPage() {
                   ? `Hold $${symbol} for ${campaign.config.minHoldHours}h+ to qualify. Snapshots every ${campaign.config.snapshotCronHours}h. AI fraud gate protects every payout.`
                   : `${campaign.config.maxWinners} spots left. Buy ≥ ${formatSol(campaign.config.minBuyLamports)} SOL below to qualify. AI fraud gate protects every payout.`}
             </p>
-            <div className="flex items-center gap-3 mt-2 text-[10px] font-mono text-[var(--text-muted)]">
-              <span>{formatSol(remaining)} SOL left in pool</span>
-              <span>·</span>
-              <span>{stats.uniqueTraders} traders</span>
+            <div className="flex items-center gap-3 mt-2.5 text-[11px]">
+              <span className="font-mono font-semibold text-[var(--accent)]">
+                {formatSol(remaining)} SOL
+              </span>
+              <span className="text-[var(--text-muted)]">left in pool</span>
+              <span className="text-[var(--border)]">·</span>
+              <span className="font-mono font-semibold text-[var(--text-primary)]">
+                {stats.uniqueTraders}
+              </span>
+              <span className="text-[var(--text-muted)]">traders</span>
             </div>
           </div>
 
