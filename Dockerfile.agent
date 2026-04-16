@@ -2,12 +2,17 @@ FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package files for install
-COPY package.json package-lock.json ./
-COPY packages/shared/package.json packages/shared/
-COPY packages/agent/package.json packages/agent/
+# Copy root config
+COPY package.json package-lock.json tsconfig.base.json ./
+
+# Copy package.json + tsconfig per workspace
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/shared/tsconfig.json packages/shared/tsconfig.json
+COPY packages/agent/package.json packages/agent/package.json
+COPY packages/agent/tsconfig.json packages/agent/tsconfig.json
+
 # Snapshot for state seeding on fresh deploys
-COPY packages/frontend/public/state-snapshot.json packages/frontend/public/
+COPY packages/frontend/public/state-snapshot.json packages/frontend/public/state-snapshot.json
 
 # Install dependencies (delete lockfile to avoid cross-platform native dep issues)
 RUN rm -f package-lock.json && npm install --ignore-scripts
