@@ -16,7 +16,7 @@ export async function GET() {
 
   const enriched = campaigns.map((c) => {
     const campaignPayouts = payouts.filter(
-      (p) => p.tokenMint === c.tokenMint
+      (p) => p.tokenMint === c.tokenMint && p.campaignType === c.type
     );
     const uniqueTraders = new Set(
       campaignPayouts.map((p) => p.traderWallet)

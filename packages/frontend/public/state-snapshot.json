@@ -44,7 +44,7 @@
         "snapshotCronHours": 1
       },
       "poolCapLamports": "50000000",
-      "poolSpentLamports": "17499993",
+      "poolSpentLamports": "24999990",
       "status": "live",
       "createdAt": 1776295479949,
       "tokenInfo": {
@@ -287,6 +287,84 @@
       "createdAt": 1776379084671,
       "campaignType": "cashback",
       "paidAt": 1776379085634
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776380280-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "holder-6qa9oCyp-1776380280-8y2Eo1dk",
+      "swapVolumeLamports": "338235948964254",
+      "rewardLamports": "1563838",
+      "payoutTxSig": "2Txn1XGtHEryPR2jwKmkPgwmeeEoPBd6BkpucXSBtXBZN1Gcm7sRzWYqx6wcWcxd9E8dHkiA3mAi4RyDw6KmjV6a",
+      "status": "paid",
+      "createdAt": 1776380281397,
+      "campaignType": "holder",
+      "paidAt": 1776380284282
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776380280-zCu1hXVf",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "zCu1hXVfBF2uqpBeTR71smPUyStNJQ3YJLnPdBbkfPc",
+      "swapTxSig": "holder-6qa9oCyp-1776380280-zCu1hXVf",
+      "swapVolumeLamports": "202478246928782",
+      "rewardLamports": "936161",
+      "payoutTxSig": "5prG4GEYgLjvzuEWoBj6CyvaT4W8q2UNHjHyzKn4qovnskMDPbqLaDFhnvNyLAzuThx2eoMUfijgTndQydFJkq8k",
+      "status": "paid",
+      "createdAt": 1776380281441,
+      "campaignType": "holder",
+      "paidAt": 1776380285080
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776383880-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "holder-6qa9oCyp-1776383880-8y2Eo1dk",
+      "swapVolumeLamports": "338235948964254",
+      "rewardLamports": "1563838",
+      "payoutTxSig": "5TGpEW9DVLASDi4jdV5hAoRTEKAdDdd5fwLmzFiGHp3T2FMxqMQNCQ167F94NiGgqhXYLxyxF5A7cKnc4j4VUqZq",
+      "status": "paid",
+      "createdAt": 1776383881072,
+      "campaignType": "holder",
+      "paidAt": 1776383883756
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776383880-zCu1hXVf",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "zCu1hXVfBF2uqpBeTR71smPUyStNJQ3YJLnPdBbkfPc",
+      "swapTxSig": "holder-6qa9oCyp-1776383880-zCu1hXVf",
+      "swapVolumeLamports": "202478246928782",
+      "rewardLamports": "936161",
+      "payoutTxSig": "5cLj1YjaC9P7AyJbLizNa4ea94BikTqG2JaGCu7hwF32Wqzh3Z5fkzzQgDhFSrMpC623uwt1vxdexdsJEExyhHuT",
+      "status": "paid",
+      "createdAt": 1776383881251,
+      "campaignType": "holder",
+      "paidAt": 1776383885812
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776387480-8y2Eo1dk",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "8y2Eo1dkvnydtzx3EgvUw9dbtUPXF73mGSpsgXtaSQ4M",
+      "swapTxSig": "holder-6qa9oCyp-1776387480-8y2Eo1dk",
+      "swapVolumeLamports": "338235948964254",
+      "rewardLamports": "1563838",
+      "payoutTxSig": "2PrnQvVRgcEQYQfhr6DbdsdH8bBgZUopMP88SiFYptuyGpLv2MecASxHretK9m7So1enC9vmD8xCHgQhioUpTqVN",
+      "status": "paid",
+      "createdAt": 1776387481086,
+      "campaignType": "holder",
+      "paidAt": 1776387482221
+    },
+    {
+      "id": "hldr-6qa9oCyp-1776387480-zCu1hXVf",
+      "tokenMint": "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS",
+      "traderWallet": "zCu1hXVfBF2uqpBeTR71smPUyStNJQ3YJLnPdBbkfPc",
+      "swapTxSig": "holder-6qa9oCyp-1776387480-zCu1hXVf",
+      "swapVolumeLamports": "202478246928782",
+      "rewardLamports": "936161",
+      "payoutTxSig": "28vKGKSUcpKqvJbZKKu9ubePZ7ZcWmnCESCVcSNBdoYeKa5GfC8okYzJpbTXnhGGt5gHXbhhryD9nrHSDeQw33Le",
+      "status": "paid",
+      "createdAt": 1776387481208,
+      "campaignType": "holder",
+      "paidAt": 1776387483007
     }
   ],
   "fraudDecisions": [
@@ -447,8 +525,8 @@
     "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776379084
   },
   "holderSnapshotCursors": {
-    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776376680
+    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS": 1776387480
   },
-  "agentHeartbeat": 1776379862634,
-  "snapshottedAt": 1776379895082
+  "agentHeartbeat": 1776388698308,
+  "snapshottedAt": 1776389356611
 }

@@ -36,7 +36,7 @@ export async function GET(
   }
 
   const payouts = (state.rewardPayouts ?? [])
-    .filter((p) => p.tokenMint === mint)
+    .filter((p) => p.tokenMint === mint && p.campaignType === campaign.type)
     .sort((a, b) => b.createdAt - a.createdAt);
 
   const uniqueTraders = new Set(payouts.map((p) => p.traderWallet)).size;
@@ -49,7 +49,7 @@ export async function GET(
   );
 
   const fraudDecisions = (state.fraudDecisions ?? [])
-    .filter((d) => d.tokenMint === mint)
+    .filter((d) => d.tokenMint === mint && (!d.campaignType || d.campaignType === campaign.type))
     .sort((a, b) => b.checkedAt - a.checkedAt)
     .slice(0, 20);
 
