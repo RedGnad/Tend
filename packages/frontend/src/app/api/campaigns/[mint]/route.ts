@@ -53,6 +53,11 @@ export async function GET(
     .sort((a, b) => b.checkedAt - a.checkedAt)
     .slice(0, 20);
 
+  const poolCapLamports = BigInt(campaign.poolCapLamports);
+  const feesClaimedLamports = BigInt(campaign.feesClaimedLamports ?? "0");
+  // Seeded = total pool - fees auto-claimed (i.e. what the creator put in manually)
+  const seededLamports = poolCapLamports - feesClaimedLamports;
+
   return NextResponse.json({
     campaign,
     stats: {
@@ -60,6 +65,10 @@ export async function GET(
       totalPayouts: payouts.length,
       totalPaidLamports: totalPaidLamports.toString(),
       totalVolumeLamports: totalVolumeLamports.toString(),
+      seededLamports: (seededLamports > 0n ? seededLamports : 0n).toString(),
+      feesClaimedLamports: feesClaimedLamports.toString(),
+      feeClaimCount: campaign.feeClaimCount ?? 0,
+      lastFeeClaimAt: campaign.lastFeeClaimAt ?? null,
     },
     recentPayouts: payouts.slice(0, 20),
     fraudDecisions,

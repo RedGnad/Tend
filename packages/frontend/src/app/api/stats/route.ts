@@ -22,6 +22,11 @@ export async function GET() {
   );
   const uniqueEarners = new Set(payouts.map((p) => p.traderWallet)).size;
 
+  const totalFeesClaimedLamports = campaigns.reduce(
+    (sum, c) => sum + BigInt(c.feesClaimedLamports ?? "0"),
+    0n
+  );
+
   return NextResponse.json({
     liveCampaigns,
     totalCampaigns,
@@ -29,5 +34,6 @@ export async function GET() {
     totalPaidLamports: totalPaidLamports.toString(),
     totalVolumeLamports: totalVolumeLamports.toString(),
     uniqueEarners,
+    totalFeesClaimedLamports: totalFeesClaimedLamports.toString(),
   });
 }

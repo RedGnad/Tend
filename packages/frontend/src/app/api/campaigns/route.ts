@@ -31,6 +31,9 @@ export async function GET() {
         uniqueTraders,
         totalPayouts: campaignPayouts.length,
         totalPaidLamports: totalPaidLamports.toString(),
+        feesClaimedLamports: c.feesClaimedLamports ?? "0",
+        feeClaimCount: c.feeClaimCount ?? 0,
+        lastFeeClaimAt: c.lastFeeClaimAt ?? null,
       },
     };
   });

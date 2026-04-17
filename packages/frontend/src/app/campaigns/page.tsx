@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Gift, TrendingUp, Users, Zap } from "lucide-react";
+import { ArrowRight, Gift, TrendingUp, Users, Zap, RefreshCw } from "lucide-react";
 import type { Campaign } from "@tend/shared";
 
 type CampaignWithStats = Campaign & {
@@ -20,6 +20,7 @@ interface GlobalStats {
   totalPaidLamports: string;
   totalVolumeLamports: string;
   uniqueEarners: number;
+  totalFeesClaimedLamports?: string;
 }
 
 function formatSol(lamports: number | string | bigint): string {
@@ -204,6 +205,9 @@ export default function CampaignsPage() {
   const paused = (campaigns ?? []).filter((c) => c.status === "paused");
   const depleted = (campaigns ?? []).filter((c) => c.status === "depleted");
 
+  const feesClaimed = stats?.totalFeesClaimedLamports ?? "0";
+  const hasFees = Number(feesClaimed) > 0;
+
   const statItems = [
     {
       label: "Live campaigns",
@@ -220,6 +224,15 @@ export default function CampaignsPage() {
       value: stats ? stats.uniqueEarners.toString() : "—",
       icon: Users,
     },
+    ...(hasFees
+      ? [
+          {
+            label: "Fees claimed",
+            value: formatSol(feesClaimed) + " SOL",
+            icon: RefreshCw,
+          },
+        ]
+      : []),
   ];
 
   return (
@@ -237,7 +250,7 @@ export default function CampaignsPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-10">
+      <div className={`grid grid-cols-1 gap-3 mb-10 ${hasFees ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
         {statItems.map((it) => (
           <div
             key={it.label}

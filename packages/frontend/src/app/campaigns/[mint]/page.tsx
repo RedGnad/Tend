@@ -24,6 +24,10 @@ interface CampaignDetail {
     totalPayouts: number;
     totalPaidLamports: string;
     totalVolumeLamports: string;
+    seededLamports?: string;
+    feesClaimedLamports?: string;
+    feeClaimCount?: number;
+    lastFeeClaimAt?: number | null;
   };
   recentPayouts: RewardPayout[];
   fraudDecisions?: FraudDecision[];
@@ -238,6 +242,26 @@ export default function CampaignDetailPage() {
             remaining
           </span>
         </div>
+
+        {/* Fee-sharing breakdown */}
+        {(Number(stats.feesClaimedLamports ?? "0") > 0 ||
+          Number(stats.seededLamports ?? "0") > 0) && (
+          <div className="flex items-center gap-4 mt-2 text-[10px] text-[var(--text-muted)]">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-[var(--text-secondary)]" />
+              Seeded: {formatSol(stats.seededLamports ?? "0")} SOL
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 rounded-sm bg-[var(--accent)]" />
+              From fees: {formatSol(stats.feesClaimedLamports ?? "0")} SOL
+              {(stats.feeClaimCount ?? 0) > 0 && (
+                <span className="text-[var(--text-muted)]">
+                  ({stats.feeClaimCount} claims)
+                </span>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Main: chart (large) + swap (sidebar) */}

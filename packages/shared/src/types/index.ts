@@ -133,6 +133,12 @@ export interface BaseCampaign {
   creatorWallet: string;
   poolCapLamports: string;
   poolSpentLamports: string;
+  /** SOL auto-claimed from Bags trading fees (grows the pool automatically) */
+  feesClaimedLamports?: string;
+  /** How many fee claims have been executed */
+  feeClaimCount?: number;
+  /** Timestamp of last successful fee claim */
+  lastFeeClaimAt?: number;
   status: "live" | "paused" | "depleted";
   createdAt: number;
   tokenInfo?: {

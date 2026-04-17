@@ -1,14 +1,40 @@
 # Tend
 
-**AI-managed rewards agent for Bags.fm creator tokens.** Creators fund a SOL reward pool from their fee-share. Traders earn SOL back. A Claude fraud gate vets every payout before it ships on-chain.
+**Turn Bags.fm trading fees into an automated growth engine.** Creator fees are claimed on-chain, pooled into reward campaigns, and distributed to traders — all managed by an AI agent that blocks bots and sybils.
 
 **Live now:** [tend-frontend.vercel.app](https://tend-frontend.vercel.app) | Agent: [tend-agent.onrender.com](https://tend-agent.onrender.com/health) | Token: [`$TEND`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
 
 ---
 
+## The fee-sharing loop
+
+```
+Trader buys $TOKEN on any DEX
+       |
+       v
+Bags.fm collects trading fees  -->  Agent claims fees (every 30 min)
+                                           |
+                                           v
+                                    Campaign pool grows automatically
+                                           |
+                                           v
+            Agent tick (every ~2 min)  -->  per-type trigger
+            |-- cashback: scan new swaps on the mint
+            |-- sprint: first N buyers get flat bonus
+            |-- holder: snapshot holders (hourly)
+                                           |
+                                           v
+                  Claude Haiku fraud gate  -->  allow / reject / hold
+                                           |
+                                           v
+                    SOL sent to trader  -->  Solscan tx link in dashboard
+```
+
+The creator seeds the pool at launch. Trading activity generates fees that the agent claims and reinvests into the pool automatically. More trading = more fees = more rewards = more trading. Self-sustaining.
+
 ## On-chain proof
 
-9 real SOL payouts shipped across 3 campaign types on Solana mainnet. Every tx verifiable on Solscan. Selection below:
+24 real SOL payouts shipped across 3 campaign types on Solana mainnet. Every tx verifiable on Solscan:
 
 | Campaign | Wallet | SOL | Tx |
 |---|---|---|---|
@@ -18,24 +44,7 @@
 | Holder | `zCu1hXVf...` | 0.00125 | [`2XBJQwE6...`](https://solscan.io/tx/2XBJQwE6hojePbBZ7fM4RpzitEAX9AsF4jUiw1Se311xysSoU5rQq63oMUGd57h2Pw95FbdWJJEWHh7NMvP6Ma56) |
 | Holder | `8y2Eo1dk...` | 0.00125 | [`5CZMNr3a...`](https://solscan.io/tx/5CZMNr3aRwifR17fx8EMRgiCQkv21AUxgGqcERfdTuExtuG923UadpkuXrPm5nkVgkadcLh6hHj7bFnBppoQAgMr) |
 
-8 AI fraud decisions logged (6 allowed, 1 rejected, 1 held). Full example below.
-
-## How it works
-
-```
-Creator activates campaign  -->  Bags fee-share routes % to reward pool
-                                        |
-                                        v
-      Agent tick (every ~2 min)  -->  per-type trigger
-      |-- cashback / sprint: scan new swaps on the mint
-      |-- holder: snapshot token holders (hourly)
-                                        |
-                                        v
-           Claude Haiku fraud gate  -->  allow / reject / hold
-                                        |
-                                        v
-             SOL sent to trader  -->  Solscan tx link in dashboard
-```
+8 AI fraud decisions logged (6 allowed, 1 rejected, 1 held).
 
 ## Campaign types
 
@@ -45,7 +54,7 @@ Creator activates campaign  -->  Bags fee-share routes % to reward pool
 | **Sprint** | Flat SOL bonus to the first N buyers | Live on $TEND |
 | **Holder** | Pro-rata SOL dividends on hourly snapshots, min hold time | Live on $TEND |
 
-All three share the same infrastructure: Bags SDK fee routing, Claude fraud gate, SOL payout executor, and dashboard UI.
+All three share the same infrastructure: Bags fee claiming, Claude fraud gate, SOL payout executor, and dashboard UI.
 
 ## AI fraud gate — in the critical money path
 
@@ -57,37 +66,28 @@ A 6-day-old wallet with 6 transactions bought $TEND during the launch sprint. Cl
 
 > *"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping."*
 
-Flags: `new_wallet_6days`, `low_tx_count`. Sprint slot preserved.
-
 A 1090-day-old wallet with 1000+ transactions made the same trade. Claude allowed it:
 
 > *"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign."*
 
-Result: 0.005 SOL bonus shipped. Buy tx: [`5rVWNpiR...`](https://solscan.io/tx/5rVWNpiRNikiyRPygLkBSaLtM4rgguMAbBgmtgJ5VeruhzENxx77g1cHFaVhRo4hjcbEGKcktLb3z32fCQxB9ksk) | Payout tx: [`4kdjsRMZ...`](https://solscan.io/tx/4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb)
-
-Bounded authority: the agent can only pay within campaign budgets, has per-wallet cooldowns, and cannot withdraw funds outside the payout rail.
+Result: 0.005 SOL bonus shipped. Bot got nothing.
 
 ## Bags API integration
 
 Tend is built entirely on the Bags.fm platform:
 
-- **Fee-share config** — `prepareUpdateFeeShareConfig` + `submitFeeShareUpdate` to route creator fees to reward pool wallets
-- **Claims** — `claimFees` to collect accrued SOL from fee-share positions
+- **Fee-share config** — `prepareUpdateFeeShareConfig` + `submitFeeShareUpdate` to route creator fees on-chain
+- **Fee claiming** — `claimFees` to collect accrued SOL from fee-share positions into campaign pools
 - **Trade detection** — `getSignaturesForAddress` + `getParsedTransaction` to detect qualifying buys in real-time
 - **Token data** — `getCreatorTokens`, `getTokenAnalytics`, `getTokenCreators` for campaign dashboards
-- **Launch** — `createToken` + `launchToken` for new token deployment with fee-share pre-configured
 
 ## Claude / Anthropic integration
-
-Three AI services running in production via `@anthropic-ai/sdk`:
 
 | Service | Model | Cycle | What it does |
 |---|---|---|---|
 | **Fraud gate** | Claude Haiku 4.5 | Every payout | Structured `allow/reject/hold` with reasoning. Blocks sybils, snipe bots, wash traders |
-| **Buyback advisor** | Claude Haiku 4.5 | Every 5 min | Analyzes price, volume, fees, trend. Decides `buy/hold/partial_buy` with amount |
-| **Analytics engine** | Claude Haiku 4.5 | Every 2h | Health score (1-10), trend, insights, risks, opportunities per token |
 
-All three use Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome.
+Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
 
 **MCP creator console** — 27 tools across 8 groups, callable from Claude Desktop:
 
@@ -104,17 +104,21 @@ All three use Zod v4 structured outputs. Decision logs persisted with full input
 - **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk`
 - **MCP**: `@modelcontextprotocol/sdk` (STDIO transport)
 - **Frontend**: Next.js 15, Tailwind CSS v4, wallet-adapter
-- **Infra**: Vercel (dashboard), Render (agent), cron-job.org (keep-alive)
+- **Infra**: Vercel (dashboard), Render (agent), live state bridge
 
 ## Architecture
 
 ```
 packages/
   shared/       Types, Bags SDK wrapper, Solana utils, AES-256-GCM crypto
-  agent/        Rewards dispatcher, per-type triggers, fraud gate, payout executor
+  agent/        Fee claimer, rewards dispatcher, per-type triggers, fraud gate, payout executor
   mcp-server/   27 MCP tools (STDIO) — creator console
   frontend/     Next.js 15 dashboard + read-only API routes
 ```
+
+**Agent loop (2 ticks):**
+- `tickCampaignFeeClaims` (30 min) — claim Bags trading fees → grow campaign pools
+- `tickRewards` (2 min) — detect trades → fraud gate → accrue payouts → send SOL
 
 ## Quick start
 
@@ -132,13 +136,13 @@ npm run dev:agent        # Rewards agent
 - **File-level locking** — mutex on state prevents concurrent corruption
 - **Intent chain** — prepare/submit flow with `prepareId` prevents replay
 - **Bounded agent** — payout-only authority within campaign budgets
-- **Fraud gate** — every payout vetted before the on-chain leg
+- **Fail-closed fraud gate** — every payout vetted before the on-chain leg
 
 ## Hackathon tracks
 
 Built for [The Bags Hackathon](https://bags.fm/hackathon) ($1M prize pool)
 
-- **Fee Sharing** — programmable rewards on top of Bags fee-share
+- **Fee Sharing** — trading fees automatically claimed and recycled into community reward campaigns
 - **AI Agents** — Claude Haiku in the critical payout path, not decoration
 - **Claude Skills** — MCP server as the creator console
-- **Bags API** — deep integration across fee-share, claims, trades, token launch
+- **Bags API** — deep integration across fee-share, claims, trades, token data
