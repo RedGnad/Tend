@@ -49,7 +49,7 @@ export async function GET(
   );
 
   const fraudDecisions = (state.fraudDecisions ?? [])
-    .filter((d) => d.tokenMint === mint && (!d.campaignType || d.campaignType === campaign.type))
+    .filter((d) => d.tokenMint === mint && (!(d as any).campaignType || (d as any).campaignType === campaign.type))
     .sort((a, b) => b.checkedAt - a.checkedAt)
     .slice(0, 20);
 

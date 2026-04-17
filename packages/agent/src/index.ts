@@ -92,13 +92,57 @@ async function main() {
   const scheduler = new Scheduler(bags);
   scheduler.start();
 
-  // Health server for Render free tier keep-alive
+  // HTTP server — health + state API for Vercel frontend
   const port = parseInt(process.env.PORT || "3001", 10);
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
+    const url = new URL(req.url ?? "/", `http://localhost:${port}`);
+
+    // CORS for Vercel frontend
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
+
+    if (url.pathname === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok", uptime: process.uptime() }));
+      return;
+    }
+
+    if (url.pathname === "/state") {
+      try {
+        const { loadState } = await import("./state-reader.js");
+        const state = await loadState();
+        if (!state) {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({}));
+          return;
+        }
+        // Strip wallet secrets before sending
+        const safe = {
+          ...state,
+          walletPool: state.walletPool?.map((w) => ({
+            publicKey: w.publicKey,
+            assignedTo: w.assignedTo,
+          })),
+        };
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(safe));
+      } catch (err) {
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Failed to read state" }));
+      }
+      return;
+    }
+
+    // Default: health
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", uptime: process.uptime() }));
   });
-  server.listen(port, () => log(`Health server on :${port}`));
+  server.listen(port, () => log(`HTTP server on :${port}`));
 
   // Graceful shutdown
   const shutdown = () => {

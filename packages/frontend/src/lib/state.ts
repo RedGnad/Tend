@@ -49,6 +49,8 @@ export function isAgentRunning(): boolean {
   }
 }
 
+const AGENT_URL = process.env.TEND_AGENT_URL; // e.g. https://tend-agent.onrender.com
+
 export async function loadTendState(): Promise<TendState> {
   // Prefer the live local file (agent machine / dev)
   if (existsSync(STATE_PATH)) {
@@ -59,7 +61,22 @@ export async function loadTendState(): Promise<TendState> {
     }
     return state;
   }
-  // Fall back to committed snapshot (serverless / Vercel)
+  // Serverless (Vercel) — fetch live state from the agent
+  if (AGENT_URL) {
+    try {
+      const res = await fetch(`${AGENT_URL}/state`, {
+        next: { revalidate: 30 },
+      } as RequestInit);
+      if (res.ok) {
+        const state = { ...DEFAULT_STATE, ...(await res.json()) as TendState };
+        if (state.campaigns) {
+          state.campaigns = state.campaigns.map(migrateCampaign);
+        }
+        return state;
+      }
+    } catch { /* fall through to snapshot */ }
+  }
+  // Last resort: committed snapshot
   if (existsSync(SNAPSHOT_PATH)) {
     const raw = await readFile(SNAPSHOT_PATH, "utf-8");
     const state = { ...DEFAULT_STATE, ...(JSON.parse(raw) as TendState) };
