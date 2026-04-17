@@ -52,7 +52,7 @@ The creator seeds the pool at launch. Trading activity generates fees that the a
 |---|---|---|
 | **Cashback** | % of each qualifying buy returned in SOL | Live on $TEND |
 | **Sprint** | Flat SOL bonus to the first N buyers | Live on $TEND |
-| **Holder** | Pro-rata SOL dividends on hourly snapshots, min hold time | Live on $TEND |
+| **Holder** | Pro-rata SOL dividends on periodic snapshots (configurable), min hold time | Live on $TEND |
 
 All three share the same infrastructure: Bags fee claiming, Claude fraud gate, SOL payout executor, and dashboard UI.
 

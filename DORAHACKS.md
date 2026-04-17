@@ -14,7 +14,7 @@ Tend gives creators 3 campaign types, set it up in seconds, the AI agent handles
 
 **Cashback :** Traders get a % of their buy back in SOL. Every qualifying purchase is detected automatically, no matter which DEX they use — Jupiter, Phantom swap, Raydium, anywhere.
 
-**Holder Dividends :** Long-term holders earn pro-rata SOL from hourly snapshots. Minimum hold times filter out flippers.
+**Holder Dividends :** Long-term holders earn pro-rata SOL from periodic snapshots (configurable interval). Minimum hold times filter out flippers.
 
 **Sprint :** Flat SOL bonus to the first N buyers. Creates urgency at launch. Bots get blocked, real traders get paid.
 
