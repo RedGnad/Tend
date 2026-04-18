@@ -22,17 +22,13 @@ const LOCK_RETRY_MS = 50;
 const SNAPSHOT_PATH = join(process.cwd(), "public", "state-snapshot.json");
 
 const DEFAULT_STATE: TendState = {
-  managedTokens: {},
   walletPool: [],
-  snapshots: [],
-  decisions: [],
-  reports: [],
-  allocations: [],
   campaigns: [],
   rewardPayouts: [],
   swapCursors: {},
   holderSnapshotCursors: {},
   fraudDecisions: [],
+  campaignDeposits: [],
 };
 
 const AGENT_HEARTBEAT_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes
@@ -134,16 +130,13 @@ export async function withStateLock(
       state = JSON.parse(raw);
     }
 
-    if (!state.decisions) state.decisions = [];
-    if (!state.reports) state.reports = [];
-    if (!state.allocations) state.allocations = [];
     if (!state.walletPool) state.walletPool = [];
-    if (!state.pendingPrepares) state.pendingPrepares = [];
     if (!state.campaigns) state.campaigns = [];
     if (!state.rewardPayouts) state.rewardPayouts = [];
     if (!state.swapCursors) state.swapCursors = {};
     if (!state.holderSnapshotCursors) state.holderSnapshotCursors = {};
     if (!state.fraudDecisions) state.fraudDecisions = [];
+    if (!state.campaignDeposits) state.campaignDeposits = [];
 
     // Migrate legacy campaign shapes on read (Plan E discriminated union).
     state.campaigns = state.campaigns.map(migrateCampaign);

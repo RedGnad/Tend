@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
+import { readFile, writeFile, mkdir, unlink, rename } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -14,22 +14,59 @@ import {
 
 const TEND_DIR = join(homedir(), TEND_STATE_DIR);
 const STATE_PATH = join(TEND_DIR, TEND_STATE_FILE);
+const STATE_TMP = `${STATE_PATH}.tmp`;
+const STATE_BAK = `${STATE_PATH}.corrupt`;
+const SNAPSHOT_PATH = join(
+  process.cwd(),
+  "packages",
+  "frontend",
+  "public",
+  "state-snapshot.json"
+);
 const LOCK_PATH = join(TEND_DIR, "state.lock");
+
+async function loadStateOrFallback(): Promise<TendState> {
+  if (!existsSync(STATE_PATH)) return { ...DEFAULT_STATE };
+  const raw = await readFile(STATE_PATH, "utf-8");
+  try {
+    return JSON.parse(raw) as TendState;
+  } catch (parseErr) {
+    // state.json is corrupt. Quarantine it for forensics, then try the
+    // snapshot bundled in frontend/public. If that's unreadable too, fall
+    // back to DEFAULT_STATE so the agent keeps serving — better than a
+    // restart loop that drops every payout in the queue.
+    const errMsg = parseErr instanceof Error ? parseErr.message : String(parseErr);
+    console.error(`[tend-agent][state-lock] CORRUPT state.json — ${errMsg}`);
+    try {
+      await rename(STATE_PATH, STATE_BAK);
+      console.error(`[tend-agent][state-lock] quarantined corrupt state at ${STATE_BAK}`);
+    } catch { /* best effort */ }
+    if (existsSync(SNAPSHOT_PATH)) {
+      try {
+        const snapRaw = await readFile(SNAPSHOT_PATH, "utf-8");
+        const parsed = JSON.parse(snapRaw) as TendState;
+        console.error(`[tend-agent][state-lock] recovered from snapshot ${SNAPSHOT_PATH}`);
+        return parsed;
+      } catch (snapErr) {
+        const m = snapErr instanceof Error ? snapErr.message : String(snapErr);
+        console.error(`[tend-agent][state-lock] snapshot also unreadable — ${m}`);
+      }
+    }
+    console.error(`[tend-agent][state-lock] falling back to DEFAULT_STATE — campaigns/payouts will need to be replayed`);
+    return { ...DEFAULT_STATE };
+  }
+}
 const LOCK_TIMEOUT_MS = 10_000;
 const LOCK_RETRY_MS = 50;
 
 const DEFAULT_STATE: TendState = {
-  managedTokens: {},
   walletPool: [],
-  snapshots: [],
-  decisions: [],
-  reports: [],
-  allocations: [],
   campaigns: [],
   rewardPayouts: [],
   swapCursors: {},
   holderSnapshotCursors: {},
   fraudDecisions: [],
+  campaignDeposits: [],
 };
 
 async function acquireLock(): Promise<void> {
@@ -75,18 +112,10 @@ export async function withStateLock(
       await mkdir(TEND_DIR, { recursive: true });
     }
 
-    let state: TendState = { ...DEFAULT_STATE };
-    if (existsSync(STATE_PATH)) {
-      const raw = await readFile(STATE_PATH, "utf-8");
-      state = JSON.parse(raw);
-    }
+    const state: TendState = await loadStateOrFallback();
 
     // Ensure arrays exist
     if (!state.walletPool) state.walletPool = [];
-    if (!state.decisions) state.decisions = [];
-    if (!state.reports) state.reports = [];
-    if (!state.allocations) state.allocations = [];
-    if (!state.pendingPrepares) state.pendingPrepares = [];
     if (!state.campaigns) state.campaigns = [];
     if (!state.rewardPayouts) state.rewardPayouts = [];
     if (!state.swapCursors) state.swapCursors = {};
@@ -115,7 +144,11 @@ export async function withStateLock(
       })),
     };
 
-    await writeFile(STATE_PATH, JSON.stringify(stateToWrite, null, 2));
+    // Atomic write: tmp + rename. If the agent crashes mid-write, state.json
+    // remains the previous valid file rather than a half-flushed partial
+    // (which would parse-fail on next read and trigger the corrupt fallback).
+    await writeFile(STATE_TMP, JSON.stringify(stateToWrite, null, 2));
+    await rename(STATE_TMP, STATE_PATH);
   } finally {
     await releaseLock();
   }

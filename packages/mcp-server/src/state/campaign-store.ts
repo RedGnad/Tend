@@ -50,12 +50,7 @@ async function releaseLock(): Promise<void> {
 async function readStateRaw(): Promise<TendState> {
   if (!existsSync(STATE_PATH)) {
     return {
-      managedTokens: {},
       walletPool: [],
-      snapshots: [],
-      decisions: [],
-      reports: [],
-      allocations: [],
       campaigns: [],
       rewardPayouts: [],
       fraudDecisions: [],

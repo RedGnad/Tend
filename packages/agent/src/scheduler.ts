@@ -6,14 +6,11 @@ import { log, logError } from "./logger.js";
 
 const FEE_CLAIM_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const REWARDS_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
-const CLEANUP_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 1 minute
-const PREPARE_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes — stale prepares
 
 export class Scheduler {
   private feeClaimTimer?: ReturnType<typeof setInterval>;
   private rewardsTimer?: ReturnType<typeof setInterval>;
-  private cleanupTimer?: ReturnType<typeof setInterval>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
   private running = false;
 
@@ -46,10 +43,6 @@ export class Scheduler {
       () => this.tickRewards(),
       REWARDS_INTERVAL_MS
     );
-    this.cleanupTimer = setInterval(
-      () => this.tickCleanup(),
-      CLEANUP_INTERVAL_MS
-    );
     this.heartbeatTimer = setInterval(
       () => this.writeHeartbeat(),
       HEARTBEAT_INTERVAL_MS
@@ -62,7 +55,6 @@ export class Scheduler {
 
     if (this.feeClaimTimer) clearInterval(this.feeClaimTimer);
     if (this.rewardsTimer) clearInterval(this.rewardsTimer);
-    if (this.cleanupTimer) clearInterval(this.cleanupTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
 
     log("Scheduler stopped");
@@ -111,28 +103,6 @@ export class Scheduler {
       logError("[tick:rewards] Error:", err);
     } finally {
       this.rewardsRunning = false;
-    }
-  }
-
-  /** Expire stale pending prepares */
-  private async tickCleanup() {
-    try {
-      await withStateLock(async (state) => {
-        // Expire stale pending prepares (older than 15 min)
-        if (state.pendingPrepares && state.pendingPrepares.length > 0) {
-          const now = Date.now();
-          const before = state.pendingPrepares.length;
-          state.pendingPrepares = state.pendingPrepares.filter(
-            (p) => now - p.createdAt < PREPARE_EXPIRY_MS
-          );
-          const expired = before - state.pendingPrepares.length;
-          if (expired > 0) {
-            log(`[cleanup] Removed ${expired} expired prepare intent(s)`);
-          }
-        }
-      });
-    } catch (err) {
-      logError("[cleanup] Error:", err);
     }
   }
 
