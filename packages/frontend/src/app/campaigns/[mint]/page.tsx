@@ -3,22 +3,34 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
 import {
   ArrowLeft,
   ExternalLink,
   Users,
   TrendingUp,
   Shield,
-  ChevronDown,
-  ChevronUp,
 } from "lucide-react";
 import type { Campaign, RewardPayout, FraudDecision } from "@tend/shared";
+import bs58 from "bs58";
+
+// Inlined to keep the client bundle free of node:crypto (the shared barrel pulls it in).
+// Keep in sync with buildAuthMessage in packages/shared/src/wallet-auth.ts.
+function buildAuthMessage(p: {
+  action: string;
+  mint: string;
+  type: string;
+  timestampMs: number;
+}): string {
+  return `tend:${p.action}:${p.mint}:${p.type}:${p.timestampMs}`;
+}
 import { JupiterSwap } from "@/components/jupiter-swap";
 import { PriceChart } from "@/components/price-chart";
 
 interface CampaignDetail {
   campaign: Campaign;
+  adminWallet?: string | null;
   stats: {
     uniqueTraders: number;
     totalPayouts: number;
@@ -56,11 +68,16 @@ export default function CampaignDetailPage() {
   const searchParams = useSearchParams();
   const mint = params.mint;
   const campaignType = searchParams.get("type");
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signMessage, sendTransaction } = useWallet();
+  const { connection } = useConnection();
 
   const [detail, setDetail] = useState<CampaignDetail | null>(null);
   const [notFound, setNotFound] = useState(false);
-  const [showAllFraud, setShowAllFraud] = useState(false);
+  const [mutating, setMutating] = useState(false);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [showTopupModal, setShowTopupModal] = useState(false);
+  const [topupSol, setTopupSol] = useState("0.05");
+  const [topupStep, setTopupStep] = useState<"idle" | "sending" | "confirming" | "signing" | "submitting">("idle");
 
   useEffect(() => {
     if (!mint) return;
@@ -76,6 +93,152 @@ export default function CampaignDetailPage() {
       .then((d) => d && setDetail(d))
       .catch(() => setNotFound(true));
   }, [mint, campaignType]);
+
+  async function handleTopup() {
+    if (!detail || !publicKey || !signMessage || !sendTransaction) return;
+    const adminWallet = detail.adminWallet;
+    if (!adminWallet) {
+      setMutationError("Admin wallet unavailable — agent not configured");
+      return;
+    }
+    const amountSol = parseFloat(topupSol);
+    if (!Number.isFinite(amountSol) || amountSol <= 0) {
+      setMutationError("Enter a positive SOL amount");
+      return;
+    }
+    const lamports = Math.round(amountSol * 1_000_000_000);
+    if (lamports < 1_000_000) {
+      setMutationError("Minimum topup is 0.001 SOL");
+      return;
+    }
+
+    setMutating(true);
+    setMutationError(null);
+
+    try {
+      // 1. Build + send SOL transfer tx
+      setTopupStep("sending");
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey(adminWallet),
+          lamports,
+        })
+      );
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = publicKey;
+      const txSig = await sendTransaction(tx, connection);
+
+      // 2. Wait for confirmation
+      setTopupStep("confirming");
+      await connection.confirmTransaction(
+        { signature: txSig, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+
+      // 3. Sign auth message
+      setTopupStep("signing");
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action: "topup",
+        mint: detail.campaign.tokenMint,
+        type: detail.campaign.type,
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+
+      // 4. POST to agent
+      setTopupStep("submitting");
+      const res = await fetch(
+        `/api/campaigns/${detail.campaign.tokenMint}/topup`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: detail.campaign.type,
+            message,
+            signature: bs58.encode(sigBytes),
+            publicKey: publicKey.toBase58(),
+            txSig,
+          }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMutationError(data.error || `Failed (${res.status})`);
+        return;
+      }
+
+      const added = BigInt(data.addedLamports ?? lamports.toString());
+      setDetail({
+        ...detail,
+        campaign: {
+          ...detail.campaign,
+          poolCapLamports: (
+            BigInt(detail.campaign.poolCapLamports) + added
+          ).toString(),
+          status: data.status ?? detail.campaign.status,
+        } as typeof detail.campaign,
+      });
+      setShowTopupModal(false);
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Topup failed"
+      );
+    } finally {
+      setTopupStep("idle");
+      setMutating(false);
+    }
+  }
+
+  async function flipStatus(action: "pause" | "resume") {
+    if (!detail || !publicKey || !signMessage) return;
+    setMutating(true);
+    setMutationError(null);
+    try {
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action,
+        mint: detail.campaign.tokenMint,
+        type: detail.campaign.type,
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+      const res = await fetch(
+        `/api/campaigns/${detail.campaign.tokenMint}/${action}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: detail.campaign.type,
+            message,
+            signature: bs58.encode(sigBytes),
+            publicKey: publicKey.toBase58(),
+          }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMutationError(data.error || `Failed (${res.status})`);
+        return;
+      }
+      setDetail({
+        ...detail,
+        campaign: {
+          ...detail.campaign,
+          status: data.status ?? detail.campaign.status,
+        } as typeof detail.campaign,
+      });
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Signature or network error"
+      );
+    } finally {
+      setMutating(false);
+    }
+  }
 
   if (notFound) {
     return (
@@ -123,10 +286,6 @@ export default function CampaignDetailPage() {
     (sum, p) => sum + BigInt(p.rewardLamports),
     0n
   );
-
-  const visibleFraud = showAllFraud
-    ? fraudDecisions
-    : fraudDecisions.slice(0, 3);
 
   return (
     <div className="max-w-[1280px] mx-auto px-6 py-6">
@@ -219,6 +378,49 @@ export default function CampaignDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Creator controls — visible only when connected wallet owns the campaign */}
+      {connected &&
+        publicKey?.toBase58() === campaign.creatorWallet && (
+          <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]">
+            <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+              <Shield size={12} className="text-[var(--accent)]" />
+              <span>You own this campaign</span>
+              {mutationError && (
+                <span className="text-[#ef4444] ml-2">{mutationError}</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setMutationError(null);
+                  setShowTopupModal(true);
+                }}
+                disabled={mutating}
+                className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition"
+              >
+                Top up
+              </button>
+              {campaign.status !== "paused" ? (
+                <button
+                  onClick={() => flipStatus("pause")}
+                  disabled={mutating}
+                  className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[#eab308] hover:text-[#eab308] disabled:opacity-50 transition"
+                >
+                  {mutating ? "…" : "Pause"}
+                </button>
+              ) : (
+                <button
+                  onClick={() => flipStatus("resume")}
+                  disabled={mutating}
+                  className="text-[11px] px-3 py-1 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold"
+                >
+                  {mutating ? "…" : "Resume"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
       {/* Pool progress — thin, full width */}
       <div className="mb-4">
@@ -354,53 +556,38 @@ export default function CampaignDetailPage() {
               </p>
             </div>
 
-            <div className="space-y-1.5">
-              {visibleFraud.map((d) => (
+            <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+              {fraudDecisions.map((d) => (
                 <div
                   key={d.id}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                  className="py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
                 >
-                  <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
-                      d.decision === "allow"
-                        ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                        : d.decision === "reject"
-                          ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
-                          : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
-                    }`}
-                  >
-                    {d.decision}
-                  </span>
-                  <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
-                    {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
-                  </span>
-                  <span className="text-[var(--text-muted)] truncate flex-1 text-[11px] italic">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
+                        d.decision === "allow"
+                          ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                          : d.decision === "reject"
+                            ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
+                            : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                      }`}
+                    >
+                      {d.decision}
+                    </span>
+                    <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
+                      {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
+                    </span>
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0 ml-auto">
+                      {timeAgo(d.checkedAt)}
+                    </span>
+                  </div>
+                  <p className="text-[var(--text-muted)] text-[11px] italic mt-1 break-words leading-snug">
                     {d.reasoning}
-                  </span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0">
-                    {timeAgo(d.checkedAt)}
-                  </span>
+                  </p>
                 </div>
               ))}
             </div>
 
-            {fraudDecisions.length > 3 && (
-              <button
-                onClick={() => setShowAllFraud((v) => !v)}
-                className="flex items-center gap-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--accent)] mt-2 mx-auto"
-              >
-                {showAllFraud ? (
-                  <>
-                    Show less <ChevronUp size={12} />
-                  </>
-                ) : (
-                  <>
-                    Show {fraudDecisions.length - 3} more{" "}
-                    <ChevronDown size={12} />
-                  </>
-                )}
-              </button>
-            )}
           </div>
         )}
 
@@ -471,6 +658,64 @@ export default function CampaignDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Topup modal — owner-only */}
+      {showTopupModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => !mutating && setShowTopupModal(false)}
+        >
+          <div
+            className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-bold font-display mb-1">Top up pool</h3>
+            <p className="text-[12px] text-[var(--text-muted)] mb-4">
+              Sends SOL from your wallet to the agent and grows the pool cap.
+              Verified on-chain before crediting.
+            </p>
+            <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
+              Amount (SOL)
+            </label>
+            <input
+              type="number"
+              step="0.001"
+              min="0.001"
+              value={topupSol}
+              disabled={mutating}
+              onChange={(e) => setTopupSol(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+            />
+            {mutationError && (
+              <p className="text-[11px] text-[#ef4444] mt-2">{mutationError}</p>
+            )}
+            {topupStep !== "idle" && (
+              <p className="text-[11px] text-[var(--text-muted)] mt-2">
+                {topupStep === "sending" && "Awaiting wallet signature for transfer…"}
+                {topupStep === "confirming" && "Confirming transaction on-chain…"}
+                {topupStep === "signing" && "Sign the authorization message…"}
+                {topupStep === "submitting" && "Submitting to agent…"}
+              </p>
+            )}
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setShowTopupModal(false)}
+                disabled={mutating}
+                className="flex-1 py-2 rounded-lg text-[12px] border border-[var(--border)] hover:bg-[var(--bg)] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTopup}
+                disabled={mutating}
+                className="flex-1 py-2 rounded-lg text-[12px] bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 font-semibold disabled:opacity-50"
+              >
+                {mutating ? "Processing…" : "Top up"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

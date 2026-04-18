@@ -69,7 +69,38 @@ export async function runRewardsDistributor(
     .filter((c) => c.status === "live");
   if (liveCampaigns.length === 0) return result;
 
-  log(`[rewards] Dispatching ${liveCampaigns.length} live campaign(s)`);
+  // Pre-flight depletion flip: any "live" campaign whose remaining pool can't
+  // cover the min payout (0.0001 SOL) is effectively exhausted. Flip to
+  // "depleted" so the UI stays honest and the trigger is skipped until a fee
+  // claim revives the pool.
+  const MIN_PAYABLE = 100_000n; // lamports — matches MIN_REWARD_LAMPORTS in triggers
+  const depletedMints: string[] = [];
+  const payableCampaigns = liveCampaigns.filter((c) => {
+    const remaining =
+      BigInt(c.poolCapLamports) - BigInt(c.poolSpentLamports);
+    if (remaining < MIN_PAYABLE) {
+      depletedMints.push(`${c.type}:${c.tokenMint}`);
+      return false;
+    }
+    return true;
+  });
+  if (depletedMints.length > 0) {
+    await withStateLock(async (s) => {
+      for (const key of depletedMints) {
+        const [type, mint] = key.split(":");
+        const c = (s.campaigns ?? []).find(
+          (x) => x.tokenMint === mint && x.type === type && x.status === "live"
+        );
+        if (c) c.status = "depleted";
+      }
+    });
+    log(
+      `[rewards] Flipped ${depletedMints.length} campaign(s) to depleted (pool below min payout)`
+    );
+  }
+  if (payableCampaigns.length === 0) return result;
+
+  log(`[rewards] Dispatching ${payableCampaigns.length} live campaign(s)`);
 
   const poolWallets = (state.walletPool ?? []).map((w) => w.publicKey);
   const excludeWallets = new Set<string>([
@@ -78,7 +109,7 @@ export async function runRewardsDistributor(
     ...poolWallets,
   ]);
 
-  for (const campaign of liveCampaigns) {
+  for (const campaign of payableCampaigns) {
     try {
       if (campaign.type === "cashback") {
         const sinceTimestamp =

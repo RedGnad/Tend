@@ -277,6 +277,19 @@ export interface TendState {
   swapCursors?: Record<string, number>;
   holderSnapshotCursors?: Record<string, number>;
   fraudDecisions?: FraudDecision[];
+  campaignDeposits?: CampaignDeposit[];
   agentHeartbeat?: number; // timestamp of last agent tick
   serviceWallets?: Record<string, string>; // DEPRECATED — migrated into walletPool. Kept for migration only.
+}
+
+// Creator-funded deposits into a campaign pool (create + topup).
+// Used for anti-replay (txSig uniqueness) and to surface a funding history.
+export interface CampaignDeposit {
+  txSig: string;
+  tokenMint: string;
+  campaignType: "cashback" | "holder" | "sprint";
+  fromWallet: string;
+  amountLamports: string;
+  kind: "create" | "topup";
+  createdAt: number;
 }

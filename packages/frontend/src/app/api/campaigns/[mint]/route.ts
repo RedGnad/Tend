@@ -58,8 +58,12 @@ export async function GET(
   // Seeded = total pool - fees auto-claimed (i.e. what the creator put in manually)
   const seededLamports = poolCapLamports - feesClaimedLamports;
 
+  const adminWallet =
+    (state as unknown as { adminWallet?: string }).adminWallet ?? null;
+
   return NextResponse.json({
     campaign,
+    adminWallet,
     stats: {
       uniqueTraders,
       totalPayouts: payouts.length,

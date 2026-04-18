@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useWallet } from "@solana/wallet-adapter-react";
+import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import bs58 from "bs58";
 import {
   ArrowRight,
   Coins,
@@ -15,6 +17,25 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
+
+// Inlined to keep the client bundle free of node:crypto.
+// Keep in sync with buildAuthMessage in packages/shared/src/wallet-auth.ts.
+function buildAuthMessage(p: {
+  action: string;
+  mint: string;
+  type: string;
+  timestampMs: number;
+}): string {
+  return `tend:${p.action}:${p.mint}:${p.type}:${p.timestampMs}`;
+}
+
+type CreateStep =
+  | "idle"
+  | "fetching"
+  | "sending"
+  | "confirming"
+  | "signing"
+  | "submitting";
 
 type CampaignType = "cashback" | "holder" | "sprint";
 
@@ -66,80 +87,166 @@ const TYPE_INFO: Record<
 };
 
 export default function CreatorPage() {
-  const { publicKey, connected } = useWallet();
+  const { publicKey, connected, signMessage, sendTransaction } = useWallet();
+  const { connection } = useConnection();
   const { setVisible } = useWalletModal();
 
   const [form, setForm] = useState<FormState>(DEFAULTS);
   const [submitting, setSubmitting] = useState(false);
+  const [step, setStep] = useState<CreateStep>("idle");
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [agentWarning, setAgentWarning] = useState<string | null>(null);
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError(null);
     setSuccess(false);
-    setAgentWarning(null);
   }
 
   async function handleSubmit() {
-    if (!connected || !publicKey) {
+    if (!connected || !publicKey || !signMessage || !sendTransaction) {
       setVisible(true);
       return;
     }
 
-    if (!form.tokenMint || form.tokenMint.length < 32) {
+    const tokenMint = form.tokenMint.trim();
+    if (!tokenMint || tokenMint.length < 32) {
       setError("Enter a valid token mint address");
+      return;
+    }
+    try {
+      new PublicKey(tokenMint);
+    } catch {
+      setError("Token mint is not a valid Solana address");
       return;
     }
 
     const poolCapSol = parseFloat(form.poolCapSol);
-    if (isNaN(poolCapSol) || poolCapSol <= 0) {
-      setError("Pool cap must be greater than 0");
+    if (!Number.isFinite(poolCapSol) || poolCapSol < 0.001) {
+      setError("Pool must be at least 0.001 SOL");
       return;
+    }
+    const lamports = Math.round(poolCapSol * 1_000_000_000);
+
+    // Type-specific validation + config
+    const config: Record<string, number | string> = {};
+    if (form.type === "cashback") {
+      const bps = Math.round(parseFloat(form.cashbackPct) * 100);
+      if (!Number.isFinite(bps) || bps < 1 || bps > 2000) {
+        setError("Cashback must be between 0.01% and 20%");
+        return;
+      }
+      config.cashbackBps = bps;
+    } else if (form.type === "holder") {
+      const bps = Math.round(parseFloat(form.rewardPct) * 100);
+      const minHold = parseFloat(form.minHoldHours);
+      const snap = parseFloat(form.snapshotHours);
+      if (!Number.isFinite(bps) || bps < 1 || bps > 2000) {
+        setError("Reward rate must be between 0.01% and 20%");
+        return;
+      }
+      if (!Number.isFinite(minHold) || minHold < 0) {
+        setError("Min hold hours must be ≥ 0");
+        return;
+      }
+      if (!Number.isFinite(snap) || snap < 1) {
+        setError("Snapshot interval must be ≥ 1 hour");
+        return;
+      }
+      config.rewardBps = bps;
+      config.minHoldHours = minHold;
+      config.snapshotCronHours = snap;
+    } else if (form.type === "sprint") {
+      const bonusSol = parseFloat(form.bonusSol);
+      const maxWinners = parseInt(form.maxWinners);
+      const minBuySol = parseFloat(form.minBuySol);
+      if (!Number.isFinite(bonusSol) || bonusSol <= 0) {
+        setError("Bonus per winner must be > 0");
+        return;
+      }
+      if (!Number.isFinite(maxWinners) || maxWinners < 1) {
+        setError("Max winners must be ≥ 1");
+        return;
+      }
+      if (!Number.isFinite(minBuySol) || minBuySol <= 0) {
+        setError("Min buy must be > 0");
+        return;
+      }
+      config.bonusLamports = Math.round(bonusSol * 1_000_000_000).toString();
+      config.maxWinners = maxWinners;
+      config.minBuyLamports = Math.round(minBuySol * 1_000_000_000).toString();
     }
 
     setSubmitting(true);
     setError(null);
 
     try {
-      const config: Record<string, number | string> = {};
-      if (form.type === "cashback") {
-        config.cashbackBps = Math.round(parseFloat(form.cashbackPct) * 100);
-      } else if (form.type === "holder") {
-        config.rewardBps = Math.round(parseFloat(form.rewardPct) * 100);
-        config.minHoldHours = parseFloat(form.minHoldHours);
-        config.snapshotCronHours = parseFloat(form.snapshotHours);
-      } else if (form.type === "sprint") {
-        config.bonusSol = parseFloat(form.bonusSol);
-        config.maxWinners = parseInt(form.maxWinners);
-        config.minBuySol = parseFloat(form.minBuySol);
+      // 1. Fetch admin wallet (funding destination)
+      setStep("fetching");
+      const listRes = await fetch("/api/campaigns");
+      const listData = await listRes.json().catch(() => ({}));
+      const adminWallet: string | null = listData.adminWallet ?? null;
+      if (!adminWallet) {
+        throw new Error("Admin wallet unavailable — agent not configured");
       }
 
+      // 2. Build + send SOL transfer to fund the pool
+      setStep("sending");
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash("confirmed");
+      const tx = new Transaction().add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: new PublicKey(adminWallet),
+          lamports,
+        })
+      );
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = publicKey;
+      const txSig = await sendTransaction(tx, connection);
+
+      // 3. Wait for confirmation
+      setStep("confirming");
+      await connection.confirmTransaction(
+        { signature: txSig, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+
+      // 4. Sign auth message
+      setStep("signing");
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action: "create",
+        mint: tokenMint,
+        type: form.type,
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+
+      // 5. POST to agent
+      setStep("submitting");
       const res = await fetch("/api/campaigns/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tokenMint: form.tokenMint.trim(),
-          creatorWallet: publicKey.toBase58(),
+          tokenMint,
           type: form.type,
-          poolCapSol,
+          message,
+          signature: bs58.encode(sigBytes),
+          publicKey: publicKey.toBase58(),
+          txSig,
           config,
         }),
       });
-
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || "Failed to create campaign");
-      }
-
-      if (data.warning) {
-        setAgentWarning(data.warning);
+        throw new Error(data.error || `Failed to create campaign (${res.status})`);
       }
       setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
+      setStep("idle");
       setSubmitting(false);
     }
   }
@@ -242,15 +349,8 @@ export default function CreatorPage() {
             </h3>
             <p className="text-[14px] text-[var(--text-muted)] mb-4">
               Your {TYPE_INFO[form.type].label.toLowerCase()} campaign is live.
-              {agentWarning
-                ? " Start the Tend agent to begin processing payouts."
-                : " The Tend agent will start processing qualifying events."}
+              The Tend agent will start processing qualifying events.
             </p>
-            {agentWarning && (
-              <p className="text-[12px] text-[#eab308] bg-[rgba(234,179,8,0.08)] border border-[rgba(234,179,8,0.2)] rounded-lg px-4 py-2 mb-4">
-                {agentWarning}
-              </p>
-            )}
             <div className="flex items-center justify-center gap-3">
               <Link
                 href="/campaigns"
@@ -517,17 +617,28 @@ export default function CreatorPage() {
               {submitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  Creating...
+                  {step === "fetching" && "Fetching agent..."}
+                  {step === "sending" && "Sending deposit..."}
+                  {step === "confirming" && "Confirming on-chain..."}
+                  {step === "signing" && "Sign the auth message..."}
+                  {step === "submitting" && "Registering with agent..."}
+                  {step === "idle" && "Working..."}
                 </>
               ) : !connected ? (
                 <>Connect wallet to launch</>
               ) : (
                 <>
                   <Zap size={15} />
-                  Launch campaign
+                  Launch campaign ({form.poolCapSol || "0"} SOL)
                 </>
               )}
             </button>
+            {submitting && (
+              <p className="text-[11px] text-[var(--text-muted)] text-center mt-3">
+                You&apos;ll sign twice: a SOL transfer to fund the pool, then a
+                short message to authorize the campaign.
+              </p>
+            )}
 
             {connected && (
               <p className="text-[10px] text-[var(--text-muted)] text-center mt-3 font-mono">

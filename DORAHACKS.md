@@ -74,7 +74,7 @@ Creators can launch campaigns from the dashboard or through Claude Desktop with 
 *"Show me the stats for my holder campaign"*
 *"Top up the sprint pool with 0.3 SOL"*
 
-27 MCP tools let creators manage everything through natural language.
+6 focused MCP tools cover the full creator workflow: launch a cashback / holder / sprint campaign, pause, top up the pool, and view live stats.
 
 ---
 
@@ -93,7 +93,7 @@ Tend is built entirely on the Bags platform:
 
 - **Agent :** Node.js scheduler with 2 core loops: fee claiming (every 30 min) and rewards distribution (every 2 min). Claude Haiku 4.5 fraud gate with Zod v4 structured outputs
 - **Frontend :** Next.js 15, Tailwind v4, embedded Birdeye charts + Jupiter swap, wallet-adapter (Phantom/Solflare)
-- **MCP Server :** 27 tools across 8 groups, STDIO transport, callable from Claude Desktop
+- **MCP Server :** 6 creator tools + 1 resource + 1 prompt, STDIO transport, callable from Claude Desktop
 - **Security :** AES-256-GCM encrypted wallet keys, file-level locking, bounded agent authority, fail-closed fraud gate
 - **Infra :** Vercel (dashboard), Render (agent), live state bridge between the two
 

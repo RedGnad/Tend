@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { existsSync, statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import type { TendState, ManagedToken } from "@tend/shared";
+import type { TendState } from "@tend/shared";
 import {
   encryptSecret,
   decryptSecret,
@@ -86,18 +86,6 @@ export async function loadTendState(): Promise<TendState> {
     return state;
   }
   return { ...DEFAULT_STATE };
-}
-
-export async function getManagedTokens(): Promise<ManagedToken[]> {
-  const state = await loadTendState();
-  return Object.values(state.managedTokens);
-}
-
-export async function getManagedToken(
-  mint: string
-): Promise<ManagedToken | null> {
-  const state = await loadTendState();
-  return state.managedTokens[mint] ?? null;
 }
 
 // ── File lock — same protocol as packages/agent/src/state-lock.ts ──

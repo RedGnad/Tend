@@ -38,5 +38,8 @@ export async function GET() {
     };
   });
 
-  return NextResponse.json({ campaigns: enriched });
+  const adminWallet =
+    (state as unknown as { adminWallet?: string }).adminWallet ?? null;
+
+  return NextResponse.json({ campaigns: enriched, adminWallet });
 }

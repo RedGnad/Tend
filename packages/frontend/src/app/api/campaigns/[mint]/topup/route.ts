@@ -4,7 +4,11 @@ export const dynamic = "force-dynamic";
 
 const AGENT_URL = process.env.TEND_AGENT_URL;
 
-export async function POST(req: Request) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ mint: string }> }
+) {
+  const { mint } = await params;
   const body = await req.json().catch(() => null);
   if (!body) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
@@ -16,7 +20,7 @@ export async function POST(req: Request) {
     );
   }
   try {
-    const res = await fetch(`${AGENT_URL}/campaigns`, {
+    const res = await fetch(`${AGENT_URL}/campaigns/${mint}/topup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

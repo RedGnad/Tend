@@ -89,7 +89,7 @@ Tend is built entirely on the Bags.fm platform:
 
 Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
 
-**MCP creator console** — 27 tools across 8 groups, callable from Claude Desktop:
+**MCP creator console** — 6 tools (`create_campaign`, `create_holder_campaign`, `create_sprint_campaign`, `pause_campaign`, `topup_pool`, `view_campaign_stats`) + 1 resource + 1 prompt, callable from Claude Desktop:
 
 ```
 "Create a 2% cashback campaign on $TEND with a 0.5 SOL pool"
