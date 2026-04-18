@@ -4,13 +4,19 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import {
   ArrowLeft,
   ExternalLink,
   Users,
   TrendingUp,
   Shield,
+  Repeat,
 } from "lucide-react";
 import type { Campaign, RewardPayout, FraudDecision } from "@tend/shared";
 import bs58 from "bs58";
@@ -78,6 +84,17 @@ export default function CampaignDetailPage() {
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupSol, setTopupSol] = useState("0.05");
   const [topupStep, setTopupStep] = useState<"idle" | "sending" | "confirming" | "signing" | "submitting">("idle");
+
+  // Fee-share auto-replenish — owner-only, opens its own modal
+  const [showRouteModal, setShowRouteModal] = useState(false);
+  const [routeBps, setRouteBps] = useState("10"); // % of fee-share to Tend
+  const [routing, setRouting] = useState(false);
+  const [routeStep, setRouteStep] = useState<
+    "idle" | "signing" | "preparing" | "sending" | "confirming"
+  >("idle");
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeDone, setRouteDone] = useState(false);
+  const [routeSigs, setRouteSigs] = useState<string[]>([]);
 
   useEffect(() => {
     if (!mint) return;
@@ -240,6 +257,89 @@ export default function CampaignDetailPage() {
     }
   }
 
+  async function handleRouteFees() {
+    if (!detail || !publicKey || !signMessage || !sendTransaction) return;
+    const pct = parseFloat(routeBps);
+    if (!Number.isFinite(pct) || pct < 0.01 || pct > 50) {
+      setRouteError("Route % must be between 0.01 and 50");
+      return;
+    }
+    const tendBps = Math.round(pct * 100);
+
+    setRouting(true);
+    setRouteError(null);
+    try {
+      // 1. Sign auth message (action: route-fees)
+      setRouteStep("signing");
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action: "route-fees",
+        mint: detail.campaign.tokenMint,
+        type: "_", // unused for fee-share routing, kept for message-format parity
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+
+      // 2. Ask agent to assemble REPLACE-semantics txs
+      setRouteStep("preparing");
+      const prepRes = await fetch("/api/campaigns/fee-share/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokenMint: detail.campaign.tokenMint,
+          message,
+          signature: bs58.encode(sigBytes),
+          publicKey: publicKey.toBase58(),
+          tendBps,
+        }),
+      });
+      const prepData = await prepRes.json().catch(() => ({}));
+      if (!prepRes.ok) {
+        throw new Error(
+          prepData.error || `Failed to prepare (${prepRes.status})`
+        );
+      }
+      const txs: Array<{ transaction: string; blockhash: string }> = Array.isArray(
+        prepData.transactions
+      )
+        ? prepData.transactions
+        : [];
+      if (txs.length === 0) {
+        throw new Error("Agent returned no transactions");
+      }
+
+      // 3. Sign + send each tx with the connected wallet (creator pays fees)
+      const sigs: string[] = [];
+      for (const { transaction } of txs) {
+        setRouteStep("sending");
+        const tx = VersionedTransaction.deserialize(
+          Buffer.from(transaction, "base64")
+        );
+        const sig = await sendTransaction(tx, connection);
+        setRouteStep("confirming");
+        const latest = await connection.getLatestBlockhash("confirmed");
+        await connection.confirmTransaction(
+          {
+            signature: sig,
+            blockhash: latest.blockhash,
+            lastValidBlockHeight: latest.lastValidBlockHeight,
+          },
+          "confirmed"
+        );
+        sigs.push(sig);
+      }
+      setRouteSigs(sigs);
+      setRouteDone(true);
+    } catch (err) {
+      setRouteError(
+        err instanceof Error ? err.message : "Something went wrong"
+      );
+    } finally {
+      setRouteStep("idle");
+      setRouting(false);
+    }
+  }
+
   if (notFound) {
     return (
       <div className="max-w-[900px] mx-auto px-6 py-20 text-center">
@@ -391,6 +491,20 @@ export default function CampaignDetailPage() {
               )}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setRouteError(null);
+                  setRouteDone(false);
+                  setRouteSigs([]);
+                  setShowRouteModal(true);
+                }}
+                disabled={mutating || routing}
+                className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
+                title="Route a slice of your Bags fee-share to keep this pool funded"
+              >
+                <Repeat size={11} />
+                Auto-replenish
+              </button>
               <button
                 onClick={() => {
                   setMutationError(null);
@@ -658,6 +772,111 @@ export default function CampaignDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Auto-replenish modal — owner-only, routes a slice of Bags fee-share to Tend */}
+      {showRouteModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => !routing && setShowRouteModal(false)}
+        >
+          <div
+            className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 max-w-sm w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Repeat size={14} className="text-[var(--accent)]" />
+              <h3 className="text-lg font-bold font-display">
+                Auto-replenish from fees
+              </h3>
+            </div>
+            <p className="text-[12px] text-[var(--text-muted)] mb-4 leading-relaxed">
+              Route a slice of your Bags fee-share to the Tend admin wallet.
+              Existing claimers stay — their share is reduced prorata so the
+              total still equals 100%. Each fee claim auto-grows the pool.
+            </p>
+
+            {routeDone ? (
+              <div className="rounded-lg p-3 mb-4 bg-[var(--bg)] border border-[rgba(0,255,178,0.25)]">
+                <p className="text-[12px] text-[var(--accent)] font-semibold mb-2">
+                  Fee-share routed
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)] mb-2">
+                  {routeBps}% of future Bags fees will flow into this pool.
+                  Bags will reflect the change after the next claim.
+                </p>
+                {routeSigs.length > 0 && (
+                  <div className="space-y-1">
+                    {routeSigs.map((s) => (
+                      <a
+                        key={s}
+                        href={`https://solscan.io/tx/${s}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-[10px] font-mono text-[var(--accent)] hover:underline truncate"
+                      >
+                        {s}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                  Route to Tend (% of fee-share)
+                </label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0.01"
+                  max="50"
+                  value={routeBps}
+                  disabled={routing}
+                  onChange={(e) => {
+                    setRouteBps(e.target.value);
+                    setRouteError(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                />
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                  Default 10%. Capped at 50%. Only the token&apos;s fee-share
+                  admin can run this.
+                </p>
+                {routeError && (
+                  <p className="text-[11px] text-[#ef4444] mt-2">{routeError}</p>
+                )}
+                {routeStep !== "idle" && (
+                  <p className="text-[11px] text-[var(--text-muted)] mt-2">
+                    {routeStep === "signing" && "Sign the authorization message…"}
+                    {routeStep === "preparing" && "Asking agent to prepare the update…"}
+                    {routeStep === "sending" && "Sign the on-chain update…"}
+                    {routeStep === "confirming" && "Confirming on-chain…"}
+                  </p>
+                )}
+              </>
+            )}
+
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setShowRouteModal(false)}
+                disabled={routing}
+                className="flex-1 py-2 rounded-lg text-[12px] border border-[var(--border)] hover:bg-[var(--bg)] disabled:opacity-50"
+              >
+                {routeDone ? "Close" : "Cancel"}
+              </button>
+              {!routeDone && (
+                <button
+                  onClick={handleRouteFees}
+                  disabled={routing}
+                  className="flex-1 py-2 rounded-lg text-[12px] bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 font-semibold disabled:opacity-50"
+                >
+                  {routing ? "Processing…" : "Enable"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Topup modal — owner-only */}
       {showTopupModal && (
