@@ -82,6 +82,7 @@ export async function withStateLock(
     }
 
     // Ensure arrays exist
+    if (!state.walletPool) state.walletPool = [];
     if (!state.decisions) state.decisions = [];
     if (!state.reports) state.reports = [];
     if (!state.allocations) state.allocations = [];
@@ -91,6 +92,7 @@ export async function withStateLock(
     if (!state.swapCursors) state.swapCursors = {};
     if (!state.holderSnapshotCursors) state.holderSnapshotCursors = {};
     if (!state.fraudDecisions) state.fraudDecisions = [];
+    if (!state.campaignDeposits) state.campaignDeposits = [];
 
     // Migrate legacy campaign shapes on read (Plan E discriminated union).
     state.campaigns = state.campaigns.map(migrateCampaign);

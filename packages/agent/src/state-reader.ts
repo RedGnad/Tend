@@ -36,7 +36,7 @@ export async function getServiceWallet(
   const state = await loadState();
   if (!state) return undefined;
 
-  const entry = state.walletPool.find(
+  const entry = (state.walletPool ?? []).find(
     (w) => w.assignedTo === `${serviceId}:${tokenMint}`
   );
   if (entry && isEncrypted(entry.secretKey)) {
