@@ -4,6 +4,7 @@ import { createServer } from "node:http";
 import { existsSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { PublicKey } from "@solana/web3.js";
 import {
   BagsClient,
   loadKeypair,
@@ -370,6 +371,28 @@ async function handleCampaignCreate(
     return { status: 401, body: { error: "Invalid signature" } };
   }
 
+  // Verify the signer is actually a creator/admin of this token on Bags.
+  // Without this, anyone could squat any mint and lock the (mint,type) slot.
+  // Fail-closed on API error so a Bags outage cannot bypass the check.
+  try {
+    const creators = await bags.getTokenCreators(tokenMint);
+    const ok = creators.some(
+      (c) => c.wallet === publicKey && (c.isCreator || c.isAdmin)
+    );
+    if (!ok) {
+      return {
+        status: 403,
+        body: { error: "Signer is not a creator/admin of this token on Bags" },
+      };
+    }
+  } catch (err) {
+    logError("[create] getTokenCreators failed:", err);
+    return {
+      status: 502,
+      body: { error: "Could not verify token creators with Bags — try again" },
+    };
+  }
+
   // Verify on-chain deposit — at least 0.001 SOL so new campaigns can pay
   // at least one reward out of the gate.
   const check = await verifyDepositTx(bags, txSig, publicKey, adminWallet, 1_000_000n);
@@ -439,6 +462,159 @@ async function handleCampaignCreate(
     `[http] create ${type}:${tokenMint.slice(0, 8)} by ${publicKey.slice(0, 8)} +${amountLamports} lamports (tx ${txSig.slice(0, 8)}…)`
   );
   return { status: 200, body: { ok: true, campaign: outcome.campaign } };
+}
+
+interface FeeShareBody {
+  tokenMint?: string;
+  message?: string;
+  signature?: string;
+  publicKey?: string;
+  tendBps?: number;
+}
+
+const DEFAULT_TEND_BPS = 1000; // 10% — sensible default if creator doesn't specify
+const MAX_TEND_BPS = 5000; // hard cap: never request more than 50%
+
+/**
+ * Prepare REPLACE-semantics fee-share update transactions that route a slice
+ * of the creator's Bags fee-share to the Tend admin wallet, while preserving
+ * existing claimers (their bps reduced prorata so the total stays at 10000).
+ *
+ * Returns base64 transactions for the creator's wallet to sign. We never sign
+ * here — the agent only assembles the proposal.
+ */
+async function handleFeeSharePrepare(
+  bags: BagsClient,
+  adminWallet: string,
+  raw: unknown
+): Promise<MutationResult> {
+  const body = raw as FeeShareBody;
+  const { tokenMint, message, signature, publicKey } = body;
+  const requestedTendBps = body.tendBps ?? DEFAULT_TEND_BPS;
+
+  if (!tokenMint || !message || !signature || !publicKey) {
+    return {
+      status: 400,
+      body: { error: "Missing fields: tokenMint, message, signature, publicKey" },
+    };
+  }
+  if (
+    !Number.isFinite(requestedTendBps) ||
+    requestedTendBps < 1 ||
+    requestedTendBps > MAX_TEND_BPS
+  ) {
+    return {
+      status: 400,
+      body: { error: `tendBps must be between 1 and ${MAX_TEND_BPS}` },
+    };
+  }
+
+  const parsed = parseAuthMessage(message);
+  if (!parsed || parsed.action !== "route-fees") {
+    return { status: 400, body: { error: "Malformed auth message or wrong action" } };
+  }
+  if (parsed.mint !== tokenMint) {
+    return { status: 400, body: { error: "Message mint mismatch" } };
+  }
+  if (!isTimestampFresh(parsed.timestampMs)) {
+    return { status: 401, body: { error: "Auth message expired" } };
+  }
+  if (!verifyWalletSignature(message, signature, publicKey)) {
+    return { status: 401, body: { error: "Invalid signature" } };
+  }
+
+  // Read existing claimers — fail-closed on Bags API error so we never
+  // assemble a config that wipes someone else's fee share.
+  let creators;
+  try {
+    creators = await bags.getTokenCreators(tokenMint);
+  } catch (err) {
+    logError("[fee-share] getTokenCreators failed:", err);
+    return {
+      status: 502,
+      body: { error: "Could not read existing fee-share — try again" },
+    };
+  }
+
+  // Only an admin can update the fee-share config on Bags.
+  const signerEntry = creators.find((c) => c.wallet === publicKey);
+  if (!signerEntry || !signerEntry.isAdmin) {
+    return {
+      status: 403,
+      body: { error: "Signer is not an admin of this token's fee-share config" },
+    };
+  }
+
+  // Build the new claimers list:
+  // 1. Allocate `requestedTendBps` to the Tend admin wallet
+  // 2. Distribute the remaining (10000 - requestedTendBps) across existing
+  //    claimers prorata to their current royaltyBps
+  // 3. Drop the Tend wallet from the "others" bucket if it was already there
+  //    (avoids double counting).
+  const others = creators.filter((c) => c.wallet !== adminWallet);
+  const otherTotal = others.reduce((sum, c) => sum + (c.royaltyBps ?? 0), 0);
+  if (otherTotal <= 0) {
+    return {
+      status: 400,
+      body: { error: "Existing fee-share is empty — cannot rebalance" },
+    };
+  }
+
+  const remaining = 10_000 - requestedTendBps;
+  const rebalanced: Array<{ wallet: string; bps: number }> = [];
+  let allocated = 0;
+  for (let i = 0; i < others.length; i++) {
+    const c = others[i];
+    let bps: number;
+    if (i === others.length - 1) {
+      // Last entry absorbs rounding so the total lands on exactly 10000
+      bps = remaining - allocated;
+    } else {
+      bps = Math.floor(((c.royaltyBps ?? 0) * remaining) / otherTotal);
+      allocated += bps;
+    }
+    if (bps > 0) {
+      rebalanced.push({ wallet: c.wallet, bps });
+    }
+  }
+  rebalanced.push({ wallet: adminWallet, bps: requestedTendBps });
+
+  // Sanity check: total must equal exactly 10000 — Bags rejects otherwise.
+  const sum = rebalanced.reduce((s, c) => s + c.bps, 0);
+  if (sum !== 10_000) {
+    return {
+      status: 500,
+      body: { error: `Internal: rebalanced total is ${sum}, expected 10000` },
+    };
+  }
+
+  let txs;
+  try {
+    txs = await bags.prepareUpdateFeeShareConfig(
+      tokenMint,
+      rebalanced,
+      new PublicKey(publicKey)
+    );
+  } catch (err) {
+    logError("[fee-share] prepareUpdateFeeShareConfig failed:", err);
+    return {
+      status: 502,
+      body: { error: "Could not prepare fee-share update — try again" },
+    };
+  }
+
+  log(
+    `[http] route-fees ${tokenMint.slice(0, 8)} tend=${requestedTendBps}bps others=${rebalanced.length - 1} txs=${txs.length}`
+  );
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      transactions: txs,
+      claimers: rebalanced,
+      tendBps: requestedTendBps,
+    },
+  };
 }
 
 async function main() {
@@ -573,6 +749,30 @@ async function main() {
         res.end(JSON.stringify(result.body));
       } catch (err) {
         logError("[http] topup error:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
+
+    // POST /campaigns/fee-share/prepare — build REPLACE-semantics tx that
+    // routes a slice of the creator's Bags fee-share to the Tend admin.
+    // Returns base64 txs for the creator's wallet to sign.
+    if (
+      req.method === "POST" &&
+      url.pathname === "/campaigns/fee-share/prepare"
+    ) {
+      try {
+        const body = await readJsonBody(req);
+        const result = await handleFeeSharePrepare(
+          bags,
+          keypair.publicKey.toBase58(),
+          body
+        );
+        res.writeHead(result.status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
+      } catch (err) {
+        logError("[http] fee-share prepare error:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Internal error" }));
       }

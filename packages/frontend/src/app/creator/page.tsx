@@ -4,7 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { PublicKey, SystemProgram, Transaction } from "@solana/web3.js";
+import {
+  PublicKey,
+  SystemProgram,
+  Transaction,
+  VersionedTransaction,
+} from "@solana/web3.js";
 import bs58 from "bs58";
 import {
   ArrowRight,
@@ -16,6 +21,7 @@ import {
   Trophy,
   CheckCircle,
   Loader2,
+  Repeat,
 } from "lucide-react";
 
 // Inlined to keep the client bundle free of node:crypto.
@@ -36,6 +42,13 @@ type CreateStep =
   | "confirming"
   | "signing"
   | "submitting";
+
+type RouteStep =
+  | "idle"
+  | "preparing"
+  | "signing"
+  | "sending"
+  | "confirming";
 
 type CampaignType = "cashback" | "holder" | "sprint";
 
@@ -97,10 +110,105 @@ export default function CreatorPage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Fee-share routing — optional follow-up after campaign create
+  const [routeBps, setRouteBps] = useState("10"); // % of fee-share to Tend
+  const [routing, setRouting] = useState(false);
+  const [routeStep, setRouteStep] = useState<RouteStep>("idle");
+  const [routeError, setRouteError] = useState<string | null>(null);
+  const [routeDone, setRouteDone] = useState(false);
+  const [routeSigs, setRouteSigs] = useState<string[]>([]);
+
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
     setError(null);
     setSuccess(false);
+  }
+
+  async function handleRouteFees() {
+    if (!connected || !publicKey || !signMessage || !sendTransaction) {
+      setVisible(true);
+      return;
+    }
+    const tokenMint = form.tokenMint.trim();
+    if (!tokenMint) {
+      setRouteError("Token mint missing");
+      return;
+    }
+    const pct = parseFloat(routeBps);
+    if (!Number.isFinite(pct) || pct < 0.01 || pct > 50) {
+      setRouteError("Route % must be between 0.01 and 50");
+      return;
+    }
+    const tendBps = Math.round(pct * 100);
+
+    setRouting(true);
+    setRouteError(null);
+    try {
+      // 1. Sign auth message
+      setRouteStep("signing");
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action: "route-fees",
+        mint: tokenMint,
+        type: "_", // unused for fee-share routing, kept for message-format parity
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+
+      // 2. Ask agent to assemble REPLACE-semantics txs
+      setRouteStep("preparing");
+      const prepRes = await fetch("/api/campaigns/fee-share/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokenMint,
+          message,
+          signature: bs58.encode(sigBytes),
+          publicKey: publicKey.toBase58(),
+          tendBps,
+        }),
+      });
+      const prepData = await prepRes.json().catch(() => ({}));
+      if (!prepRes.ok) {
+        throw new Error(prepData.error || `Failed to prepare (${prepRes.status})`);
+      }
+      const txs: Array<{ transaction: string; blockhash: string }> = Array.isArray(
+        prepData.transactions
+      )
+        ? prepData.transactions
+        : [];
+      if (txs.length === 0) {
+        throw new Error("Agent returned no transactions");
+      }
+
+      // 3. Sign + send each tx with the connected wallet (creator pays fees)
+      const sigs: string[] = [];
+      for (const { transaction } of txs) {
+        setRouteStep("sending");
+        const tx = VersionedTransaction.deserialize(
+          Buffer.from(transaction, "base64")
+        );
+        const sig = await sendTransaction(tx, connection);
+        setRouteStep("confirming");
+        const latest = await connection.getLatestBlockhash("confirmed");
+        await connection.confirmTransaction(
+          {
+            signature: sig,
+            blockhash: latest.blockhash,
+            lastValidBlockHeight: latest.lastValidBlockHeight,
+          },
+          "confirmed"
+        );
+        sigs.push(sig);
+      }
+      setRouteSigs(sigs);
+      setRouteDone(true);
+    } catch (e) {
+      setRouteError(e instanceof Error ? e.message : "Something went wrong");
+    } finally {
+      setRouteStep("idle");
+      setRouting(false);
+    }
   }
 
   async function handleSubmit() {
@@ -181,13 +289,39 @@ export default function CreatorPage() {
     setError(null);
 
     try {
-      // 1. Fetch admin wallet (funding destination)
+      // 1. Fetch admin wallet (funding destination) and existing campaigns
       setStep("fetching");
       const listRes = await fetch("/api/campaigns");
       const listData = await listRes.json().catch(() => ({}));
       const adminWallet: string | null = listData.adminWallet ?? null;
       if (!adminWallet) {
         throw new Error("Admin wallet unavailable — agent not configured");
+      }
+
+      // Pre-flight: refuse before the user signs a SOL transfer when a live
+      // or paused campaign of the same (mint, type) already exists.
+      // Without this, the SOL would be transferred to the admin wallet and
+      // the agent would reject the create — leaving the user's SOL trapped.
+      const existing: Array<{
+        tokenMint: string;
+        type: string;
+        status: string;
+        creatorWallet: string;
+      }> = Array.isArray(listData.campaigns) ? listData.campaigns : [];
+      const conflict = existing.find(
+        (c) =>
+          c.tokenMint === tokenMint &&
+          c.type === form.type &&
+          (c.status === "live" || c.status === "paused")
+      );
+      if (conflict) {
+        const owner =
+          conflict.creatorWallet === publicKey.toBase58()
+            ? "you"
+            : `${conflict.creatorWallet.slice(0, 4)}…${conflict.creatorWallet.slice(-4)}`;
+        throw new Error(
+          `A ${form.type} campaign on this mint is already ${conflict.status} (created by ${owner}). Pause or wait for it to deplete before creating a new one.`
+        );
       }
 
       // 2. Build + send SOL transfer to fund the pool
@@ -339,19 +473,116 @@ export default function CreatorPage() {
         </p>
 
         {success ? (
-          <div className="bg-[var(--bg-card)] border border-[rgba(0,255,178,0.25)] rounded-2xl p-8 text-center">
-            <CheckCircle
-              size={40}
-              className="text-[var(--accent)] mx-auto mb-4"
-            />
-            <h3 className="text-xl font-bold font-display mb-2">
-              Campaign created
-            </h3>
-            <p className="text-[14px] text-[var(--text-muted)] mb-4">
-              Your {TYPE_INFO[form.type].label.toLowerCase()} campaign is live.
-              The Tend agent will start processing qualifying events.
-            </p>
-            <div className="flex items-center justify-center gap-3">
+          <div className="bg-[var(--bg-card)] border border-[rgba(0,255,178,0.25)] rounded-2xl p-8">
+            <div className="text-center">
+              <CheckCircle
+                size={40}
+                className="text-[var(--accent)] mx-auto mb-4"
+              />
+              <h3 className="text-xl font-bold font-display mb-2">
+                Campaign created
+              </h3>
+              <p className="text-[14px] text-[var(--text-muted)] mb-4">
+                Your {TYPE_INFO[form.type].label.toLowerCase()} campaign is live.
+                The Tend agent will start processing qualifying events.
+              </p>
+            </div>
+
+            {/* ── Optional fee-share routing ── */}
+            <div className="mt-8 pt-8 border-t border-[var(--border)]">
+              <div className="flex items-center gap-2 mb-3">
+                <Repeat size={14} className="text-[var(--accent)]" />
+                <span className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                  Optional · Auto-replenish
+                </span>
+              </div>
+              <h4 className="text-[15px] font-semibold font-display mb-2">
+                Route a slice of your Bags fee-share to keep the pool funded
+              </h4>
+              <p className="text-[13px] text-[var(--text-muted)] mb-4 leading-relaxed">
+                Without this, you&apos;ll need to manually top up the pool when
+                it runs low. With it, every Bags fee claim auto-grows the pool.
+                You can update or revert the split anytime from Bags.
+              </p>
+
+              {routeDone ? (
+                <div className="bg-[var(--bg)] rounded-xl p-4 border border-[rgba(0,255,178,0.25)]">
+                  <p className="text-[13px] text-[var(--accent)] mb-2 font-semibold">
+                    Fee-share routed
+                  </p>
+                  <p className="text-[12px] text-[var(--text-muted)] mb-2">
+                    {routeBps}% of future Bags fees will flow to the campaign
+                    pool. Bags will reflect the change after the next claim.
+                  </p>
+                  {routeSigs.length > 0 && (
+                    <div className="space-y-1">
+                      {routeSigs.map((s) => (
+                        <a
+                          key={s}
+                          href={`https://solscan.io/tx/${s}`}
+                          target="_blank"
+                          rel="noopener"
+                          className="block text-[11px] font-mono text-[var(--accent)] hover:underline truncate"
+                        >
+                          {s}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-end gap-3 mb-4">
+                    <div className="flex-1">
+                      <label className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-semibold mb-2 block">
+                        Route to Tend (% of fee-share)
+                      </label>
+                      <input
+                        type="number"
+                        value={routeBps}
+                        onChange={(e) => {
+                          setRouteBps(e.target.value);
+                          setRouteError(null);
+                        }}
+                        step="0.5"
+                        min="0.01"
+                        max="50"
+                        disabled={routing}
+                        className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-2.5 text-[13px] font-mono focus:outline-none focus:border-[var(--accent)] transition-colors disabled:opacity-50"
+                      />
+                    </div>
+                    <button
+                      onClick={handleRouteFees}
+                      disabled={routing}
+                      className="gradient-btn px-5 py-2.5 rounded-lg text-[13px] font-semibold inline-flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {routing ? (
+                        <>
+                          <Loader2 size={13} className="animate-spin" />
+                          {routeStep === "signing" && "Sign auth..."}
+                          {routeStep === "preparing" && "Preparing..."}
+                          {routeStep === "sending" && "Sign tx..."}
+                          {routeStep === "confirming" && "Confirming..."}
+                          {routeStep === "idle" && "Working..."}
+                        </>
+                      ) : (
+                        <>Enable auto-replenish</>
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-[var(--text-muted)] mb-2">
+                    Existing claimers stay — their share is reduced prorata so
+                    the total still equals 100%. Only the token&apos;s fee-share
+                    admin can run this.
+                  </p>
+                  {routeError && (
+                    <p className="text-[12px] text-red-400">{routeError}</p>
+                  )}
+                </>
+              )}
+            </div>
+
+            <div className="flex items-center justify-center gap-3 mt-8">
               <Link
                 href="/campaigns"
                 className="gradient-btn px-5 py-2.5 rounded-lg text-sm font-semibold inline-flex items-center gap-2"
@@ -362,6 +593,10 @@ export default function CreatorPage() {
                 onClick={() => {
                   setSuccess(false);
                   setForm(DEFAULTS);
+                  setRouteDone(false);
+                  setRouteError(null);
+                  setRouteSigs([]);
+                  setRouteBps("10");
                 }}
                 className="btn-secondary px-5 py-2.5 rounded-lg text-sm"
               >

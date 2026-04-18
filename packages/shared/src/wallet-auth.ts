@@ -14,7 +14,13 @@ import bs58 from "bs58";
  */
 
 export const AUTH_WINDOW_MS = 5 * 60 * 1000;
-export const SUPPORTED_ACTIONS = ["pause", "resume", "topup", "create"] as const;
+export const SUPPORTED_ACTIONS = [
+  "pause",
+  "resume",
+  "topup",
+  "create",
+  "route-fees",
+] as const;
 export type AuthAction = (typeof SUPPORTED_ACTIONS)[number];
 
 export interface AuthPayload {
