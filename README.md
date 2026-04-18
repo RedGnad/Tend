@@ -89,7 +89,7 @@ Tend is built entirely on the Bags.fm platform:
 
 Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
 
-**MCP creator console** — 6 tools (`create_campaign`, `create_holder_campaign`, `create_sprint_campaign`, `pause_campaign`, `topup_pool`, `view_campaign_stats`) + 1 resource + 1 prompt, callable from Claude Desktop:
+**Creator controls** — creators sign campaign lifecycle events (create, pause, resume, topup) directly from the web app at `/creator` and `/campaigns/[mint]`. Each mutation is a wallet ed25519 signature over `tend:<action>:<mint>:<type>:<ts>` (±5 min window, anti-replay via txSig), funded by an on-chain SOL transfer the agent verifies before applying state. The MCP server is an optional shortcut for Claude Desktop users and exposes the same 6 operations as tools:
 
 ```
 "Create a 2% cashback campaign on $TEND with a 0.5 SOL pool"
@@ -112,7 +112,7 @@ Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reason
 packages/
   shared/       Types, Bags SDK wrapper, Solana utils, AES-256-GCM crypto
   agent/        Fee claimer, rewards dispatcher, per-type triggers, fraud gate, payout executor
-  mcp-server/   27 MCP tools (STDIO) — creator console
+  mcp-server/   6 MCP tools (STDIO) — creator console (optional)
   frontend/     Next.js 15 dashboard + read-only API routes
 ```
 

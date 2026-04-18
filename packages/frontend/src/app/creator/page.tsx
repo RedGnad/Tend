@@ -672,6 +672,9 @@ export default function CreatorPage() {
             <span className="text-[11px] text-[var(--text-muted)] ml-3 font-mono">
               Claude Desktop
             </span>
+            <span className="ml-auto text-[10px] text-[var(--text-muted)] font-mono uppercase tracking-wider px-2 py-0.5 rounded border border-[var(--border)] bg-[var(--bg)]">
+              Example
+            </span>
           </div>
 
           <div className="p-6 space-y-5">
