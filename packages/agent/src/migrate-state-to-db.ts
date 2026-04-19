@@ -3,11 +3,13 @@
  * One-shot migration: ~/.tend/state.json → Postgres (Neon).
  *
  * Usage:
- *   node --env-file=.env.local packages/agent/build/migrate-state-to-db.js           # safe mode
- *   node --env-file=.env.local packages/agent/build/migrate-state-to-db.js --force   # truncate + reload
+ *   node --env-file=.env.local packages/agent/build/migrate-state-to-db.js             # safe mode
+ *   node --env-file=.env.local packages/agent/build/migrate-state-to-db.js --dry-run   # print counts only, no DB
+ *   node --env-file=.env.local packages/agent/build/migrate-state-to-db.js --force     # truncate + reload
  *
  * Safe mode: aborts if any target table has rows. --force truncates first so reruns
- * always converge DB to the current state.json snapshot.
+ * always converge DB to the current state.json snapshot. --dry-run does not touch
+ * the DB at all — useful to validate the mapping before pulling the trigger.
  *
  * Wallet secrets are copied ciphertext-in → ciphertext-out: we never decrypt here.
  */
@@ -49,8 +51,27 @@ const TABLES = [
   ["agent_meta", agentMeta],
 ] as const;
 
+function planFromState(state: TendState): Record<string, number> {
+  const plan: Record<string, number> = {};
+  if (state.walletPool?.length) plan.wallet_pool = state.walletPool.length;
+  if (state.campaigns?.length) plan.campaigns = state.campaigns.length;
+  if (state.rewardPayouts?.length) plan.reward_payouts = state.rewardPayouts.length;
+  if (state.fraudDecisions?.length) plan.fraud_decisions = state.fraudDecisions.length;
+  if (state.campaignDeposits?.length) plan.campaign_deposits = state.campaignDeposits.length;
+  if (state.campaignWithdrawals?.length)
+    plan.campaign_withdrawals = state.campaignWithdrawals.length;
+  if (state.feeClaimEvents?.length) plan.fee_claim_events = state.feeClaimEvents.length;
+  const swapCount = Object.keys(state.swapCursors ?? {}).length;
+  if (swapCount) plan.swap_cursors = swapCount;
+  const holderCount = Object.keys(state.holderSnapshotCursors ?? {}).length;
+  if (holderCount) plan.holder_snapshot_cursors = holderCount;
+  if (state.agentHeartbeat) plan.agent_meta = 1;
+  return plan;
+}
+
 async function main() {
   const force = process.argv.includes("--force");
+  const dryRun = process.argv.includes("--dry-run");
 
   if (!existsSync(STATE_PATH)) {
     console.error(`No state file at ${STATE_PATH} — nothing to migrate.`);
@@ -60,6 +81,18 @@ async function main() {
   const raw = await readFile(STATE_PATH, "utf-8");
   const state = JSON.parse(raw) as TendState;
   console.log(`Loaded state from ${STATE_PATH}`);
+
+  if (dryRun) {
+    const plan = planFromState(state);
+    console.log("Dry-run — rows that WOULD be inserted:");
+    if (Object.keys(plan).length === 0) {
+      console.log("  (state.json is empty — nothing to migrate)");
+    } else {
+      for (const [name, n] of Object.entries(plan)) console.log(`  ${name}: ${n}`);
+    }
+    console.log("No DB connection opened. Rerun without --dry-run to apply.");
+    return;
+  }
 
   const db = getDb();
 

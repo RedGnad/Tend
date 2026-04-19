@@ -436,23 +436,51 @@ async function diffAndPersist(
  * On serialization failure (40001), Postgres aborts the tx and we let the
  * caller retry — just like the file-lock stale-lock break path.
  */
+// Postgres raises SQLSTATE 40001 (serialization_failure) when a SERIALIZABLE
+// transaction detects a cycle with a concurrent committer. Retrying is the
+// standard remedy — each retry re-reads state under fresh locks.
+const SERIALIZATION_FAILURE = "40001";
+const MAX_RETRIES = 3;
+
+async function retryOnSerializationFailure<T>(
+  fn: () => Promise<T>
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code;
+      if (code !== SERIALIZATION_FAILURE) throw err;
+      lastErr = err;
+      // Exponential backoff with jitter — keeps hot-path contention from
+      // synchronising across parallel retriers.
+      const delay = Math.min(50 * 2 ** attempt, 500) + Math.random() * 50;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 export async function withStateLockDb(
   fn: (state: TendState) => void | Promise<void>
 ): Promise<TendState> {
   const db = getDb();
-  let out: TendState | undefined;
-  await db.transaction(
-    async (tx) => {
-      const before = await loadStateFromTx(tx);
-      // Deep clone so the callback's in-place mutations don't corrupt `before`.
-      const after: TendState = structuredClone(before);
-      await fn(after);
-      await diffAndPersist(tx, before, after);
-      out = after;
-    },
-    { isolationLevel: "serializable" }
-  );
-  return out!;
+  return retryOnSerializationFailure(async () => {
+    let out: TendState | undefined;
+    await db.transaction(
+      async (tx) => {
+        const before = await loadStateFromTx(tx);
+        // Deep clone so the callback's in-place mutations don't corrupt `before`.
+        const after: TendState = structuredClone(before);
+        await fn(after);
+        await diffAndPersist(tx, before, after);
+        out = after;
+      },
+      { isolationLevel: "serializable" }
+    );
+    return out!;
+  });
 }
 
 async function loadStateFromTx(tx: Tx): Promise<TendState> {
