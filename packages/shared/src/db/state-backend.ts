@@ -8,6 +8,7 @@ import type {
   CampaignDeposit,
   CampaignWithdrawal,
   FeeClaimEvent,
+  SquadsMultisigRecord,
 } from "../types/index.js";
 import { migrateCampaign } from "../types/index.js";
 import {
@@ -26,6 +27,7 @@ import {
   feeClaimEvents,
   swapCursors,
   holderSnapshotCursors,
+  squadsMultisigs,
   agentMeta,
   type CampaignRow,
   type WalletPoolRow,
@@ -34,6 +36,7 @@ import {
   type CampaignDepositRow,
   type CampaignWithdrawalRow,
   type FeeClaimEventRow,
+  type SquadsMultisigRow,
 } from "./schema.js";
 
 // ── Row ⇄ domain conversions ──────────────────────────────────────────────
@@ -58,6 +61,21 @@ function rowToCampaign(r: CampaignRow): Campaign {
     status: r.status as "live" | "paused" | "depleted",
     createdAt: r.createdAt,
     tokenInfo: (r.tokenInfo as Campaign["tokenInfo"]) ?? undefined,
+    squadsMultisigPda: r.squadsMultisigPda ?? undefined,
+    squadsVaultIndex: r.squadsVaultIndex ?? undefined,
+    squadsVaultPda: r.squadsVaultPda ?? undefined,
+    squadsSpendingLimitPda: r.squadsSpendingLimitPda ?? undefined,
+    squadsSpendingLimitCreateKey: r.squadsSpendingLimitCreateKey ?? undefined,
+    squadsSpendingLimitAmountLamports:
+      r.squadsSpendingLimitAmountLamports ?? undefined,
+    squadsSpendingLimitPeriod:
+      (r.squadsSpendingLimitPeriod as
+        | "oneTime"
+        | "day"
+        | "week"
+        | "month"
+        | null) ?? undefined,
+    squadsAttachTxSig: r.squadsAttachTxSig ?? undefined,
   };
   // `config` is jsonb — the discriminated union is reconstituted by type
   if (r.type === "cashback") {
@@ -145,6 +163,18 @@ function rowToCampaignWithdrawal(r: CampaignWithdrawalRow): CampaignWithdrawal {
   };
 }
 
+function rowToSquadsMultisig(r: SquadsMultisigRow): SquadsMultisigRecord {
+  return {
+    creatorWallet: r.creatorWallet,
+    multisigPda: r.multisigPda,
+    multisigCreateKey: r.multisigCreateKey,
+    nextVaultIndex: r.nextVaultIndex,
+    network: r.network as SquadsMultisigRecord["network"],
+    createdAt: r.createdAt,
+    createdTxSig: r.createdTxSig,
+  };
+}
+
 function rowToFeeClaimEvent(r: FeeClaimEventRow): FeeClaimEvent {
   return {
     tokenMint: r.tokenMint,
@@ -174,6 +204,7 @@ export async function loadStateFromDb(): Promise<TendState> {
     feeEvents,
     swapCur,
     holderCur,
+    squadsMs,
     heartRows,
   ] = await Promise.all([
     db.select().from(walletPool),
@@ -185,6 +216,7 @@ export async function loadStateFromDb(): Promise<TendState> {
     db.select().from(feeClaimEvents),
     db.select().from(swapCursors),
     db.select().from(holderSnapshotCursors),
+    db.select().from(squadsMultisigs),
     db.select().from(agentMeta).where(eq(agentMeta.key, "heartbeat")),
   ]);
 
@@ -203,6 +235,7 @@ export async function loadStateFromDb(): Promise<TendState> {
     holderSnapshotCursors: Object.fromEntries(
       holderCur.map((r) => [r.tokenMint, r.value])
     ),
+    squadsMultisigs: squadsMs.map(rowToSquadsMultisig),
   };
   const heart = heartRows[0]?.valueNumber;
   if (heart != null) state.agentHeartbeat = heart;
@@ -265,6 +298,15 @@ async function diffAndPersist(
       createdAt: c.createdAt,
       tokenInfo: c.tokenInfo ?? null,
       config: c.config,
+      squadsMultisigPda: c.squadsMultisigPda ?? null,
+      squadsVaultIndex: c.squadsVaultIndex ?? null,
+      squadsVaultPda: c.squadsVaultPda ?? null,
+      squadsSpendingLimitPda: c.squadsSpendingLimitPda ?? null,
+      squadsSpendingLimitCreateKey: c.squadsSpendingLimitCreateKey ?? null,
+      squadsSpendingLimitAmountLamports:
+        c.squadsSpendingLimitAmountLamports ?? null,
+      squadsSpendingLimitPeriod: c.squadsSpendingLimitPeriod ?? null,
+      squadsAttachTxSig: c.squadsAttachTxSig ?? null,
     };
     if (!prev) {
       await tx.insert(campaigns).values(row);
@@ -412,6 +454,35 @@ async function diffAndPersist(
     }
   }
 
+  // Squads multisigs — PK creatorWallet, mutable (nextVaultIndex increments).
+  // No deletes: once provisioned, a creator's multisig stays registered.
+  const beforeSquads = new Map(
+    (before.squadsMultisigs ?? []).map((m) => [m.creatorWallet, m])
+  );
+  const afterSquads = new Map(
+    (after.squadsMultisigs ?? []).map((m) => [m.creatorWallet, m])
+  );
+  for (const [k, m] of afterSquads) {
+    const prev = beforeSquads.get(k);
+    const row = {
+      creatorWallet: m.creatorWallet,
+      multisigPda: m.multisigPda,
+      multisigCreateKey: m.multisigCreateKey,
+      nextVaultIndex: m.nextVaultIndex,
+      network: m.network,
+      createdAt: m.createdAt,
+      createdTxSig: m.createdTxSig,
+    };
+    if (!prev) {
+      await tx.insert(squadsMultisigs).values(row);
+    } else if (JSON.stringify(prev) !== JSON.stringify(m)) {
+      await tx
+        .update(squadsMultisigs)
+        .set(row)
+        .where(eq(squadsMultisigs.creatorWallet, m.creatorWallet));
+    }
+  }
+
   // Agent heartbeat — singleton row
   if (before.agentHeartbeat !== after.agentHeartbeat && after.agentHeartbeat != null) {
     await tx
@@ -494,6 +565,7 @@ async function loadStateFromTx(tx: Tx): Promise<TendState> {
     feeEvents,
     swapCur,
     holderCur,
+    squadsMs,
     heartRows,
   ] = await Promise.all([
     tx.select().from(walletPool),
@@ -505,6 +577,7 @@ async function loadStateFromTx(tx: Tx): Promise<TendState> {
     tx.select().from(feeClaimEvents),
     tx.select().from(swapCursors),
     tx.select().from(holderSnapshotCursors),
+    tx.select().from(squadsMultisigs),
     tx.select().from(agentMeta).where(eq(agentMeta.key, "heartbeat")),
   ]);
 
@@ -523,6 +596,7 @@ async function loadStateFromTx(tx: Tx): Promise<TendState> {
     holderSnapshotCursors: Object.fromEntries(
       holderCur.map((r) => [r.tokenMint, r.value])
     ),
+    squadsMultisigs: squadsMs.map(rowToSquadsMultisig),
   };
   const heart = heartRows[0]?.valueNumber;
   if (heart != null) state.agentHeartbeat = heart;

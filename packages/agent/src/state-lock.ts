@@ -67,6 +67,7 @@ const DEFAULT_STATE: TendState = {
   holderSnapshotCursors: {},
   fraudDecisions: [],
   campaignDeposits: [],
+  squadsMultisigs: [],
 };
 
 async function acquireLock(): Promise<void> {
@@ -143,6 +144,7 @@ async function withStateLockFile(
     if (!state.holderSnapshotCursors) state.holderSnapshotCursors = {};
     if (!state.fraudDecisions) state.fraudDecisions = [];
     if (!state.campaignDeposits) state.campaignDeposits = [];
+    if (!state.squadsMultisigs) state.squadsMultisigs = [];
 
     // Migrate legacy campaign shapes on read (Plan E discriminated union).
     state.campaigns = state.campaigns.map(migrateCampaign);

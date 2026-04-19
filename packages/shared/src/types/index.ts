@@ -27,6 +27,31 @@ export interface BaseCampaign {
     symbol: string;
     image?: string;
   };
+  // ── Squads v4 custody (optional — campaign may predate rollout or be pending) ──
+  squadsMultisigPda?: string;
+  squadsVaultIndex?: number;
+  squadsVaultPda?: string;
+  squadsSpendingLimitPda?: string;
+  squadsSpendingLimitCreateKey?: string;
+  squadsSpendingLimitAmountLamports?: string;
+  squadsSpendingLimitPeriod?: "oneTime" | "day" | "week" | "month";
+  squadsAttachTxSig?: string;
+}
+
+/**
+ * One Squads multisig per creator wallet. All campaigns from that creator
+ * reuse it via distinct vault_index. Created lazily on first provision.
+ */
+export interface SquadsMultisigRecord {
+  creatorWallet: string;
+  multisigPda: string;
+  /** base58 Pubkey of the multisigCreateKey — seed only, no secret stored */
+  multisigCreateKey: string;
+  /** Monotonic counter; index 0 reserved, campaigns consume 1, 2, 3… */
+  nextVaultIndex: number;
+  network: "devnet" | "mainnet-beta";
+  createdAt: number;
+  createdTxSig: string;
 }
 
 export interface CashbackCampaign extends BaseCampaign {
@@ -149,6 +174,8 @@ export interface TendState {
   campaignDeposits?: CampaignDeposit[];
   campaignWithdrawals?: CampaignWithdrawal[];
   feeClaimEvents?: FeeClaimEvent[];
+  /** Per-creator Squads multisig registry (lazy-provisioned on first Squads campaign) */
+  squadsMultisigs?: SquadsMultisigRecord[];
   agentHeartbeat?: number; // timestamp of last agent tick
 }
 
