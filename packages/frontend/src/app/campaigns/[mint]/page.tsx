@@ -954,7 +954,7 @@ export default function CampaignDetailPage() {
                   key={d.id}
                   className={`py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
                     freshIds.has(d.id)
-                      ? "ring-1 ring-[var(--accent)] shadow-[0_0_12px_rgba(0,255,178,0.25)]"
+                      ? "ring-1 ring-[var(--accent)]"
                       : ""
                   }`}
                 >
@@ -1021,7 +1021,7 @@ export default function CampaignDetailPage() {
                   key={p.id}
                   className={`flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
                     freshIds.has(p.id)
-                      ? "ring-1 ring-[var(--accent)] shadow-[0_0_12px_rgba(0,255,178,0.25)]"
+                      ? "ring-1 ring-[var(--accent)]"
                       : ""
                   }`}
                 >
