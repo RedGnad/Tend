@@ -828,7 +828,15 @@ export default function CampaignDetailPage() {
       {/* Bottom row: fraud gate + recent payouts side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* AI Fraud Gate — compact table */}
-        {fraudDecisions.length > 0 && (
+        {fraudDecisions.length > 0 && (() => {
+          const blocked = fraudDecisions.filter((d) => d.decision !== "allow");
+          const allowed = fraudDecisions.filter((d) => d.decision === "allow");
+          const blockRate = (blocked.length / fraudDecisions.length) * 100;
+          const blockedVolume = blocked.reduce(
+            (sum, d) => sum + BigInt(d.swapVolumeLamports),
+            0n
+          );
+          return (
           <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -838,12 +846,30 @@ export default function CampaignDetailPage() {
                 </p>
               </div>
               <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                {fraudDecisions.filter((d) => d.decision === "allow").length}{" "}
-                allowed ·{" "}
-                {fraudDecisions.filter((d) => d.decision !== "allow").length}{" "}
-                blocked
+                {allowed.length} allowed · {blocked.length} blocked
               </p>
             </div>
+
+            {blocked.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] px-3 py-2">
+                  <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-mono mb-0.5">
+                    Block rate
+                  </p>
+                  <p className="font-mono text-[15px] font-semibold text-[var(--text-primary)]">
+                    {blockRate.toFixed(blockRate < 10 ? 1 : 0)}%
+                  </p>
+                </div>
+                <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] px-3 py-2">
+                  <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-mono mb-0.5">
+                    Volume filtered
+                  </p>
+                  <p className="font-mono text-[15px] font-semibold text-[var(--accent)]">
+                    {formatSol(blockedVolume)} SOL
+                  </p>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
               {fraudDecisions.map((d) => (
@@ -878,7 +904,8 @@ export default function CampaignDetailPage() {
             </div>
 
           </div>
-        )}
+          );
+        })()}
 
         {/* Recent payouts — compact */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
