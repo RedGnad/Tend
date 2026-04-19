@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
@@ -129,20 +129,93 @@ export default function CampaignDetailPage() {
   const [routeDone, setRouteDone] = useState(false);
   const [routeSigs, setRouteSigs] = useState<string[]>([]);
 
+  // Track IDs we've already rendered so new ones arriving via polling can be
+  // highlighted briefly. Seeded on first successful load so nothing pulses
+  // on the initial render.
+  const seenDecisionIds = useRef<Set<string>>(new Set());
+  const seenPayoutIds = useRef<Set<string>>(new Set());
+  const [freshIds, setFreshIds] = useState<Set<string>>(new Set());
+
+  const refreshDetail = useCallback(
+    async (isInitial = false) => {
+      if (!mint) return;
+      const qs = campaignType ? `?type=${campaignType}` : "";
+      try {
+        const r = await fetch(`/api/campaigns/${mint}${qs}`);
+        if (r.status === 404) {
+          if (isInitial) setNotFound(true);
+          return;
+        }
+        if (!r.ok) return;
+        const d = (await r.json()) as CampaignDetail;
+
+        if (isInitial) {
+          seenDecisionIds.current = new Set((d.fraudDecisions ?? []).map((x) => x.id));
+          seenPayoutIds.current = new Set((d.recentPayouts ?? []).map((x) => x.id));
+        } else {
+          const newDecisions = (d.fraudDecisions ?? [])
+            .filter((x) => !seenDecisionIds.current.has(x.id))
+            .map((x) => x.id);
+          const newPayouts = (d.recentPayouts ?? [])
+            .filter((x) => !seenPayoutIds.current.has(x.id))
+            .map((x) => x.id);
+          newDecisions.forEach((id) => seenDecisionIds.current.add(id));
+          newPayouts.forEach((id) => seenPayoutIds.current.add(id));
+          const newIds = [...newDecisions, ...newPayouts];
+          if (newIds.length) {
+            setFreshIds((prev) => new Set([...prev, ...newIds]));
+            setTimeout(() => {
+              setFreshIds((prev) => {
+                const next = new Set(prev);
+                for (const id of newIds) next.delete(id);
+                return next;
+              });
+            }, 6000);
+          }
+        }
+        setDetail(d);
+      } catch {
+        if (isInitial) setNotFound(true);
+      }
+    },
+    [mint, campaignType]
+  );
+
+  useEffect(() => {
+    refreshDetail(true);
+  }, [refreshDetail]);
+
+  // Live polling. Pauses when the tab is hidden so we don't hammer the agent
+  // from idle background tabs.
   useEffect(() => {
     if (!mint) return;
-    const qs = campaignType ? `?type=${campaignType}` : "";
-    fetch(`/api/campaigns/${mint}${qs}`)
-      .then((r) => {
-        if (r.status === 404) {
-          setNotFound(true);
-          return null;
-        }
-        return r.ok ? r.json() : null;
-      })
-      .then((d) => d && setDetail(d))
-      .catch(() => setNotFound(true));
-  }, [mint, campaignType]);
+    const POLL_MS = 15_000;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(() => {
+        if (document.visibilityState === "visible") refreshDetail(false);
+      }, POLL_MS);
+    };
+    const stop = () => {
+      if (timer) clearInterval(timer);
+      timer = null;
+    };
+    start();
+    const onVis = () => {
+      if (document.visibilityState === "visible") {
+        refreshDetail(false);
+        start();
+      } else {
+        stop();
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [mint, refreshDetail]);
 
   async function handleTopup() {
     if (!detail || !publicKey || !signMessage || !sendTransaction) return;
@@ -844,6 +917,10 @@ export default function CampaignDetailPage() {
                 <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
                   AI fraud gate
                 </p>
+                <span className="flex items-center gap-1 text-[9px] text-[var(--text-muted)] font-mono uppercase">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                  live
+                </span>
               </div>
               <p className="text-[10px] text-[var(--text-muted)] font-mono">
                 {allowed.length} allowed · {blocked.length} blocked
@@ -875,7 +952,11 @@ export default function CampaignDetailPage() {
               {fraudDecisions.map((d) => (
                 <div
                   key={d.id}
-                  className="py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                  className={`py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
+                    freshIds.has(d.id)
+                      ? "ring-1 ring-[var(--accent)] shadow-[0_0_12px_rgba(0,255,178,0.25)]"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-center gap-2">
                     <span
@@ -915,6 +996,10 @@ export default function CampaignDetailPage() {
               <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
                 Recent payouts
               </p>
+              <span className="flex items-center gap-1 text-[9px] text-[var(--text-muted)] font-mono uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                live
+              </span>
             </div>
             <div className="flex items-center gap-2 text-[10px] text-[var(--text-muted)]">
               <Users size={10} />
@@ -934,7 +1019,11 @@ export default function CampaignDetailPage() {
               {recentPayouts.slice(0, 8).map((p) => (
                 <div
                   key={p.id}
-                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                  className={`flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
+                    freshIds.has(p.id)
+                      ? "ring-1 ring-[var(--accent)] shadow-[0_0_12px_rgba(0,255,178,0.25)]"
+                      : ""
+                  }`}
                 >
                   <span
                     className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
