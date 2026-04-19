@@ -34,11 +34,36 @@ export const campaigns = pgTable(
     createdAt: bigint("created_at", { mode: "number" }).notNull(),
     tokenInfo: jsonb("token_info"), // { name, symbol, image? }
     config: jsonb("config").notNull(), // polymorphic per campaign type
+    // Squads v4 custody — nullable: campaign may predate Squads rollout OR provisioning may be pending.
+    squadsMultisigPda: text("squads_multisig_pda"), // logical FK to squads_multisigs.multisig_pda
+    squadsVaultIndex: integer("squads_vault_index"),
+    squadsVaultPda: text("squads_vault_pda"),
+    squadsSpendingLimitPda: text("squads_spending_limit_pda"),
+    squadsSpendingLimitCreateKey: text("squads_spending_limit_create_key"), // base58 Pubkey seed
+    squadsSpendingLimitAmountLamports: text("squads_spending_limit_amount_lamports"),
+    squadsSpendingLimitPeriod: text("squads_spending_limit_period"), // "oneTime"|"day"|"week"|"month"
+    squadsAttachTxSig: text("squads_attach_tx_sig"),
   },
   (t) => ({
     pk: primaryKey({ columns: [t.tokenMint, t.type] }),
   })
 );
+
+// One Squads multisig per creator wallet. All campaigns from that creator reuse it via
+// distinct vault_index. Created lazily on first campaign using Squads custody.
+export const squadsMultisigs = pgTable("squads_multisigs", {
+  creatorWallet: text("creator_wallet").primaryKey(),
+  multisigPda: text("multisig_pda").notNull(),
+  // base58 Pubkey of the multisigCreateKey — seed only, no secret stored.
+  // (secret was a single-use signing key, discarded post-creation)
+  multisigCreateKey: text("multisig_create_key").notNull(),
+  // Monotonic counter; index 0 reserved for potential creator-owned treasury vault,
+  // campaigns consume 1, 2, 3… sequentially.
+  nextVaultIndex: integer("next_vault_index").notNull().default(1),
+  network: text("network").notNull(), // 'devnet' | 'mainnet-beta'
+  createdAt: bigint("created_at", { mode: "number" }).notNull(),
+  createdTxSig: text("created_tx_sig").notNull(),
+});
 
 export const rewardPayouts = pgTable(
   "reward_payouts",
@@ -164,3 +189,5 @@ export type CampaignWithdrawalRow = typeof campaignWithdrawals.$inferSelect;
 export type CampaignWithdrawalInsert = typeof campaignWithdrawals.$inferInsert;
 export type FeeClaimEventRow = typeof feeClaimEvents.$inferSelect;
 export type FeeClaimEventInsert = typeof feeClaimEvents.$inferInsert;
+export type SquadsMultisigRow = typeof squadsMultisigs.$inferSelect;
+export type SquadsMultisigInsert = typeof squadsMultisigs.$inferInsert;

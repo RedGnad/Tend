@@ -8,6 +8,13 @@
       "when": 1776627628878,
       "tag": "0000_chemical_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776637640541,
+      "tag": "0001_melodic_inhumans",
+      "breakpoints": true
     }
   ]
 }
