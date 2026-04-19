@@ -14,12 +14,21 @@ import {
 const TEND_DIR = join(homedir(), TEND_STATE_DIR);
 const STATE_PATH = join(TEND_DIR, TEND_STATE_FILE);
 
-export async function loadState(): Promise<TendState | null> {
+/**
+ * Backend dispatcher. Default is `file` so existing deploys keep using
+ * ~/.tend/state.json. Flip `TEND_STATE_BACKEND=db` to read from Postgres.
+ * Dynamic import keeps the `@tend/shared/db` module (and its Neon/ws deps)
+ * out of cold-start when the file backend is active.
+ */
+function backend(): "file" | "db" {
+  return process.env.TEND_STATE_BACKEND === "db" ? "db" : "file";
+}
+
+async function loadStateFromFile(): Promise<TendState | null> {
   if (!existsSync(STATE_PATH)) return null;
   try {
     const raw = await readFile(STATE_PATH, "utf-8");
     const state = JSON.parse(raw) as TendState;
-    // Coerce any legacy campaign shapes into the Plan E discriminated union.
     if (state.campaigns) {
       state.campaigns = state.campaigns.map(migrateCampaign);
     }
@@ -27,6 +36,14 @@ export async function loadState(): Promise<TendState | null> {
   } catch {
     return null;
   }
+}
+
+export async function loadState(): Promise<TendState | null> {
+  if (backend() === "db") {
+    const { loadStateFromDb } = await import("@tend/shared/db");
+    return loadStateFromDb();
+  }
+  return loadStateFromFile();
 }
 
 export async function getServiceWallet(
@@ -39,6 +56,7 @@ export async function getServiceWallet(
   const entry = (state.walletPool ?? []).find(
     (w) => w.assignedTo === `${serviceId}:${tokenMint}`
   );
+  // File backend returns encrypted secrets; DB backend already decrypts on read.
   if (entry && isEncrypted(entry.secretKey)) {
     entry.secretKey = decryptSecret(entry.secretKey);
   }

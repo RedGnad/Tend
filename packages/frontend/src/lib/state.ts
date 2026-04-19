@@ -47,7 +47,15 @@ export function isAgentRunning(): boolean {
 
 const AGENT_URL = process.env.TEND_AGENT_URL; // e.g. https://tend-agent.onrender.com
 
+function backend(): "file" | "db" {
+  return process.env.TEND_STATE_BACKEND === "db" ? "db" : "file";
+}
+
 export async function loadTendState(): Promise<TendState> {
+  if (backend() === "db") {
+    const { loadStateFromDb } = await import("@tend/shared/db");
+    return loadStateFromDb();
+  }
   // Prefer the live local file (agent machine / dev)
   if (existsSync(STATE_PATH)) {
     const raw = await readFile(STATE_PATH, "utf-8");
@@ -112,10 +120,21 @@ async function releaseLock(): Promise<void> {
 }
 
 /**
- * Atomically read-modify-write state.json with file-level locking.
- * Uses the same lock file as the agent runtime — safe cross-process.
+ * Atomically read-modify-write state with a lock boundary.
+ * File backend: shared ~/.tend/state.lock (cross-process with agent + MCP).
+ * DB backend:   SERIALIZABLE Postgres transaction via @tend/shared/db.
  */
 export async function withStateLock(
+  fn: (state: TendState) => void | Promise<void>
+): Promise<TendState> {
+  if (backend() === "db") {
+    const { withStateLockDb } = await import("@tend/shared/db");
+    return withStateLockDb(fn);
+  }
+  return withStateLockFile(fn);
+}
+
+async function withStateLockFile(
   fn: (state: TendState) => void | Promise<void>
 ): Promise<TendState> {
   await acquireLock();

@@ -99,11 +99,32 @@ async function releaseLock(): Promise<void> {
   await unlink(LOCK_PATH).catch(() => {});
 }
 
+function backend(): "file" | "db" {
+  return process.env.TEND_STATE_BACKEND === "db" ? "db" : "file";
+}
+
 /**
- * Atomically read-modify-write state.json with file-level locking.
- * Safe across multiple processes (agent, MCP server, frontend).
+ * Atomically read-modify-write state with a lock boundary.
+ *
+ * - `file` backend: flock-style lock on ~/.tend/state.json + atomic tmp+rename.
+ * - `db` backend: SERIALIZABLE Postgres transaction via `@tend/shared/db`.
+ *
+ * Both backends expose the same mutation semantics to callers: the callback
+ * receives a mutable TendState snapshot and diffs are persisted atomically
+ * when it returns. Flip `TEND_STATE_BACKEND=db` on the agent to switch.
  */
 export async function withStateLock(
+  fn: (state: TendState) => void | Promise<void>
+): Promise<void> {
+  if (backend() === "db") {
+    const { withStateLockDb } = await import("@tend/shared/db");
+    await withStateLockDb(fn);
+    return;
+  }
+  return withStateLockFile(fn);
+}
+
+async function withStateLockFile(
   fn: (state: TendState) => void | Promise<void>
 ): Promise<void> {
   await acquireLock();
