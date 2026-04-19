@@ -26,9 +26,9 @@ All 3 types are live on $TEND right now with **real payouts** flowing.
 
 This is how **fees become growth:**
 
-1. Creator **seeds** a campaign pool (the bootstrap)
+1. Creator **seeds** a campaign pool (the bootstrap) and **routes a slice of their Bags fee-share** into Tend with a one-click wallet signature (default 10%, capped at 50%, existing claimers reduced prorata)
 2. Trading activity **generates fees** on Bags.fm
-3. The agent claims those fees automatically (every 30 min) and **grows the pool**
+3. The agent claims that routed share automatically (every 30 min) and **grows the pool**
 4. **Traders earn SOL** back, cashback, dividends, or sprint bonuses
 5. More rewards attract more trading, which generates **more fees**
 
@@ -76,15 +76,18 @@ Creators can launch campaigns from the dashboard or through Claude Desktop with 
 
 **6 focused MCP tools** cover the full creator workflow: launch a cashback / holder / sprint campaign, pause, top up the pool, and view live stats.
 
+From the campaign page, a single **"Enable auto-replenish"** button assembles a `prepareUpdateFeeShareConfig` transaction the creator signs in-browser, inserting the Tend admin wallet into their Bags fee-share at the chosen bps. After that, every Bags fee claim auto-grows the pool — no manual top-ups required.
+
 ---
 
 ## Deep Bags.fm integration
 
 Tend is built entirely on the Bags platform:
 
-- **Fee claiming:** `claimFees` collects accrued SOL from fee-share positions, auto-reinvested into campaign pools
-- **Fee-share routing:** creator fees flow directly into reward pools on-chain
-- **Real-time trade detection:** every buy on any DEX is captured via Solana RPC
+- **Fee-share routing:** `prepareUpdateFeeShareConfig` returns a base64 tx the creator's wallet signs in-browser to route a slice into the campaign pool — REPLACE-semantics with prorata redistribution so the total still equals 10000 bps
+- **Fee claiming:** `claimFees` collects accrued SOL from fee-share positions every 30 min, auto-reinvested into campaign pools (split prorata across live campaigns on the mint, revives a depleted pool back to live)
+- **Real-time trade detection:** every buy on any DEX is captured via `getSignaturesForAddress` + `getParsedTransaction`
+- **Ownership checks:** `getTokenCreators` runs before any campaign create or fee-share update — only token creators/admins can act
 - Token analytics and metadata for **campaign dashboards**
 
 ---
