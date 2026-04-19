@@ -33,6 +33,7 @@ function buildAuthMessage(p: {
 }
 import { JupiterSwap } from "@/components/jupiter-swap";
 import { PriceChart } from "@/components/price-chart";
+import { calculateSustainability } from "@/lib/sustainability";
 
 interface CampaignDeposit {
   txSig: string;
@@ -483,6 +484,11 @@ export default function CampaignDetailPage() {
   const name = campaign.tokenInfo?.name ?? symbol;
   const remaining =
     BigInt(campaign.poolCapLamports) - BigInt(campaign.poolSpentLamports);
+  const forecast = calculateSustainability(
+    remaining,
+    detail.recentPayouts ?? [],
+    detail.feeClaims ?? []
+  );
   const progress = Math.min(
     100,
     (Number(campaign.poolSpentLamports) / Number(campaign.poolCapLamports)) *
@@ -721,6 +727,30 @@ export default function CampaignDetailPage() {
                 {(stats.feeClaimCount ?? 0) > 0 && ` (${stats.feeClaimCount} claim${stats.feeClaimCount === 1 ? "" : "s"})`}
               </span>
             </span>
+            {forecast.kind === "self-sustaining" && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-sm bg-[var(--accent)]" />
+                <span className="font-mono font-semibold text-[var(--accent)]">
+                  Self-sustaining
+                </span>
+                <span className="text-[var(--text-muted)]">
+                  fees cover payouts (+{formatSol(forecast.netLamportsPerDay)} SOL/day)
+                </span>
+              </span>
+            )}
+            {forecast.kind === "depleting" && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-sm bg-[var(--text-secondary)]" />
+                <span className="font-mono font-semibold text-[var(--text-primary)]">
+                  ~{forecast.daysRemaining < 1
+                    ? `${(forecast.daysRemaining * 24).toFixed(1)}h`
+                    : `${forecast.daysRemaining.toFixed(1)}d`}
+                </span>
+                <span className="text-[var(--text-muted)]">
+                  pool runway at current rate
+                </span>
+              </span>
+            )}
           </div>
         )}
       </div>
