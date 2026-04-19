@@ -815,6 +815,14 @@ export default function CreatorPage() {
                 <p className="text-[10px] text-[var(--text-muted)] mt-1">
                   % of each qualifying buy returned as SOL cashback
                 </p>
+                {parseFloat(form.cashbackPct) > 3 && (
+                  <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-[11px] text-amber-200/90 leading-relaxed">
+                    <span className="font-semibold">High burn rate.</span>{" "}
+                    Bags creator fees are ~1–2% of volume. Above 3% cashback, the pool
+                    depletes faster than fees can refill it — you&apos;ll need to top up
+                    manually or accept a short campaign life.
+                  </div>
+                )}
               </div>
             )}
 
