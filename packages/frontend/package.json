@@ -9,7 +9,6 @@
     "snapshot:state": "node scripts/snapshot-state.mjs"
   },
   "dependencies": {
-    "@next/swc-darwin-arm64": "^16.2.4",
     "@solana/wallet-adapter-base": "^0.9.23",
     "@solana/wallet-adapter-phantom": "^0.9.29",
     "@solana/wallet-adapter-react": "^0.15.35",

@@ -76,10 +76,10 @@ Result: 0.005 SOL bonus shipped. Bot got nothing.
 
 Tend is built entirely on the Bags.fm platform:
 
-- **Fee-share config** — `prepareUpdateFeeShareConfig` + `submitFeeShareUpdate` to route creator fees on-chain
+- **Fee-share config** — `prepareUpdateFeeShareConfig` returns base64 txs the creator's wallet signs in-browser to route a slice of their Bags fee-share into the campaign pool
 - **Fee claiming** — `claimFees` to collect accrued SOL from fee-share positions into campaign pools
 - **Trade detection** — `getSignaturesForAddress` + `getParsedTransaction` to detect qualifying buys in real-time
-- **Token data** — `getCreatorTokens`, `getTokenAnalytics`, `getTokenCreators` for campaign dashboards
+- **Token data** — `getAdminTokenMints`, `getTokenCreators`, `getTokenLifetimeFees` for campaign dashboards and ownership checks
 
 ## Claude / Anthropic integration
 
@@ -89,7 +89,11 @@ Tend is built entirely on the Bags.fm platform:
 
 Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
 
-**Creator controls** — creators sign campaign lifecycle events (create, pause, resume, topup) directly from the web app at `/creator` and `/campaigns/[mint]`. Each mutation is a wallet ed25519 signature over `tend:<action>:<mint>:<type>:<ts>` (±5 min window, anti-replay via txSig), funded by an on-chain SOL transfer the agent verifies before applying state. The MCP server is an optional shortcut for Claude Desktop users and exposes the same 6 operations as tools:
+**Creator controls** — creators sign campaign lifecycle events (create, pause, resume, topup, route-fees) directly from the web app at `/creator` and `/campaigns/[mint]`. Each mutation is a wallet ed25519 signature over `tend:<action>:<mint>:<type>:<ts>` (±5 min window, anti-replay via txSig), funded by an on-chain SOL transfer the agent verifies before applying state. Token ownership is checked against `getTokenCreators` before any campaign create succeeds, so a wallet can only operate on mints it owns or admins on Bags.
+
+**Auto-replenish** — the `route-fees` action lets a creator one-click insert the Tend admin wallet into their Bags fee-share config at a chosen bps (default 10%, capped at 50%). Existing claimers stay — their share is reduced prorata so the total still equals 10000 bps. Once routed, every Bags fee claim auto-grows the campaign pool. The agent assembles the REPLACE-semantics update via `prepareUpdateFeeShareConfig` and the creator's wallet signs the resulting `VersionedTransaction` in-browser. No manual top-ups required.
+
+The MCP server is an optional shortcut for Claude Desktop users and exposes the same 6 operations as tools:
 
 ```
 "Create a 2% cashback campaign on $TEND with a 0.5 SOL pool"

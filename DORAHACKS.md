@@ -10,7 +10,7 @@ Bags creators have fees flowing in but no way to turn them into **community grow
 
 ## The solution
 
-Tend gives creators 3 campaign types, set it up in seconds, the AI agent handles everything else:
+Tend gives creators **3 campaign types**, set it up in seconds, the AI agent handles **everything else:**
 
 **Cashback :** Traders get a % of their buy back in SOL. Every qualifying purchase is detected automatically, no matter which DEX they use — Jupiter, Phantom swap, Raydium, anywhere.
 
@@ -18,21 +18,21 @@ Tend gives creators 3 campaign types, set it up in seconds, the AI agent handles
 
 **Sprint :** Flat SOL bonus to the first N buyers. Creates urgency at launch. Bots get blocked, real traders get paid.
 
-All 3 types are live on $TEND right now with real payouts flowing.
+All 3 types are live on $TEND right now with **real payouts** flowing.
 
 ---
 
 ## The fee-sharing flywheel
 
-This is how fees become growth:
+This is how **fees become growth:**
 
-1. Creator seeds a campaign pool (the bootstrap)
-2. Trading activity generates fees on Bags.fm
-3. The agent claims those fees automatically (every 30 min) and grows the pool
-4. Traders earn SOL back — cashback, dividends, or sprint bonuses
-5. More rewards attract more trading, which generates more fees
+1. Creator **seeds** a campaign pool (the bootstrap)
+2. Trading activity **generates fees** on Bags.fm
+3. The agent claims those fees automatically (every 30 min) and **grows the pool**
+4. **Traders earn SOL** back, cashback, dividends, or sprint bonuses
+5. More rewards attract more trading, which generates **more fees**
 
-The pool replenishes itself. The dashboard shows the breakdown: how much was seeded by the creator vs. how much was auto-claimed from trading fees.
+**The pool replenishes itself.** The dashboard shows the breakdown: how much was seeded by the creator vs. how much was **auto-claimed** from trading fees.
 
 ---
 
@@ -40,17 +40,17 @@ The pool replenishes itself. The dashboard shows the breakdown: how much was see
 
 Most "AI" crypto projects use AI for chatbots or analytics dashboards. In Tend, **the agent decides whether real money moves or not.**
 
-Every single payout passes through a AI fraud gate before any SOL leaves the pool. The gate analyzes wallet age, transaction history, and payout patterns, then returns allow / reject / hold with written reasoning.
+Every single payout passes through a **AI fraud gate** before any SOL leaves the pool. **The gate analyzes** wallet age, transaction history, and payout patterns, then returns allow / reject / hold with written reasoning.
 
 **Real example, same launch campaign, opposite verdicts:**
 
 A 6-day-old wallet with 6 transactions tried to claim a sprint bonus. Claude blocked it:
-*"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping."*
+***"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping."***
 
 A 3-year-old wallet with 1000+ transactions claimed the same bonus. Claude approved it:
-*"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign."*
+***"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign."***
 
-Result: Legitimate trader got 0.005 SOL. Bot got nothing. Pool protected.
+Result: Legitimate trader got 0.005 SOL. Bot got nothing. **Pool protected.**
 
 ---
 
@@ -68,13 +68,13 @@ Every payout is verifiable on Solscan:
 
 ## For creators: set up in seconds, manage from Claude Desktop
 
-Creators can launch campaigns from the dashboard or through Claude Desktop with the MCP server:
+Creators can launch campaigns from the dashboard or through Claude Desktop with the **MCP server:**
 
 *"Create a 5% cashback campaign on $TEND with a 0.1 SOL pool"*
 *"Show me the stats for my holder campaign"*
 *"Top up the sprint pool with 0.3 SOL"*
 
-6 focused MCP tools cover the full creator workflow: launch a cashback / holder / sprint campaign, pause, top up the pool, and view live stats.
+**6 focused MCP tools** cover the full creator workflow: launch a cashback / holder / sprint campaign, pause, top up the pool, and view live stats.
 
 ---
 
@@ -82,10 +82,10 @@ Creators can launch campaigns from the dashboard or through Claude Desktop with 
 
 Tend is built entirely on the Bags platform:
 
-- Fee claiming — `claimFees` collects accrued SOL from fee-share positions, auto-reinvested into campaign pools
-- Fee-share routing — creator fees flow directly into reward pools on-chain
-- Real-time trade detection — every buy on any DEX is captured via Solana RPC
-- Token analytics and metadata for campaign dashboards
+- **Fee claiming:** `claimFees` collects accrued SOL from fee-share positions, auto-reinvested into campaign pools
+- **Fee-share routing:** creator fees flow directly into reward pools on-chain
+- **Real-time trade detection:** every buy on any DEX is captured via Solana RPC
+- Token analytics and metadata for **campaign dashboards**
 
 ---
 
