@@ -61,6 +61,19 @@ export async function GET(
   const adminWallet =
     (state as unknown as { adminWallet?: string }).adminWallet ?? null;
 
+  const deposits = (state.campaignDeposits ?? [])
+    .filter((d) => d.tokenMint === mint && d.campaignType === campaign.type)
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  const withdrawals = (state.campaignWithdrawals ?? [])
+    .filter((w) => w.tokenMint === mint && w.campaignType === campaign.type)
+    .sort((a, b) => b.createdAt - a.createdAt);
+
+  const feeClaims = (state.feeClaimEvents ?? [])
+    .filter((e) => e.tokenMint === mint)
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, 20);
+
   return NextResponse.json({
     campaign,
     adminWallet,
@@ -76,5 +89,8 @@ export async function GET(
     },
     recentPayouts: payouts.slice(0, 20),
     fraudDecisions,
+    deposits,
+    withdrawals,
+    feeClaims,
   });
 }

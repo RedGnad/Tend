@@ -1,9 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Gift, TrendingUp, Users, Zap, RefreshCw } from "lucide-react";
-import type { Campaign } from "@tend/shared";
+import {
+  ArrowRight,
+  Gift,
+  Search,
+  TrendingUp,
+  Users,
+  Zap,
+  RefreshCw,
+} from "lucide-react";
+import type { Campaign, CampaignType } from "@tend/shared";
+
+type TypeFilter = "all" | CampaignType;
+type SortMode = "default" | "payouts" | "pool" | "newest";
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 type CampaignWithStats = Campaign & {
   stats: {
@@ -80,6 +92,7 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
   const isLive = c.status === "live";
   const headline = campaignHeadline(c);
   const typeLabel = campaignTypeBadge(c);
+  const isNew = Date.now() - c.createdAt < DAY_MS;
 
   return (
     <Link
@@ -116,10 +129,15 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
         </span>
       </div>
 
-      <div className="mb-3">
+      <div className="mb-3 flex items-center gap-2">
         <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-[var(--bg)] text-[var(--text-muted)] font-mono font-semibold tracking-wider border border-[var(--border)]">
           {typeLabel}
         </span>
+        {isNew && (
+          <span className="inline-block text-[9px] px-1.5 py-0.5 rounded bg-[var(--accent-dim)] text-[var(--accent)] font-mono font-semibold tracking-wider">
+            NEW
+          </span>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">
@@ -189,6 +207,9 @@ function CampaignSkeleton() {
 export default function CampaignsPage() {
   const [campaigns, setCampaigns] = useState<CampaignWithStats[] | null>(null);
   const [stats, setStats] = useState<GlobalStats | null>(null);
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
+  const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("default");
 
   useEffect(() => {
     fetch("/api/campaigns")
@@ -201,9 +222,36 @@ export default function CampaignsPage() {
       .catch(() => setStats(null));
   }, []);
 
-  const live = (campaigns ?? []).filter((c) => c.status === "live");
-  const paused = (campaigns ?? []).filter((c) => c.status === "paused");
-  const depleted = (campaigns ?? []).filter((c) => c.status === "depleted");
+  const filtered = useMemo(() => {
+    const list = campaigns ?? [];
+    const q = search.trim().toLowerCase();
+    const matched = list.filter((c) => {
+      if (typeFilter !== "all" && c.type !== typeFilter) return false;
+      if (!q) return true;
+      const sym = (c.tokenInfo?.symbol ?? "").toLowerCase();
+      const name = (c.tokenInfo?.name ?? "").toLowerCase();
+      const mint = c.tokenMint.toLowerCase();
+      return sym.includes(q) || name.includes(q) || mint.includes(q);
+    });
+    if (sortMode === "payouts") {
+      matched.sort((a, b) => b.stats.totalPayouts - a.stats.totalPayouts);
+    } else if (sortMode === "pool") {
+      matched.sort((a, b) => {
+        const ra = BigInt(a.poolCapLamports) - BigInt(a.poolSpentLamports);
+        const rb = BigInt(b.poolCapLamports) - BigInt(b.poolSpentLamports);
+        return rb > ra ? 1 : rb < ra ? -1 : 0;
+      });
+    } else if (sortMode === "newest") {
+      matched.sort((a, b) => b.createdAt - a.createdAt);
+    }
+    return matched;
+  }, [campaigns, typeFilter, search, sortMode]);
+
+  const live = filtered.filter((c) => c.status === "live");
+  const paused = filtered.filter((c) => c.status === "paused");
+  const depleted = filtered.filter((c) => c.status === "depleted");
+  const filtersActive =
+    typeFilter !== "all" || search.trim() !== "" || sortMode !== "default";
 
   const feesClaimed = stats?.totalFeesClaimedLamports ?? "0";
   const hasFees = Number(feesClaimed) > 0;
@@ -269,6 +317,55 @@ export default function CampaignsPage() {
         ))}
       </div>
 
+      {campaigns !== null && campaigns.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(["all", "cashback", "holder", "sprint"] as TypeFilter[]).map(
+              (t) => {
+                const active = typeFilter === t;
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTypeFilter(t)}
+                    className={`text-[11px] px-2.5 py-1 rounded-full uppercase tracking-wider font-mono font-semibold transition-colors border ${
+                      active
+                        ? "bg-[var(--accent-dim)] text-[var(--accent)] border-[var(--accent)]"
+                        : "bg-[var(--bg-card)] text-[var(--text-muted)] border-[var(--border)] hover:border-[var(--border-hover)]"
+                    }`}
+                  >
+                    {t === "all" ? "All" : t}
+                  </button>
+                );
+              }
+            )}
+          </div>
+          <div className="relative flex-1 min-w-0 sm:max-w-[280px]">
+            <Search
+              size={13}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] pointer-events-none"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Symbol, name or mint"
+              className="w-full text-xs pl-8 pr-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] placeholder:text-[var(--text-muted)] focus:outline-none focus:border-[var(--accent)]"
+            />
+          </div>
+          <select
+            value={sortMode}
+            onChange={(e) => setSortMode(e.target.value as SortMode)}
+            className="text-xs px-3 py-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border)] focus:outline-none focus:border-[var(--accent)] sm:w-auto"
+          >
+            <option value="default">Default</option>
+            <option value="payouts">Most payouts</option>
+            <option value="pool">Biggest pool left</option>
+            <option value="newest">Newest</option>
+          </select>
+        </div>
+      )}
+
       {campaigns === null ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <CampaignSkeleton />
@@ -289,6 +386,25 @@ export default function CampaignsPage() {
           >
             Activate a campaign <Zap size={13} />
           </Link>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl">
+          <p className="text-[var(--text-secondary)] text-sm mb-2">
+            No campaigns match your filters.
+          </p>
+          {filtersActive && (
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter("all");
+                setSearch("");
+                setSortMode("default");
+              }}
+              className="text-xs text-[var(--accent)] hover:underline"
+            >
+              Clear filters
+            </button>
+          )}
         </div>
       ) : (
         <>

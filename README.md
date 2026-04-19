@@ -4,6 +4,8 @@
 
 **Live now:** [tend-frontend.vercel.app](https://tend-frontend.vercel.app) | Agent: [tend-agent.onrender.com](https://tend-agent.onrender.com/health) | Token: [`$TEND`](https://bags.fm/6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS)
 
+Multi-creator production app. One Tend admin wallet acts as the shared treasury across all campaigns; the agent verifies solvency across every creator's pending obligations before accruing new payouts or releasing withdrawals. The treasury health is exposed at `/health` and gates payout accrual automatically when the wallet runs low.
+
 ---
 
 ## The fee-sharing loop
@@ -89,11 +91,11 @@ Tend is built entirely on the Bags.fm platform:
 
 Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
 
-**Creator controls** — creators sign campaign lifecycle events (create, pause, resume, topup, route-fees) directly from the web app at `/creator` and `/campaigns/[mint]`. Each mutation is a wallet ed25519 signature over `tend:<action>:<mint>:<type>:<ts>` (±5 min window, anti-replay via txSig), funded by an on-chain SOL transfer the agent verifies before applying state. Token ownership is checked against `getTokenCreators` before any campaign create succeeds, so a wallet can only operate on mints it owns or admins on Bags.
+**Creator controls** — creators sign campaign lifecycle events (create, pause, resume, topup, route-fees, withdraw) directly from the web app at `/creator` and `/campaigns/[mint]`. Each mutation is a wallet ed25519 signature over `tend:<action>:<mint>:<type>:<ts>` (±5 min window, anti-replay via txSig), funded by an on-chain SOL transfer the agent verifies before applying state. Token ownership is checked against `getTokenCreators` before any campaign create succeeds, so a wallet can only operate on mints it owns or admins on Bags. Unused pool seed is refundable at any time via a creator-signed withdraw action — the agent verifies treasury solvency across all creators before releasing funds.
 
 **Auto-replenish** — the `route-fees` action lets a creator one-click insert the Tend admin wallet into their Bags fee-share config at a chosen bps (default 10%, capped at 50%). Existing claimers stay — their share is reduced prorata so the total still equals 10000 bps. Once routed, every Bags fee claim auto-grows the campaign pool. The agent assembles the REPLACE-semantics update via `prepareUpdateFeeShareConfig` and the creator's wallet signs the resulting `VersionedTransaction` in-browser. No manual top-ups required.
 
-The MCP server is an optional shortcut for Claude Desktop users and exposes the same 6 operations as tools:
+The MCP server is an optional shortcut for Claude Desktop users and exposes 7 operations as tools (self-hosted by power users with their own Bags admin key):
 
 ```
 "Create a 2% cashback campaign on $TEND with a 0.5 SOL pool"
@@ -116,7 +118,7 @@ The MCP server is an optional shortcut for Claude Desktop users and exposes the 
 packages/
   shared/       Types, Bags SDK wrapper, Solana utils, AES-256-GCM crypto
   agent/        Fee claimer, rewards dispatcher, per-type triggers, fraud gate, payout executor
-  mcp-server/   6 MCP tools (STDIO) — creator console (optional)
+  mcp-server/   7 MCP tools (STDIO) — creator console (optional, self-hosted)
   frontend/     Next.js 15 dashboard + read-only API routes
 ```
 

@@ -2,16 +2,20 @@ import type { BagsClient } from "@tend/shared";
 import { withStateLock } from "./state-lock.js";
 import { runRewardsDistributor } from "./rewards-distributor.js";
 import { claimFeesForCampaigns } from "./campaign-fee-claimer.js";
+import { getTreasuryHealth } from "./treasury-health.js";
+import { alert, clearAlert } from "./alerter.js";
 import { log, logError } from "./logger.js";
 
 const FEE_CLAIM_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 const REWARDS_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 const HEARTBEAT_INTERVAL_MS = 60 * 1000; // 1 minute
+const TREASURY_CHECK_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 export class Scheduler {
   private feeClaimTimer?: ReturnType<typeof setInterval>;
   private rewardsTimer?: ReturnType<typeof setInterval>;
   private heartbeatTimer?: ReturnType<typeof setInterval>;
+  private treasuryTimer?: ReturnType<typeof setInterval>;
   private running = false;
 
   // Re-entrance guards — prevent overlapping ticks
@@ -47,6 +51,11 @@ export class Scheduler {
       () => this.writeHeartbeat(),
       HEARTBEAT_INTERVAL_MS
     );
+    this.checkTreasury();
+    this.treasuryTimer = setInterval(
+      () => this.checkTreasury(),
+      TREASURY_CHECK_INTERVAL_MS
+    );
   }
 
   stop() {
@@ -56,8 +65,41 @@ export class Scheduler {
     if (this.feeClaimTimer) clearInterval(this.feeClaimTimer);
     if (this.rewardsTimer) clearInterval(this.rewardsTimer);
     if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    if (this.treasuryTimer) clearInterval(this.treasuryTimer);
 
     log("Scheduler stopped");
+  }
+
+  /**
+   * Periodic treasury solvency probe — alerts when surplus turns critical
+   * (next payout will be skipped). Auto-clears the cooldown when surplus
+   * recovers, so the next regression alerts immediately rather than waiting
+   * out the 15-min window.
+   */
+  private async checkTreasury() {
+    try {
+      const h = await getTreasuryHealth(this.bags);
+      if (h.status === "critical") {
+        await alert(
+          "treasury-critical",
+          "critical",
+          `Treasury surplus is ${h.surplusLamports} lamports — payouts will be blocked. balance=${h.balanceLamports} obligations=${h.obligationsLamports}`
+        );
+      } else {
+        clearAlert("treasury-critical");
+        if (h.status === "low") {
+          await alert(
+            "treasury-low",
+            "warn",
+            `Treasury surplus ${h.surplusLamports} lamports — top up before payouts stall.`
+          );
+        } else {
+          clearAlert("treasury-low");
+        }
+      }
+    } catch (err) {
+      logError("[treasury-check] Error:", err);
+    }
   }
 
   /** Claim Bags trading fees for all campaign tokens → grow pools */

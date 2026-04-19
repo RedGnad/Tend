@@ -38,7 +38,7 @@ function isValidMint(mint: string): boolean {
 }
 
 /**
- * Minimal creator console — 6 tools.
+ * Minimal creator console — 7 tools.
  *
  *   create_campaign          — cashback pool (pay % per buy)
  *   create_holder_campaign   — holder dividends (pro-rata snapshots)
@@ -46,6 +46,7 @@ function isValidMint(mint: string): boolean {
  *   pause_campaign           — freeze payouts without losing the pool
  *   topup_pool               — raise the cap (or revive from depleted)
  *   view_campaign_stats      — payouts, fraud decisions, utilization
+ *   enable_auto_replenish    — route Bags fee-share into Tend so claims auto-grow the pool
  *
  * Every write uses the shared file lock in campaign-store so MCP + agent + web
  * all see the same state.
@@ -535,6 +536,156 @@ export function registerCampaignTools(
               `   allowed     ${stats.fraudAllowed}`,
               `   rejected    ${stats.fraudRejected}`,
               `   held        ${stats.fraudHeld}`,
+            ].join("\n"),
+          },
+        ],
+      };
+    }
+  );
+
+  // ──── 7th tool: enable auto-replenish for the local creator ────
+  // Routes a slice of the local wallet's Bags fee-share into Tend so
+  // every Bags fee claim auto-grows the campaign pool. Self-hosted only:
+  // the env wallet IS the creator wallet, so we sign in-process with no
+  // browser involvement.
+  const DEFAULT_TEND_BPS = 1000;
+  const MAX_TEND_BPS = 5000;
+
+  server.tool(
+    "enable_auto_replenish",
+    "Insert the Tend admin wallet into your Bags fee-share config so every fee claim auto-grows the campaign pool. Existing claimers are kept (their bps reduced prorata so the total still equals 10000). Self-hosted MCP only — the local TEND_PRIVATE_KEY signs and sends.",
+    {
+      tokenMint: z
+        .string()
+        .describe("Token mint (base58) — must be a valid Solana pubkey, must be one you admin"),
+      tendBps: z
+        .number()
+        .int()
+        .min(1)
+        .max(MAX_TEND_BPS)
+        .optional()
+        .describe(
+          `Basis points routed to Tend. Default ${DEFAULT_TEND_BPS} (10%), max ${MAX_TEND_BPS} (50%).`
+        ),
+    },
+    async ({ tokenMint, tendBps }) => {
+      if (!isValidMint(tokenMint)) {
+        return {
+          content: [{ type: "text", text: `❌ Invalid mint address: ${tokenMint}` }],
+        };
+      }
+      const requestedBps = tendBps ?? DEFAULT_TEND_BPS;
+      const adminWallet = bags.keypair.publicKey.toBase58();
+
+      // Read existing claimers — fail-closed so we never wipe someone's share.
+      let creators;
+      try {
+        creators = await bags.getTokenCreators(tokenMint);
+      } catch (err) {
+        return {
+          content: [
+            { type: "text", text: `❌ Could not read fee-share from Bags: ${err instanceof Error ? err.message : String(err)}` },
+          ],
+        };
+      }
+
+      // Only an admin can update the config.
+      const signerEntry = creators.find((c) => c.wallet === adminWallet);
+      if (!signerEntry || !signerEntry.isAdmin) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `❌ Wallet ${adminWallet.slice(0, 8)}… is not an admin of this token's fee-share config — cannot update.`,
+            },
+          ],
+        };
+      }
+
+      // If we're already in the claimers at the requested bps, nothing to do.
+      const currentEntry = creators.find((c) => c.wallet === adminWallet);
+      if (currentEntry && currentEntry.royaltyBps === requestedBps) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `✅ Already routed: ${requestedBps}bps to Tend on ${tokenMint.slice(0, 8)}… No change needed.`,
+            },
+          ],
+        };
+      }
+
+      // Rebalance: keep all non-Tend claimers, prorata-reduce them so they
+      // share (10000 - requestedBps), then append Tend at requestedBps.
+      const others = creators.filter((c) => c.wallet !== adminWallet);
+      const otherTotal = others.reduce((sum, c) => sum + (c.royaltyBps ?? 0), 0);
+      if (otherTotal <= 0) {
+        return {
+          content: [
+            { type: "text", text: `❌ Existing fee-share is empty — cannot rebalance.` },
+          ],
+        };
+      }
+
+      const remaining = 10_000 - requestedBps;
+      const rebalanced: Array<{ wallet: string; bps: number }> = [];
+      let allocated = 0;
+      for (let i = 0; i < others.length; i++) {
+        const c = others[i];
+        const bps =
+          i === others.length - 1
+            ? remaining - allocated
+            : Math.floor(((c.royaltyBps ?? 0) * remaining) / otherTotal);
+        if (i < others.length - 1) allocated += bps;
+        if (bps > 0) {
+          rebalanced.push({ wallet: c.wallet, bps });
+        }
+      }
+      rebalanced.push({ wallet: adminWallet, bps: requestedBps });
+
+      const sum = rebalanced.reduce((s, c) => s + c.bps, 0);
+      if (sum !== 10_000) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `❌ Internal error: rebalanced total is ${sum}, expected 10000. Aborting.`,
+            },
+          ],
+        };
+      }
+
+      let signatures: string[];
+      try {
+        signatures = await bags.updateFeeShareConfig(tokenMint, rebalanced);
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `❌ Update failed: ${err instanceof Error ? err.message : String(err)}`,
+            },
+          ],
+        };
+      }
+
+      const others_lines = rebalanced
+        .filter((c) => c.wallet !== adminWallet)
+        .map((c) => `   ${c.wallet.slice(0, 8)}…  ${c.bps}bps (${(c.bps / 100).toFixed(2)}%)`);
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: [
+              `✅ Auto-replenish enabled on ${tokenMint.slice(0, 8)}…`,
+              `   Tend     ${adminWallet.slice(0, 8)}…  ${requestedBps}bps (${(requestedBps / 100).toFixed(2)}%)`,
+              ...others_lines,
+              ``,
+              `Signed and sent ${signatures.length} tx(s):`,
+              ...signatures.map((s) => `   https://solscan.io/tx/${s}`),
+              ``,
+              `Every Bags fee claim will now auto-grow your campaign pool.`,
             ].join("\n"),
           },
         ],

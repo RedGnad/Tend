@@ -8,6 +8,7 @@ import { withStateLock } from "../state-lock.js";
 import { detectNewBuys } from "../swap-detector.js";
 import { checkFraud } from "../fraud-detector.js";
 import { log } from "../logger.js";
+import { canAccrue } from "../treasury-health.js";
 import { emptyTriggerResult, type TriggerResult } from "./types.js";
 
 // Cashback-specific guardrails
@@ -146,6 +147,18 @@ export async function runCashbackTrigger(
 
     if (decision.decision === "allow") {
       result.fraudAllowed += 1;
+      // Treasury solvency gate — skip accrual if the admin wallet can't
+      // cover this payout on top of existing obligations. Better to skip
+      // one cashback than queue a debt the executor can never drain.
+      const reward =
+        (buy.solSpentLamports * BigInt(campaign.config.cashbackBps)) /
+        10_000n;
+      if (reward > 0n && !(await canAccrue(bags, reward))) {
+        log(
+          `[rewards:cashback] treasury underfunded — skipping accrual (${reward} lamports)`
+        );
+        continue;
+      }
       const accrued = await tryAccrueCashbackPayout(campaign, buy);
       if (accrued) result.payoutsAccrued += 1;
     } else if (decision.decision === "reject") {

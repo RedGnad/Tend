@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
@@ -22,7 +22,18 @@ import {
   CheckCircle,
   Loader2,
   Repeat,
+  Wallet,
+  Settings,
+  Bot,
 } from "lucide-react";
+
+function formatSol(lamports: number | string | bigint): string {
+  const sol = Number(lamports) / 1_000_000_000;
+  if (sol >= 1000) return (sol / 1000).toFixed(1) + "K";
+  if (sol >= 1) return sol.toFixed(2);
+  if (sol > 0) return sol.toFixed(4);
+  return "0";
+}
 
 // Inlined to keep the client bundle free of node:crypto.
 // Keep in sync with buildAuthMessage in packages/shared/src/wallet-auth.ts.
@@ -109,6 +120,27 @@ export default function CreatorPage() {
   const [step, setStep] = useState<CreateStep>("idle");
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Live trust-signal stats — builds confidence for new creators
+  const [trustStats, setTrustStats] = useState<{
+    totalPaidLamports: string;
+    liveCampaigns: number;
+    uniqueEarners: number;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setTrustStats({
+          totalPaidLamports: d.totalPaidLamports ?? "0",
+          liveCampaigns: d.liveCampaigns ?? 0,
+          uniqueEarners: d.uniqueEarners ?? 0,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   // Fee-share routing — optional follow-up after campaign create
   const [routeBps, setRouteBps] = useState("10"); // % of fee-share to Tend
@@ -420,6 +452,88 @@ export default function CreatorPage() {
               See live campaigns
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* Trust band — real numbers from live state */}
+      {trustStats && Number(trustStats.totalPaidLamports) > 0 && (
+        <section className="mb-12">
+          <div className="bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)] rounded-2xl p-5 grid grid-cols-3 gap-4">
+            <div>
+              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                SOL paid to traders
+              </p>
+              <p className="text-2xl font-bold font-mono gradient-text">
+                {formatSol(trustStats.totalPaidLamports)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                Live campaigns
+              </p>
+              <p className="text-2xl font-bold font-mono gradient-text">
+                {trustStats.liveCampaigns}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                Unique earners
+              </p>
+              <p className="text-2xl font-bold font-mono gradient-text">
+                {trustStats.uniqueEarners}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* How it works — 3-step flow so new creators know what they're signing up for */}
+      <section className="mb-16">
+        <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
+          How it works
+        </p>
+        <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold font-display tracking-tight mb-6">
+          Three steps, then the agent runs it
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            {
+              icon: Wallet,
+              step: "01",
+              title: "Connect + fund",
+              desc: "Connect the wallet that owns the Bags token. Transfer an initial pool (0.05 SOL is enough to try).",
+            },
+            {
+              icon: Settings,
+              step: "02",
+              title: "Configure the campaign",
+              desc: "Pick cashback, holder dividends, or a launch sprint. Set the rate. Sign the auth message to register the campaign.",
+            },
+            {
+              icon: Bot,
+              step: "03",
+              title: "Agent takes over",
+              desc: "The Tend agent watches trades, runs every wallet through the AI fraud gate, and pays rewards on-chain. You watch it happen.",
+            },
+          ].map((s) => (
+            <div
+              key={s.step}
+              className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 relative"
+            >
+              <span className="absolute top-4 right-4 text-[10px] font-mono text-[var(--text-muted)] tracking-wider">
+                {s.step}
+              </span>
+              <div className="w-9 h-9 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center mb-4">
+                <s.icon size={16} className="text-[var(--accent)]" />
+              </div>
+              <h3 className="text-[15px] font-semibold font-display mb-2">
+                {s.title}
+              </h3>
+              <p className="text-[13px] text-[var(--text-muted)] leading-relaxed">
+                {s.desc}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 

@@ -98,7 +98,7 @@ async function main() {
     })
   );
 
-  log("Registered 6 creator tools + 1 resource + 1 prompt");
+  log("Registered 7 creator tools + 1 resource + 1 prompt");
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

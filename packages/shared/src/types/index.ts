@@ -147,7 +147,30 @@ export interface TendState {
   holderSnapshotCursors?: Record<string, number>;
   fraudDecisions?: FraudDecision[];
   campaignDeposits?: CampaignDeposit[];
+  campaignWithdrawals?: CampaignWithdrawal[];
+  feeClaimEvents?: FeeClaimEvent[];
   agentHeartbeat?: number; // timestamp of last agent tick
+}
+
+// Creator-initiated withdrawal of unused pool seed. Admin wallet refunds SOL
+// back to the creatorWallet. Audit trail for treasury reconciliation.
+export interface CampaignWithdrawal {
+  txSig: string;
+  tokenMint: string;
+  campaignType: "cashback" | "holder" | "sprint";
+  toWallet: string;
+  amountLamports: string;
+  createdAt: number;
+}
+
+// Individual Bags fee-claim event. Recorded per tick by the fee claimer so the
+// creator can audit exactly which on-chain claims replenished their pool.
+export interface FeeClaimEvent {
+  tokenMint: string;
+  claimedLamports: string;
+  signatures: string[];
+  source: "admin" | "service-wallet";
+  createdAt: number;
 }
 
 // Creator-funded deposits into a campaign pool (create + topup).

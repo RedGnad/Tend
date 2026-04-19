@@ -14,11 +14,20 @@ import {
   parseAuthMessage,
   isTimestampFresh,
 } from "@tend/shared";
-import type { Campaign, CampaignDeposit } from "@tend/shared";
+import type { Campaign, CampaignDeposit, CampaignWithdrawal } from "@tend/shared";
+import {
+  SystemProgram,
+  Transaction,
+  ComputeBudgetProgram,
+} from "@solana/web3.js";
+import bs58 from "bs58";
+import { ADMIN_MIN_RESERVE_LAMPORTS } from "./payout-executor.js";
 import { Scheduler } from "./scheduler.js";
 import { withStateLock } from "./state-lock.js";
 import { verifyDepositTx } from "./deposit-verifier.js";
 import { log, logError } from "./logger.js";
+import { getTreasuryHealth } from "./treasury-health.js";
+import { alert } from "./alerter.js";
 import type { IncomingMessage } from "node:http";
 
 async function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -259,6 +268,184 @@ async function handleCampaignTopup(
       ok: true,
       status: outcome.status,
       addedLamports: outcome.addedLamports,
+    },
+  };
+}
+
+interface WithdrawBody {
+  type?: string;
+  message?: string;
+  signature?: string;
+  publicKey?: string;
+}
+
+const MIN_WITHDRAW_LAMPORTS = 1_000_000n; // 0.001 SOL — below this, tx fees eat it
+
+async function handleCampaignWithdraw(
+  bags: BagsClient,
+  mint: string,
+  raw: unknown
+): Promise<MutationResult> {
+  const body = raw as WithdrawBody;
+  const { type, message, signature, publicKey } = body;
+
+  if (!type || !message || !signature || !publicKey) {
+    return {
+      status: 400,
+      body: { error: "Missing fields: type, message, signature, publicKey" },
+    };
+  }
+
+  const parsed = parseAuthMessage(message);
+  if (!parsed || parsed.action !== "withdraw") {
+    return { status: 400, body: { error: "Malformed auth message or wrong action" } };
+  }
+  if (parsed.mint !== mint || parsed.type !== type) {
+    return { status: 400, body: { error: "Message mint/type mismatch" } };
+  }
+  if (!isTimestampFresh(parsed.timestampMs)) {
+    return { status: 401, body: { error: "Auth message expired" } };
+  }
+  if (!verifyWalletSignature(message, signature, publicKey)) {
+    return { status: 401, body: { error: "Invalid signature" } };
+  }
+
+  // Load current state to compute refundable and validate ownership+status
+  // under a read-then-lock flow. The actual state mutation happens only after
+  // the on-chain transfer confirms, which is the authoritative step.
+  const { loadState } = await import("./state-reader.js");
+  const current = await loadState();
+  const campaign = (current?.campaigns ?? []).find(
+    (c) => c.tokenMint === mint && c.type === type
+  );
+  if (!campaign) {
+    return { status: 404, body: { error: "Campaign not found" } };
+  }
+  if (campaign.creatorWallet !== publicKey) {
+    return {
+      status: 403,
+      body: { error: "Signer is not the campaign creator" },
+    };
+  }
+  // Require paused so no new payouts can accrue during withdrawal.
+  if (campaign.status !== "paused") {
+    return {
+      status: 400,
+      body: {
+        error: `Campaign must be paused before withdrawal (current: ${campaign.status})`,
+      },
+    };
+  }
+
+  // Refundable: poolCap - poolSpent. poolSpent already includes accrued
+  // payouts (triggers increment it at accrue-time), so this is the honest
+  // amount left unallocated.
+  const refundable =
+    BigInt(campaign.poolCapLamports) - BigInt(campaign.poolSpentLamports);
+  if (refundable < MIN_WITHDRAW_LAMPORTS) {
+    return {
+      status: 400,
+      body: {
+        error: `Refundable amount ${refundable} lamports below minimum ${MIN_WITHDRAW_LAMPORTS}`,
+      },
+    };
+  }
+
+  // Treasury solvency check — admin wallet must still honor all other
+  // campaigns' pending payouts after this withdrawal lands.
+  const adminPub = bags.keypair.publicKey;
+  let balance: bigint;
+  try {
+    balance = BigInt(await bags.connection.getBalance(adminPub));
+  } catch (err) {
+    logError("[withdraw] getBalance failed:", err);
+    return { status: 502, body: { error: "Could not read admin balance" } };
+  }
+  const unpaidObligations = (current?.rewardPayouts ?? [])
+    .filter((p) => p.status === "accrued" || p.status === "submitted")
+    .reduce((sum, p) => sum + BigInt(p.rewardLamports), 0n);
+  const surplusAfter =
+    balance - refundable - unpaidObligations - ADMIN_MIN_RESERVE_LAMPORTS;
+  if (surplusAfter < 0n) {
+    return {
+      status: 409,
+      body: {
+        error: `Treasury would be underfunded after withdrawal (shortfall ${-surplusAfter} lamports)`,
+      },
+    };
+  }
+
+  // Build + send SystemProgram.transfer admin → creator
+  const admin = bags.keypair;
+  let txSig: string;
+  try {
+    const tx = new Transaction();
+    tx.add(
+      ComputeBudgetProgram.setComputeUnitLimit({ units: 20_000 }),
+      ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }),
+      SystemProgram.transfer({
+        fromPubkey: admin.publicKey,
+        toPubkey: new PublicKey(publicKey),
+        lamports: Number(refundable),
+      })
+    );
+    const { blockhash, lastValidBlockHeight } =
+      await bags.connection.getLatestBlockhash("confirmed");
+    tx.recentBlockhash = blockhash;
+    tx.feePayer = admin.publicKey;
+    tx.sign(admin);
+
+    const serialized = tx.serialize();
+    const sigBytes = tx.signatures[0]?.signature;
+    if (!sigBytes) throw new Error("tx unsigned after sign()");
+    txSig = bs58.encode(sigBytes);
+
+    await bags.connection.sendRawTransaction(serialized, {
+      skipPreflight: false,
+      maxRetries: 3,
+    });
+    await bags.connection.confirmTransaction(
+      { signature: txSig, blockhash, lastValidBlockHeight },
+      "confirmed"
+    );
+  } catch (err) {
+    logError("[withdraw] transfer failed:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    return { status: 500, body: { error: `Transfer failed: ${msg.slice(0, 200)}` } };
+  }
+
+  // Persist post-transfer — reduce poolCap, record withdrawal, flip to
+  // depleted so the campaign is visibly closed.
+  await withStateLock((s) => {
+    if (!s.campaignWithdrawals) s.campaignWithdrawals = [];
+    const c = (s.campaigns ?? []).find(
+      (x) => x.tokenMint === mint && x.type === type
+    );
+    if (c) {
+      c.poolCapLamports = (
+        BigInt(c.poolCapLamports) - refundable
+      ).toString();
+      c.status = "depleted";
+    }
+    s.campaignWithdrawals.push({
+      txSig,
+      tokenMint: mint,
+      campaignType: type as CampaignWithdrawal["campaignType"],
+      toWallet: publicKey,
+      amountLamports: refundable.toString(),
+      createdAt: Date.now(),
+    });
+  });
+
+  log(
+    `[http] withdraw ${type}:${mint.slice(0, 8)} → ${publicKey.slice(0, 8)} ${refundable} lamports (tx ${txSig.slice(0, 10)})`
+  );
+  return {
+    status: 200,
+    body: {
+      ok: true,
+      txSig,
+      amountLamports: refundable.toString(),
     },
   };
 }
@@ -677,8 +864,28 @@ async function main() {
     }
 
     if (req.method === "GET" && url.pathname === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ status: "ok", uptime: process.uptime() }));
+      try {
+        const treasury = await getTreasuryHealth(bags);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            uptime: process.uptime(),
+            treasury,
+          })
+        );
+      } catch (err) {
+        // Health endpoint must always respond — degrade gracefully if RPC fails.
+        logError("[health] treasury check failed:", err);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: "ok",
+            uptime: process.uptime(),
+            treasury: { status: "unknown", error: "rpc unreachable" },
+          })
+        );
+      }
       return;
     }
 
@@ -755,6 +962,25 @@ async function main() {
       return;
     }
 
+    // POST /campaigns/:mint/withdraw — creator refund of unused pool seed
+    const withdrawMatch = url.pathname.match(
+      /^\/campaigns\/([^/]+)\/withdraw$/
+    );
+    if (req.method === "POST" && withdrawMatch) {
+      const [, mintParam] = withdrawMatch;
+      try {
+        const body = await readJsonBody(req);
+        const result = await handleCampaignWithdraw(bags, mintParam, body);
+        res.writeHead(result.status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
+      } catch (err) {
+        logError("[http] withdraw error:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
+
     // POST /campaigns/fee-share/prepare — build REPLACE-semantics tx that
     // routes a slice of the creator's Bags fee-share to the Tend admin.
     // Returns base64 txs for the creator's wallet to sign.
@@ -818,7 +1044,31 @@ async function main() {
   log("Tend Agent running. Press Ctrl+C to stop.");
 }
 
+// Crash alerting — uncaught errors should always page the operator before
+// the process dies. Best-effort: don't block exit on the webhook.
+process.on("uncaughtException", (err) => {
+  logError("[crash] uncaughtException:", err);
+  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  void alert("agent-crash", "critical", `uncaughtException — ${msg.slice(0, 300)}`)
+    .finally(() => process.exit(1));
+});
+
+process.on("unhandledRejection", (reason) => {
+  logError("[crash] unhandledRejection:", reason);
+  const msg =
+    reason instanceof Error
+      ? `${reason.name}: ${reason.message}`
+      : String(reason);
+  void alert(
+    "agent-crash",
+    "critical",
+    `unhandledRejection — ${msg.slice(0, 300)}`
+  );
+});
+
 main().catch((err) => {
   logError("Fatal:", err);
-  process.exit(1);
+  const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+  void alert("agent-crash", "critical", `Fatal startup error — ${msg.slice(0, 300)}`)
+    .finally(() => process.exit(1));
 });

@@ -74,7 +74,7 @@ Creators can launch campaigns from the dashboard or through Claude Desktop with 
 *"Show me the stats for my holder campaign"*
 *"Top up the sprint pool with 0.3 SOL"*
 
-**6 focused MCP tools** cover the full creator workflow: launch a cashback / holder / sprint campaign, pause, top up the pool, and view live stats.
+**7 focused MCP tools** cover the full creator workflow: launch a cashback / holder / sprint campaign, pause, top up the pool, view live stats, and enable auto-replenish. The MCP server is self-hosted — a power user runs it locally with their own Bags admin key, so the creator stays fully in control of what their wallet signs.
 
 From the campaign page, a single **"Enable auto-replenish"** button assembles a `prepareUpdateFeeShareConfig` transaction the creator signs in-browser, inserting the Tend admin wallet into their Bags fee-share at the chosen bps. After that, every Bags fee claim auto-grows the pool — no manual top-ups required.
 
@@ -96,7 +96,8 @@ Tend is built entirely on the Bags platform:
 
 - **Agent :** Node.js scheduler with 2 core loops: fee claiming (every 30 min) and rewards distribution (every 2 min). Claude Haiku 4.5 fraud gate with Zod v4 structured outputs
 - **Frontend :** Next.js 15, Tailwind v4, embedded Birdeye charts + Jupiter swap, wallet-adapter (Phantom/Solflare)
-- **MCP Server :** 6 creator tools + 1 resource + 1 prompt, STDIO transport, callable from Claude Desktop
+- **MCP Server :** 7 creator tools + 1 resource + 1 prompt, STDIO transport, callable from Claude Desktop (self-hosted)
+- **Multi-creator treasury :** one admin wallet shared across all campaigns, with a live solvency check (`/health`) that gates new accruals and refunds when the wallet runs low — creators can always withdraw their unused seed at any time
 - **Security :** AES-256-GCM encrypted wallet keys, file-level locking, bounded agent authority, fail-closed fraud gate
 - **Infra :** Vercel (dashboard), Render (agent), live state bridge between the two
 

@@ -34,6 +34,28 @@ function buildAuthMessage(p: {
 import { JupiterSwap } from "@/components/jupiter-swap";
 import { PriceChart } from "@/components/price-chart";
 
+interface CampaignDeposit {
+  txSig: string;
+  fromWallet: string;
+  amountLamports: string;
+  kind: "create" | "topup";
+  createdAt: number;
+}
+
+interface CampaignWithdrawal {
+  txSig: string;
+  toWallet: string;
+  amountLamports: string;
+  createdAt: number;
+}
+
+interface FeeClaimEvent {
+  claimedLamports: string;
+  signatures: string[];
+  source: "admin" | "service-wallet";
+  createdAt: number;
+}
+
 interface CampaignDetail {
   campaign: Campaign;
   adminWallet?: string | null;
@@ -49,6 +71,9 @@ interface CampaignDetail {
   };
   recentPayouts: RewardPayout[];
   fraudDecisions?: FraudDecision[];
+  deposits?: CampaignDeposit[];
+  withdrawals?: CampaignWithdrawal[];
+  feeClaims?: FeeClaimEvent[];
 }
 
 function formatSol(lamports: number | string | bigint): string {
@@ -81,6 +106,13 @@ export default function CampaignDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [withdrawStep, setWithdrawStep] = useState<
+    "idle" | "signing" | "executing"
+  >("idle");
+  const [withdrawDone, setWithdrawDone] = useState<{
+    amountLamports: string;
+    txSig: string;
+  } | null>(null);
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupSol, setTopupSol] = useState("0.05");
   const [topupStep, setTopupStep] = useState<"idle" | "sending" | "confirming" | "signing" | "submitting">("idle");
@@ -257,6 +289,75 @@ export default function CampaignDetailPage() {
     }
   }
 
+  async function handleWithdraw() {
+    if (!detail || !publicKey || !signMessage) return;
+    const remainingLamports =
+      BigInt(detail.campaign.poolCapLamports) -
+      BigInt(detail.campaign.poolSpentLamports);
+    if (remainingLamports <= 0n) {
+      setMutationError("Nothing to withdraw — pool is fully distributed");
+      return;
+    }
+    const confirmMsg = `Withdraw ${formatSol(remainingLamports)} SOL back to your wallet? The campaign will be closed.`;
+    if (!confirm(confirmMsg)) return;
+
+    setMutating(true);
+    setMutationError(null);
+    setWithdrawStep("signing");
+    try {
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action: "withdraw",
+        mint: detail.campaign.tokenMint,
+        type: detail.campaign.type,
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+
+      setWithdrawStep("executing");
+      const res = await fetch(
+        `/api/campaigns/${detail.campaign.tokenMint}/withdraw`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            type: detail.campaign.type,
+            message,
+            signature: bs58.encode(sigBytes),
+            publicKey: publicKey.toBase58(),
+          }),
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setMutationError(data.error || `Failed (${res.status})`);
+        return;
+      }
+      setWithdrawDone({
+        amountLamports: data.amountLamports,
+        txSig: data.txSig,
+      });
+      setDetail({
+        ...detail,
+        campaign: {
+          ...detail.campaign,
+          status: "depleted",
+          poolCapLamports: (
+            BigInt(detail.campaign.poolCapLamports) -
+            BigInt(data.amountLamports)
+          ).toString(),
+        } as typeof detail.campaign,
+      });
+    } catch (err) {
+      setMutationError(
+        err instanceof Error ? err.message : "Withdraw failed"
+      );
+    } finally {
+      setWithdrawStep("idle");
+      setMutating(false);
+    }
+  }
+
   async function handleRouteFees() {
     if (!detail || !publicKey || !signMessage || !sendTransaction) return;
     const pct = parseFloat(routeBps);
@@ -366,7 +467,17 @@ export default function CampaignDetailPage() {
     );
   }
 
-  const { campaign, stats, recentPayouts, fraudDecisions = [] } = detail;
+  const {
+    campaign,
+    stats,
+    recentPayouts,
+    fraudDecisions = [],
+    deposits = [],
+    withdrawals = [],
+    feeClaims = [],
+  } = detail;
+  const isOwner =
+    connected && publicKey?.toBase58() === campaign.creatorWallet;
   const symbol =
     campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4).toUpperCase();
   const name = campaign.tokenInfo?.name ?? symbol;
@@ -524,17 +635,51 @@ export default function CampaignDetailPage() {
                   {mutating ? "…" : "Pause"}
                 </button>
               ) : (
-                <button
-                  onClick={() => flipStatus("resume")}
-                  disabled={mutating}
-                  className="text-[11px] px-3 py-1 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold"
-                >
-                  {mutating ? "…" : "Resume"}
-                </button>
+                <>
+                  <button
+                    onClick={() => flipStatus("resume")}
+                    disabled={mutating}
+                    className="text-[11px] px-3 py-1 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold"
+                  >
+                    {mutating && withdrawStep === "idle" ? "…" : "Resume"}
+                  </button>
+                  <button
+                    onClick={handleWithdraw}
+                    disabled={mutating}
+                    className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[#ef4444] hover:text-[#ef4444] disabled:opacity-50 transition"
+                    title="Refund the unused pool back to your wallet (closes the campaign)"
+                  >
+                    {withdrawStep === "signing"
+                      ? "Sign…"
+                      : withdrawStep === "executing"
+                        ? "Sending…"
+                        : "Withdraw"}
+                  </button>
+                </>
               )}
             </div>
           </div>
         )}
+
+      {withdrawDone && (
+        <div className="mb-4 px-3 py-2 rounded-xl bg-[var(--accent-dim)] border border-[var(--accent)] text-xs text-[var(--accent)] flex items-center justify-between gap-3">
+          <span>
+            Refunded{" "}
+            <span className="font-mono font-semibold">
+              {formatSol(withdrawDone.amountLamports)} SOL
+            </span>{" "}
+            to your wallet.
+          </span>
+          <a
+            href={`https://solscan.io/tx/${withdrawDone.txSig}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 underline hover:no-underline"
+          >
+            View tx <ExternalLink size={10} />
+          </a>
+        </div>
+      )}
 
       {/* Pool progress — thin, full width */}
       <div className="mb-4">
@@ -559,22 +704,22 @@ export default function CampaignDetailPage() {
           </span>
         </div>
 
-        {/* Fee-sharing breakdown */}
+        {/* Fee-sharing breakdown — proof the flywheel is live */}
         {(Number(stats.feesClaimedLamports ?? "0") > 0 ||
           Number(stats.seededLamports ?? "0") > 0) && (
-          <div className="flex items-center gap-4 mt-2 text-[10px] text-[var(--text-muted)]">
-            <span className="inline-flex items-center gap-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-[var(--text-secondary)]">
+            <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-sm bg-[var(--text-secondary)]" />
-              Seeded: {formatSol(stats.seededLamports ?? "0")} SOL
+              <span className="font-mono font-semibold">{formatSol(stats.seededLamports ?? "0")} SOL</span>
+              <span className="text-[var(--text-muted)]">seeded by creator</span>
             </span>
-            <span className="inline-flex items-center gap-1">
+            <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-sm bg-[var(--accent)]" />
-              From fees: {formatSol(stats.feesClaimedLamports ?? "0")} SOL
-              {(stats.feeClaimCount ?? 0) > 0 && (
-                <span className="text-[var(--text-muted)]">
-                  ({stats.feeClaimCount} claims)
-                </span>
-              )}
+              <span className="font-mono font-semibold text-[var(--accent)]">+{formatSol(stats.feesClaimedLamports ?? "0")} SOL</span>
+              <span className="text-[var(--text-muted)]">
+                auto-claimed from trading fees
+                {(stats.feeClaimCount ?? 0) > 0 && ` (${stats.feeClaimCount} claim${stats.feeClaimCount === 1 ? "" : "s"})`}
+              </span>
             </span>
           </div>
         )}
@@ -771,6 +916,111 @@ export default function CampaignDetailPage() {
             </div>
           )}
         </div>
+
+        {/* Owner audit — fee-claim events with on-chain links */}
+        {isOwner && feeClaims.length > 0 && (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Repeat size={12} className="text-[var(--accent)]" />
+              <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                Fee-claim events
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {feeClaims.map((e) => (
+                <div
+                  key={e.createdAt + (e.signatures[0] ?? "")}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                >
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 bg-[var(--accent-dim)] text-[var(--accent)]">
+                    {e.source === "admin" ? "claim" : "sweep"}
+                  </span>
+                  <span className="font-mono text-[var(--text-muted)] text-[11px] flex-shrink-0">
+                    {timeAgo(e.createdAt)}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="font-mono text-[var(--accent)] font-semibold flex-shrink-0">
+                    +{formatSol(e.claimedLamports)} SOL
+                  </span>
+                  {e.signatures[0] && (
+                    <a
+                      href={`https://solscan.io/tx/${e.signatures[0]}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex-shrink-0"
+                    >
+                      <ExternalLink size={10} />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Owner audit — deposits + withdrawals with on-chain links */}
+        {isOwner && (deposits.length > 0 || withdrawals.length > 0) && (
+          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield size={12} className="text-[var(--accent)]" />
+              <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                Funding history
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              {deposits.map((d) => (
+                <div
+                  key={d.txSig}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                >
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 bg-[var(--accent-dim)] text-[var(--accent)]">
+                    {d.kind}
+                  </span>
+                  <span className="font-mono text-[var(--text-muted)] text-[11px] flex-shrink-0">
+                    {timeAgo(d.createdAt)}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="font-mono text-[var(--accent)] font-semibold flex-shrink-0">
+                    +{formatSol(d.amountLamports)} SOL
+                  </span>
+                  <a
+                    href={`https://solscan.io/tx/${d.txSig}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex-shrink-0"
+                  >
+                    <ExternalLink size={10} />
+                  </a>
+                </div>
+              ))}
+              {withdrawals.map((w) => (
+                <div
+                  key={w.txSig}
+                  className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px]"
+                >
+                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 bg-[rgba(239,68,68,0.15)] text-[#ef4444]">
+                    withdraw
+                  </span>
+                  <span className="font-mono text-[var(--text-muted)] text-[11px] flex-shrink-0">
+                    {timeAgo(w.createdAt)}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="font-mono text-[#ef4444] font-semibold flex-shrink-0">
+                    −{formatSol(w.amountLamports)} SOL
+                  </span>
+                  <a
+                    href={`https://solscan.io/tx/${w.txSig}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-[var(--text-muted)] hover:text-[var(--accent)] flex-shrink-0"
+                  >
+                    <ExternalLink size={10} />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Auto-replenish modal — owner-only, routes a slice of Bags fee-share to Tend */}

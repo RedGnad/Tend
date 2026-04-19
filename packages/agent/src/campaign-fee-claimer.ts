@@ -2,7 +2,14 @@ import type { BagsClient } from "@tend/shared";
 import { formatSol, loadKeypair } from "@tend/shared";
 import { loadState } from "./state-reader.js";
 import { withStateLock } from "./state-lock.js";
+import { alert, clearAlert } from "./alerter.js";
 import { log, logError } from "./logger.js";
+
+// Track consecutive fee-claim failures per mint so we can alert when a
+// specific token gets stuck (e.g. Bags returns 500s for one mint while
+// others succeed). Reset to 0 on the next success.
+const FEE_CLAIM_FAIL_THRESHOLD = 3;
+const consecutiveFailuresByMint = new Map<string, number>();
 
 /**
  * Campaign fee claimer — the fee-sharing loop.
@@ -71,12 +78,24 @@ export async function claimFeesForCampaigns(
           source: "admin",
         });
         totalClaimed += claimable;
+        consecutiveFailuresByMint.set(mint, 0);
+        clearAlert(`fee-claim-stuck:${mint}`);
 
         log(
           `[fee-claim] Claimed ${formatSol(Number(claimable))} from admin for ${mint.slice(0, 8)} (${sigs.length} tx)`
         );
       } catch (err) {
         logError(`[fee-claim] Admin claim failed for ${mint.slice(0, 8)}:`, err);
+        const fails = (consecutiveFailuresByMint.get(mint) ?? 0) + 1;
+        consecutiveFailuresByMint.set(mint, fails);
+        if (fails >= FEE_CLAIM_FAIL_THRESHOLD) {
+          const msg = err instanceof Error ? err.message : String(err);
+          await alert(
+            `fee-claim-stuck:${mint}`,
+            "critical",
+            `Fee claim failed ${fails}× in a row for ${mint.slice(0, 8)} — ${msg.slice(0, 200)}`
+          );
+        }
       }
     }
   } catch (err) {
@@ -166,7 +185,15 @@ export async function claimFeesForCampaigns(
   // 3. Update campaign pools with claimed fees
   if (results.length > 0) {
     await withStateLock(async (s) => {
+      if (!s.feeClaimEvents) s.feeClaimEvents = [];
       for (const claim of results) {
+        s.feeClaimEvents.push({
+          tokenMint: claim.tokenMint,
+          claimedLamports: claim.claimedLamports.toString(),
+          signatures: claim.signatures,
+          source: claim.source,
+          createdAt: Date.now(),
+        });
         const campaigns = (s.campaigns ?? []).filter(
           (c) =>
             c.tokenMint === claim.tokenMint &&
