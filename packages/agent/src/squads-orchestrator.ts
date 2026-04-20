@@ -2,6 +2,8 @@ import {
   Connection,
   Keypair,
   PublicKey,
+  TransactionMessage,
+  VersionedTransaction,
   type TransactionInstruction,
 } from "@solana/web3.js";
 import type {
@@ -14,6 +16,8 @@ import {
   buildAttachSpendingLimitIx,
   buildCreateMultisigIx,
   buildFundVaultIx,
+  deriveMultisigPda,
+  deriveSpendingLimitPda,
   deriveVaultPda,
   executePayout,
   fetchProgramConfigTreasury,
@@ -341,6 +345,341 @@ export interface SquadsPayoutResult {
  *
  * Any other failure throws — caller bumps failedAttempts as usual.
  */
+/**
+ * Everything the frontend needs to sign and submit.
+ *
+ * `multisigCreateTx` is null when the creator already has a multisig in state
+ * (fast path: skip tx1, only the attach tx needs signing).
+ *
+ * The two `*CreateKey` fields are base58 pubkeys — seeds for PDA derivation,
+ * NOT secrets. The multisigCreate tx returned here is already partially
+ * signed by the secret half of `multisigCreateKey` before serialization, so
+ * the creator's wallet only needs to add its own signature.
+ */
+export interface ProvisionPreparePayload {
+  multisigCreateTx: { transaction: string; blockhash: string } | null;
+  multisigCreateKey: string | null;
+  attachTx: { transaction: string; blockhash: string };
+  multisigPda: string;
+  vaultIndex: number;
+  vaultPda: string;
+  spendingLimitPda: string;
+  spendingLimitCreateKey: string;
+}
+
+export interface BuildProvisionPrepareParams extends ProvisionParams {
+  creator: PublicKey;
+  agentMember: PublicKey;
+}
+
+/**
+ * Build the tx bundle the creator must sign to provision Squads custody on a
+ * campaign. Read-only: does NOT mutate state. Call `persistProvisionCommit`
+ * with the resulting on-chain tx signatures to advance state.
+ *
+ * Preflights:
+ *   - campaign must exist and be owned by `creator`
+ *   - campaign must not already have Squads custody attached
+ *
+ * If the creator has no multisig yet, a fresh `multisigCreateKey` is
+ * generated here, the multisigCreate tx is partially signed by it, and the
+ * base58 pubkey is echoed so the confirm step can persist the multisig row.
+ */
+export async function buildProvisionPrepare(
+  connection: Connection,
+  params: BuildProvisionPrepareParams
+): Promise<ProvisionPreparePayload> {
+  const creatorWallet = params.creator.toBase58();
+
+  const pre = await loadState();
+  const camp = (pre?.campaigns ?? []).find(
+    (c) => c.tokenMint === params.tokenMint && c.type === params.type
+  );
+  if (!camp) {
+    throw new Error(
+      `[squads-orch] campaign not found: ${params.tokenMint}/${params.type}`
+    );
+  }
+  if (camp.creatorWallet !== creatorWallet) {
+    throw new Error(
+      `[squads-orch] creator mismatch: campaign owner ${camp.creatorWallet} != signer ${creatorWallet}`
+    );
+  }
+  if (camp.squadsSpendingLimitPda) {
+    throw new Error(
+      `[squads-orch] campaign already has Squads custody: ${camp.squadsSpendingLimitPda}`
+    );
+  }
+
+  const existing = await findExistingMultisig(creatorWallet);
+
+  // ── tx1: multisigCreate (optional) ────────────────────────────────────
+  let multisigPda: PublicKey;
+  let vaultIndex: number;
+  let multisigCreateTxPayload: { transaction: string; blockhash: string } | null =
+    null;
+  let multisigCreateKeyPubkey: string | null = null;
+
+  if (existing) {
+    multisigPda = new PublicKey(existing.multisigPda);
+    vaultIndex = existing.nextVaultIndex;
+  } else {
+    const createKey = Keypair.generate();
+    const treasury = await fetchProgramConfigTreasury(connection);
+    const { ix, multisigPda: derivedMs } = buildCreateMultisigIx({
+      creator: params.creator,
+      multisigCreateKey: createKey.publicKey,
+      programConfigTreasury: treasury,
+    });
+    multisigPda = derivedMs;
+    // Fresh multisig → vault[0] is reserved by convention (never used for
+    // campaigns), campaign-bound vaults start at 1.
+    vaultIndex = 1;
+
+    const { blockhash } = await connection.getLatestBlockhash("confirmed");
+    const msg = new TransactionMessage({
+      payerKey: params.creator,
+      recentBlockhash: blockhash,
+      instructions: [ix],
+    }).compileToV0Message();
+    const tx = new VersionedTransaction(msg);
+    // Partial sign with createKey — the creator adds the second signature
+    // client-side via their wallet. The createKey secret is discarded after
+    // this line and never returned.
+    tx.sign([createKey]);
+    multisigCreateTxPayload = {
+      transaction: Buffer.from(tx.serialize()).toString("base64"),
+      blockhash,
+    };
+    multisigCreateKeyPubkey = createKey.publicKey.toBase58();
+  }
+
+  // ── tx2: attach SpendingLimit + optional fund ─────────────────────────
+  const spendingLimitCreateKey = Keypair.generate();
+  const vaultPda = deriveVaultPda(multisigPda, vaultIndex);
+  const { ix: attachIx, spendingLimitPda } = buildAttachSpendingLimitIx({
+    creator: params.creator,
+    multisigPda,
+    spendingLimitCreateKey: spendingLimitCreateKey.publicKey,
+    vaultIndex,
+    agentMember: params.agentMember,
+    amountLamports: params.amountLamports,
+    period: params.period,
+    destinations: params.destinations ?? [],
+  });
+  const ixs: TransactionInstruction[] = [attachIx];
+  if (params.initialFundingLamports && params.initialFundingLamports > 0n) {
+    ixs.push(
+      buildFundVaultIx({
+        payer: params.creator,
+        vaultPda,
+        lamports: Number(params.initialFundingLamports),
+      })
+    );
+  }
+
+  const { blockhash: attachBlockhash } = await connection.getLatestBlockhash(
+    "confirmed"
+  );
+  const attachMsg = new TransactionMessage({
+    payerKey: params.creator,
+    recentBlockhash: attachBlockhash,
+    instructions: ixs,
+  }).compileToV0Message();
+  const attachTx = new VersionedTransaction(attachMsg);
+  // No server-side signers on tx2 — creator signs everything.
+
+  return {
+    multisigCreateTx: multisigCreateTxPayload,
+    multisigCreateKey: multisigCreateKeyPubkey,
+    attachTx: {
+      transaction: Buffer.from(attachTx.serialize()).toString("base64"),
+      blockhash: attachBlockhash,
+    },
+    multisigPda: multisigPda.toBase58(),
+    vaultIndex,
+    vaultPda: vaultPda.toBase58(),
+    spendingLimitPda: spendingLimitPda.toBase58(),
+    spendingLimitCreateKey: spendingLimitCreateKey.publicKey.toBase58(),
+  };
+}
+
+export interface ProvisionCommitParams {
+  creatorWallet: string;
+  tokenMint: string;
+  type: CampaignType;
+  /** Present iff prepare returned multisigCreateTx (new multisig). */
+  multisigCreateKey: string | null;
+  /** Present iff the client sent tx1 on-chain. */
+  multisigCreateTxSig: string | null;
+  vaultIndex: number;
+  spendingLimitCreateKey: string;
+  attachTxSig: string;
+  amountLamports: bigint;
+  period: SpendingPeriod;
+  network: "devnet" | "mainnet-beta";
+}
+
+/**
+ * Verify the creator's on-chain txs landed, then persist state:
+ *   - new SquadsMultisigRecord row (if this was a first-time creator)
+ *   - campaign squads* columns
+ *   - nextVaultIndex advance
+ *
+ * Called after the creator's wallet has sent + confirmed the transactions
+ * client-side. Safe to retry — state writes are guarded against re-entry
+ * (existing multisig row, existing spendingLimitPda on campaign).
+ */
+export async function persistProvisionCommit(
+  connection: Connection,
+  params: ProvisionCommitParams
+): Promise<{
+  multisigPda: string;
+  vaultPda: string;
+  spendingLimitPda: string;
+}> {
+  // 1. Verify on-chain — both signatures MUST be confirmed. If confirm is
+  //    invoked before the cluster caught up, we reject; caller can retry.
+  const sigs = [params.attachTxSig];
+  if (params.multisigCreateTxSig) sigs.push(params.multisigCreateTxSig);
+  const { value: statuses } = await connection.getSignatureStatuses(sigs, {
+    searchTransactionHistory: true,
+  });
+  for (let i = 0; i < sigs.length; i++) {
+    const s = statuses[i];
+    if (!s) {
+      throw new Error(
+        `[squads-orch] confirm: signature ${sigs[i]} not found on-chain yet — retry shortly`
+      );
+    }
+    if (s.err) {
+      throw new Error(
+        `[squads-orch] confirm: tx ${sigs[i]} failed on-chain: ${JSON.stringify(s.err)}`
+      );
+    }
+    const commit = s.confirmationStatus;
+    if (commit !== "confirmed" && commit !== "finalized") {
+      throw new Error(
+        `[squads-orch] confirm: tx ${sigs[i]} not confirmed (status=${commit ?? "unknown"}) — retry shortly`
+      );
+    }
+  }
+
+  // 2. Derive PDAs from the echoed seeds — no client-supplied PDA is trusted
+  //    here; we compute them ourselves from the pubkeys + vaultIndex.
+  let multisigPda: PublicKey;
+  let newMultisigRecord: SquadsMultisigRecord | null = null;
+  const existing = await findExistingMultisig(params.creatorWallet);
+  if (params.multisigCreateKey) {
+    if (existing) {
+      // Client thinks it created a new multisig but we already have one.
+      // Either a concurrent provisioning beat them, or the client is stale.
+      // Prefer existing — don't overwrite.
+      multisigPda = new PublicKey(existing.multisigPda);
+      logError(
+        `[squads-orch] confirm: client echoed new multisigCreateKey but existing record found for ${params.creatorWallet.slice(0, 8)}; using existing ${existing.multisigPda}`
+      );
+    } else {
+      if (!params.multisigCreateTxSig) {
+        throw new Error(
+          `[squads-orch] confirm: multisigCreateKey given without multisigCreateTxSig`
+        );
+      }
+      multisigPda = deriveMultisigPda(new PublicKey(params.multisigCreateKey));
+      newMultisigRecord = {
+        creatorWallet: params.creatorWallet,
+        multisigPda: multisigPda.toBase58(),
+        multisigCreateKey: params.multisigCreateKey,
+        nextVaultIndex: 1,
+        network: params.network,
+        createdAt: Date.now(),
+        createdTxSig: params.multisigCreateTxSig,
+      };
+    }
+  } else {
+    if (!existing) {
+      throw new Error(
+        `[squads-orch] confirm: no multisigCreateKey and no existing record for ${params.creatorWallet}`
+      );
+    }
+    multisigPda = new PublicKey(existing.multisigPda);
+  }
+
+  const vaultPda = deriveVaultPda(multisigPda, params.vaultIndex);
+  const spendingLimitPda = deriveSpendingLimitPda(
+    multisigPda,
+    new PublicKey(params.spendingLimitCreateKey)
+  );
+
+  // 3. Sanity check: the on-chain SpendingLimit account must now exist at the
+  //    derived PDA. If not, the echoed seeds don't match the attach tx and
+  //    we'd persist garbage that the dispatcher can't use.
+  const acc = await connection.getAccountInfo(spendingLimitPda, "confirmed");
+  if (!acc) {
+    throw new Error(
+      `[squads-orch] confirm: SpendingLimit ${spendingLimitPda.toBase58()} not found on-chain — echoed seeds don't match the attach tx?`
+    );
+  }
+
+  // 4. Persist. Idempotent — re-running confirm on an already-provisioned
+  //    campaign is a no-op (besides duplicate multisig insert protection).
+  await withStateLock(async (s) => {
+    if (!s.squadsMultisigs) s.squadsMultisigs = [];
+    const existingRow = s.squadsMultisigs.find(
+      (m) => m.creatorWallet === params.creatorWallet
+    );
+    if (newMultisigRecord && !existingRow) {
+      s.squadsMultisigs.push(newMultisigRecord);
+    }
+    const m = s.squadsMultisigs.find(
+      (x) => x.creatorWallet === params.creatorWallet
+    );
+    if (!m) {
+      throw new Error(
+        `[squads-orch] confirm: multisigs row disappeared for ${params.creatorWallet}`
+      );
+    }
+    m.nextVaultIndex = Math.max(m.nextVaultIndex, params.vaultIndex + 1);
+
+    const c = (s.campaigns ?? []).find(
+      (x) => x.tokenMint === params.tokenMint && x.type === params.type
+    );
+    if (!c) {
+      throw new Error(
+        `[squads-orch] confirm: campaign row vanished — orphan SpendingLimit ${spendingLimitPda.toBase58()}`
+      );
+    }
+    if (c.creatorWallet !== params.creatorWallet) {
+      throw new Error(
+        `[squads-orch] confirm: creator mismatch at commit time`
+      );
+    }
+    if (c.squadsSpendingLimitPda && c.squadsSpendingLimitPda !== spendingLimitPda.toBase58()) {
+      throw new Error(
+        `[squads-orch] confirm: campaign already has a different SpendingLimit attached (${c.squadsSpendingLimitPda})`
+      );
+    }
+    c.squadsMultisigPda = multisigPda.toBase58();
+    c.squadsVaultIndex = params.vaultIndex;
+    c.squadsVaultPda = vaultPda.toBase58();
+    c.squadsSpendingLimitPda = spendingLimitPda.toBase58();
+    c.squadsSpendingLimitCreateKey = params.spendingLimitCreateKey;
+    c.squadsSpendingLimitAmountLamports = params.amountLamports.toString();
+    c.squadsSpendingLimitPeriod = params.period;
+    c.squadsAttachTxSig = params.attachTxSig;
+  });
+
+  log(
+    `[squads-orch] wallet-sign commit — campaign ${params.tokenMint.slice(0, 8)}/${params.type} vault[${params.vaultIndex}] SL ${spendingLimitPda.toBase58().slice(0, 10)}…`
+  );
+
+  return {
+    multisigPda: multisigPda.toBase58(),
+    vaultPda: vaultPda.toBase58(),
+    spendingLimitPda: spendingLimitPda.toBase58(),
+  };
+}
+
 export async function executeSquadsPayout(
   connection: Connection,
   agent: Keypair,

@@ -17,8 +17,11 @@ import {
   TrendingUp,
   Shield,
   Repeat,
+  Lock,
 } from "lucide-react";
 import type { Campaign, RewardPayout, FraudDecision } from "@tend/shared";
+
+type SpendingPeriod = "oneTime" | "day" | "week" | "month";
 import bs58 from "bs58";
 
 // Inlined to keep the client bundle free of node:crypto (the shared barrel pulls it in).
@@ -128,6 +131,30 @@ export default function CampaignDetailPage() {
   const [routeError, setRouteError] = useState<string | null>(null);
   const [routeDone, setRouteDone] = useState(false);
   const [routeSigs, setRouteSigs] = useState<string[]>([]);
+
+  // Squads custody provisioning — owner-only, attaches a SpendingLimit
+  const [showProvisionModal, setShowProvisionModal] = useState(false);
+  const [provisionAmountSol, setProvisionAmountSol] = useState("0.1");
+  const [provisionPeriod, setProvisionPeriod] = useState<SpendingPeriod>("day");
+  const [provisionFundingSol, setProvisionFundingSol] = useState("0");
+  const [provisioning, setProvisioning] = useState(false);
+  const [provisionStep, setProvisionStep] = useState<
+    | "idle"
+    | "signing"
+    | "preparing"
+    | "sending-multisig"
+    | "confirming-multisig"
+    | "sending-attach"
+    | "confirming-attach"
+    | "submitting"
+  >("idle");
+  const [provisionError, setProvisionError] = useState<string | null>(null);
+  const [provisionDone, setProvisionDone] = useState<{
+    multisigPda: string;
+    vaultPda: string;
+    spendingLimitPda: string;
+  } | null>(null);
+  const [provisionSigs, setProvisionSigs] = useState<string[]>([]);
 
   // Track IDs we've already rendered so new ones arriving via polling can be
   // highlighted briefly. Seeded on first successful load so nothing pulses
@@ -515,6 +542,162 @@ export default function CampaignDetailPage() {
     }
   }
 
+  async function handleProvisionSquads() {
+    if (!detail || !publicKey || !signMessage || !sendTransaction) return;
+    const cap = parseFloat(provisionAmountSol);
+    if (!Number.isFinite(cap) || cap <= 0) {
+      setProvisionError("Cap must be > 0 SOL");
+      return;
+    }
+    const capLamports = BigInt(Math.round(cap * 1_000_000_000));
+    const fund = parseFloat(provisionFundingSol);
+    let fundLamports: bigint | undefined;
+    if (Number.isFinite(fund) && fund > 0) {
+      fundLamports = BigInt(Math.round(fund * 1_000_000_000));
+    }
+
+    setProvisioning(true);
+    setProvisionError(null);
+    setProvisionSigs([]);
+    try {
+      // 1. Sign the auth message — reused for both prepare and confirm.
+      setProvisionStep("signing");
+      const timestampMs = Date.now();
+      const message = buildAuthMessage({
+        action: "provision-squads",
+        mint: detail.campaign.tokenMint,
+        type: detail.campaign.type,
+        timestampMs,
+      });
+      const sigBytes = await signMessage(new TextEncoder().encode(message));
+      const signatureB58 = bs58.encode(sigBytes);
+
+      // 2. Ask agent to assemble the tx bundle.
+      setProvisionStep("preparing");
+      const prepRes = await fetch("/api/campaigns/provision-squads/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokenMint: detail.campaign.tokenMint,
+          type: detail.campaign.type,
+          message,
+          signature: signatureB58,
+          publicKey: publicKey.toBase58(),
+          amountLamports: capLamports.toString(),
+          period: provisionPeriod,
+          ...(fundLamports
+            ? { initialFundingLamports: fundLamports.toString() }
+            : {}),
+        }),
+      });
+      const prep = await prepRes.json().catch(() => ({}));
+      if (!prepRes.ok) {
+        throw new Error(prep.error || `Prepare failed (${prepRes.status})`);
+      }
+      const {
+        multisigCreateTx,
+        multisigCreateKey,
+        attachTx,
+        vaultIndex,
+        spendingLimitCreateKey,
+      } = prep as {
+        multisigCreateTx: { transaction: string; blockhash: string } | null;
+        multisigCreateKey: string | null;
+        attachTx: { transaction: string; blockhash: string };
+        vaultIndex: number;
+        spendingLimitCreateKey: string;
+      };
+      if (!attachTx?.transaction || vaultIndex == null || !spendingLimitCreateKey) {
+        throw new Error("Agent returned an incomplete prepare payload");
+      }
+
+      const sigs: string[] = [];
+      let multisigCreateTxSig: string | null = null;
+
+      // 3. (optional) Send the multisigCreate tx — already partial-signed by
+      //    the agent's createKey, the wallet just adds the creator signature.
+      if (multisigCreateTx) {
+        setProvisionStep("sending-multisig");
+        const tx1 = VersionedTransaction.deserialize(
+          Buffer.from(multisigCreateTx.transaction, "base64")
+        );
+        const sig1 = await sendTransaction(tx1, connection);
+        setProvisionStep("confirming-multisig");
+        const latest1 = await connection.getLatestBlockhash("confirmed");
+        await connection.confirmTransaction(
+          {
+            signature: sig1,
+            blockhash: latest1.blockhash,
+            lastValidBlockHeight: latest1.lastValidBlockHeight,
+          },
+          "confirmed"
+        );
+        multisigCreateTxSig = sig1;
+        sigs.push(sig1);
+        setProvisionSigs([...sigs]);
+      }
+
+      // 4. Send the attach (+ optional fund) tx.
+      setProvisionStep("sending-attach");
+      const tx2 = VersionedTransaction.deserialize(
+        Buffer.from(attachTx.transaction, "base64")
+      );
+      const sig2 = await sendTransaction(tx2, connection);
+      setProvisionStep("confirming-attach");
+      const latest2 = await connection.getLatestBlockhash("confirmed");
+      await connection.confirmTransaction(
+        {
+          signature: sig2,
+          blockhash: latest2.blockhash,
+          lastValidBlockHeight: latest2.lastValidBlockHeight,
+        },
+        "confirmed"
+      );
+      sigs.push(sig2);
+      setProvisionSigs([...sigs]);
+
+      // 5. Tell the agent to verify on-chain + persist state.
+      setProvisionStep("submitting");
+      const confRes = await fetch("/api/campaigns/provision-squads/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tokenMint: detail.campaign.tokenMint,
+          type: detail.campaign.type,
+          message,
+          signature: signatureB58,
+          publicKey: publicKey.toBase58(),
+          multisigCreateKey,
+          multisigCreateTxSig,
+          vaultIndex,
+          spendingLimitCreateKey,
+          attachTxSig: sig2,
+          amountLamports: capLamports.toString(),
+          period: provisionPeriod,
+        }),
+      });
+      const conf = await confRes.json().catch(() => ({}));
+      if (!confRes.ok) {
+        throw new Error(conf.error || `Confirm failed (${confRes.status})`);
+      }
+
+      setProvisionDone({
+        multisigPda: conf.multisigPda,
+        vaultPda: conf.vaultPda,
+        spendingLimitPda: conf.spendingLimitPda,
+      });
+      // Refresh detail so the campaign panel reflects the new Squads PDAs.
+      refreshDetail(false);
+    } catch (err) {
+      setProvisionError(
+        err instanceof Error ? err.message : "Provision failed"
+      );
+    } finally {
+      setProvisionStep("idle");
+      setProvisioning(false);
+    }
+  }
+
   if (notFound) {
     return (
       <div className="max-w-[900px] mx-auto px-6 py-20 text-center">
@@ -695,6 +878,22 @@ export default function CampaignDetailPage() {
                 <Repeat size={11} />
                 Auto-replenish
               </button>
+              {!campaign.squadsSpendingLimitPda && (
+                <button
+                  onClick={() => {
+                    setProvisionError(null);
+                    setProvisionDone(null);
+                    setProvisionSigs([]);
+                    setShowProvisionModal(true);
+                  }}
+                  disabled={mutating || routing || provisioning}
+                  className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
+                  title="Move payouts under a Squads multisig with a per-period spending cap"
+                >
+                  <Lock size={11} />
+                  Squads custody
+                </button>
+              )}
               <button
                 onClick={() => {
                   setMutationError(null);
@@ -1267,6 +1466,184 @@ export default function CampaignDetailPage() {
                   className="flex-1 py-2 rounded-lg text-[12px] bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 font-semibold disabled:opacity-50"
                 >
                   {routing ? "Processing…" : "Enable"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Squads custody modal — owner-only, attaches a SpendingLimit */}
+      {showProvisionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          onClick={() => !provisioning && setShowProvisionModal(false)}
+        >
+          <div
+            className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-6 max-w-md w-full mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Lock size={14} className="text-[var(--accent)]" />
+              <h3 className="text-lg font-bold font-display">
+                Move payouts to Squads custody
+              </h3>
+            </div>
+            <p className="text-[12px] text-[var(--text-muted)] mb-4 leading-relaxed">
+              Creates a 1-of-1 Squads multisig you own, attaches a SpendingLimit
+              the agent can use up to the cap each period, and (optionally)
+              seeds the vault with SOL. Existing payouts keep using the legacy
+              admin path until this is done.
+            </p>
+
+            {provisionDone ? (
+              <div className="rounded-lg p-3 mb-4 bg-[var(--bg)] border border-[rgba(0,255,178,0.25)]">
+                <p className="text-[12px] text-[var(--accent)] font-semibold mb-2">
+                  Custody attached
+                </p>
+                <div className="space-y-1 text-[11px] font-mono text-[var(--text-secondary)]">
+                  <div>
+                    <span className="text-[var(--text-muted)]">multisig </span>
+                    <a
+                      href={`https://solscan.io/account/${provisionDone.multisigPda}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      {provisionDone.multisigPda.slice(0, 10)}…
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">vault </span>
+                    <a
+                      href={`https://solscan.io/account/${provisionDone.vaultPda}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      {provisionDone.vaultPda.slice(0, 10)}…
+                    </a>
+                  </div>
+                  <div>
+                    <span className="text-[var(--text-muted)]">SL </span>
+                    <a
+                      href={`https://solscan.io/account/${provisionDone.spendingLimitPda}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[var(--accent)] hover:underline"
+                    >
+                      {provisionDone.spendingLimitPda.slice(0, 10)}…
+                    </a>
+                  </div>
+                </div>
+                {provisionSigs.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {provisionSigs.map((s) => (
+                      <a
+                        key={s}
+                        href={`https://solscan.io/tx/${s}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block text-[10px] font-mono text-[var(--text-muted)] hover:text-[var(--accent)] truncate"
+                      >
+                        tx {s}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
+                  Spending cap (SOL per period)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.001"
+                  value={provisionAmountSol}
+                  disabled={provisioning}
+                  onChange={(e) => {
+                    setProvisionAmountSol(e.target.value);
+                    setProvisionError(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                />
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                  Hard ceiling the agent can spend before the period resets.
+                </p>
+
+                <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1 mt-3">
+                  Reset period
+                </label>
+                <select
+                  value={provisionPeriod}
+                  disabled={provisioning}
+                  onChange={(e) =>
+                    setProvisionPeriod(e.target.value as SpendingPeriod)
+                  }
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                >
+                  <option value="oneTime">One-time (no reset)</option>
+                  <option value="day">Daily</option>
+                  <option value="week">Weekly</option>
+                  <option value="month">Monthly</option>
+                </select>
+
+                <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1 mt-3">
+                  Initial vault funding (SOL, optional)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={provisionFundingSol}
+                  disabled={provisioning}
+                  onChange={(e) => {
+                    setProvisionFundingSol(e.target.value);
+                    setProvisionError(null);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
+                />
+                <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                  Sent from your wallet to the vault in the same tx. Leave 0
+                  to fund later.
+                </p>
+
+                {provisionError && (
+                  <p className="text-[11px] text-[#ef4444] mt-2">
+                    {provisionError}
+                  </p>
+                )}
+                {provisionStep !== "idle" && (
+                  <p className="text-[11px] text-[var(--text-muted)] mt-2">
+                    {provisionStep === "signing" && "Sign the authorization message…"}
+                    {provisionStep === "preparing" && "Asking agent to build the txs…"}
+                    {provisionStep === "sending-multisig" && "Sign the multisig-create tx…"}
+                    {provisionStep === "confirming-multisig" && "Confirming multisig on-chain…"}
+                    {provisionStep === "sending-attach" && "Sign the attach + fund tx…"}
+                    {provisionStep === "confirming-attach" && "Confirming attach on-chain…"}
+                    {provisionStep === "submitting" && "Persisting state on the agent…"}
+                  </p>
+                )}
+              </>
+            )}
+
+            <div className="flex items-center gap-2 mt-4">
+              <button
+                onClick={() => setShowProvisionModal(false)}
+                disabled={provisioning}
+                className="flex-1 py-2 rounded-lg text-[12px] border border-[var(--border)] hover:bg-[var(--bg)] disabled:opacity-50"
+              >
+                {provisionDone ? "Close" : "Cancel"}
+              </button>
+              {!provisionDone && (
+                <button
+                  onClick={handleProvisionSquads}
+                  disabled={provisioning}
+                  className="flex-1 py-2 rounded-lg text-[12px] bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 font-semibold disabled:opacity-50"
+                >
+                  {provisioning ? "Processing…" : "Attach custody"}
                 </button>
               )}
             </div>

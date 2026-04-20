@@ -45,7 +45,7 @@ const DRY_RUN_PAYOUTS = process.env.DRY_RUN_PAYOUTS === "1";
  * compromise). Log loudly on fallback so ops can tell.
  */
 let cachedAgentKey: Keypair | null = null;
-function resolveAgentKey(admin: Keypair): Keypair {
+export function resolveAgentKey(admin: Keypair): Keypair {
   if (cachedAgentKey) return cachedAgentKey;
   const raw = process.env.TEND_AGENT_KEY;
   if (!raw) {

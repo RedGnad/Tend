@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { existsSync, copyFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
-import { PublicKey } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import {
   BagsClient,
   loadKeypair,
@@ -13,15 +13,23 @@ import {
   verifyWalletSignature,
   parseAuthMessage,
   isTimestampFresh,
+  type SpendingPeriod,
 } from "@tend/shared";
-import type { Campaign, CampaignDeposit, CampaignWithdrawal } from "@tend/shared";
+import type { Campaign, CampaignDeposit, CampaignWithdrawal, CampaignType } from "@tend/shared";
+import {
+  buildProvisionPrepare,
+  persistProvisionCommit,
+} from "./squads-orchestrator.js";
 import {
   SystemProgram,
   Transaction,
   ComputeBudgetProgram,
 } from "@solana/web3.js";
 import bs58 from "bs58";
-import { ADMIN_MIN_RESERVE_LAMPORTS } from "./payout-executor.js";
+import {
+  ADMIN_MIN_RESERVE_LAMPORTS,
+  resolveAgentKey,
+} from "./payout-executor.js";
 import { Scheduler } from "./scheduler.js";
 import { withStateLock } from "./state-lock.js";
 import { verifyDepositTx } from "./deposit-verifier.js";
@@ -804,6 +812,222 @@ async function handleFeeSharePrepare(
   };
 }
 
+// ── Squads provisioning (wallet-sign flow) ────────────────────────────────
+
+interface SquadsPrepareBody {
+  tokenMint?: string;
+  type?: CampaignType;
+  message?: string;
+  signature?: string;
+  publicKey?: string;
+  amountLamports?: string;
+  period?: SpendingPeriod;
+  initialFundingLamports?: string;
+}
+
+async function handleSquadsProvisionPrepare(
+  connection: Connection,
+  agentMember: PublicKey,
+  raw: unknown
+): Promise<MutationResult> {
+  const body = raw as SquadsPrepareBody;
+  const {
+    tokenMint,
+    type,
+    message,
+    signature,
+    publicKey,
+    amountLamports,
+    period,
+  } = body;
+
+  if (
+    !tokenMint ||
+    !type ||
+    !message ||
+    !signature ||
+    !publicKey ||
+    !amountLamports ||
+    !period
+  ) {
+    return {
+      status: 400,
+      body: {
+        error:
+          "Missing fields: tokenMint, type, message, signature, publicKey, amountLamports, period",
+      },
+    };
+  }
+
+  const parsed = parseAuthMessage(message);
+  if (!parsed || parsed.action !== "provision-squads") {
+    return { status: 400, body: { error: "Malformed auth message or wrong action" } };
+  }
+  if (parsed.mint !== tokenMint) {
+    return { status: 400, body: { error: "Message mint mismatch" } };
+  }
+  if (parsed.type !== type) {
+    return { status: 400, body: { error: "Message type mismatch" } };
+  }
+  if (!isTimestampFresh(parsed.timestampMs)) {
+    return { status: 401, body: { error: "Auth message expired" } };
+  }
+  if (!verifyWalletSignature(message, signature, publicKey)) {
+    return { status: 401, body: { error: "Invalid signature" } };
+  }
+
+  let amount: bigint;
+  try {
+    amount = BigInt(amountLamports);
+  } catch {
+    return { status: 400, body: { error: "amountLamports not parseable as BigInt" } };
+  }
+  if (amount <= 0n) {
+    return { status: 400, body: { error: "amountLamports must be > 0" } };
+  }
+  if (!["oneTime", "day", "week", "month"].includes(period)) {
+    return { status: 400, body: { error: "period must be oneTime|day|week|month" } };
+  }
+  let funding: bigint | undefined;
+  if (body.initialFundingLamports) {
+    try {
+      funding = BigInt(body.initialFundingLamports);
+      if (funding <= 0n) funding = undefined;
+    } catch {
+      return {
+        status: 400,
+        body: { error: "initialFundingLamports not parseable as BigInt" },
+      };
+    }
+  }
+
+  try {
+    const payload = await buildProvisionPrepare(connection, {
+      creator: new PublicKey(publicKey),
+      agentMember,
+      tokenMint,
+      type,
+      amountLamports: amount,
+      period,
+      initialFundingLamports: funding,
+    });
+    log(
+      `[http] squads-prepare ${tokenMint.slice(0, 8)}/${type} amount=${amount} period=${period} fund=${funding ?? 0} newMs=${payload.multisigCreateTx ? "yes" : "no"}`
+    );
+    return { status: 200, body: { ok: true, ...payload } };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logError("[http] squads-prepare failed:", msg);
+    return { status: 400, body: { error: msg } };
+  }
+}
+
+interface SquadsConfirmBody {
+  tokenMint?: string;
+  type?: CampaignType;
+  message?: string;
+  signature?: string;
+  publicKey?: string;
+  multisigCreateKey?: string | null;
+  multisigCreateTxSig?: string | null;
+  vaultIndex?: number;
+  spendingLimitCreateKey?: string;
+  attachTxSig?: string;
+  amountLamports?: string;
+  period?: SpendingPeriod;
+}
+
+async function handleSquadsProvisionConfirm(
+  connection: Connection,
+  network: "devnet" | "mainnet-beta",
+  raw: unknown
+): Promise<MutationResult> {
+  const body = raw as SquadsConfirmBody;
+  const {
+    tokenMint,
+    type,
+    message,
+    signature,
+    publicKey,
+    vaultIndex,
+    spendingLimitCreateKey,
+    attachTxSig,
+    amountLamports,
+    period,
+  } = body;
+
+  if (
+    !tokenMint ||
+    !type ||
+    !message ||
+    !signature ||
+    !publicKey ||
+    vaultIndex == null ||
+    !spendingLimitCreateKey ||
+    !attachTxSig ||
+    !amountLamports ||
+    !period
+  ) {
+    return {
+      status: 400,
+      body: {
+        error:
+          "Missing fields: tokenMint, type, message, signature, publicKey, vaultIndex, spendingLimitCreateKey, attachTxSig, amountLamports, period",
+      },
+    };
+  }
+
+  const parsed = parseAuthMessage(message);
+  if (!parsed || parsed.action !== "provision-squads") {
+    return { status: 400, body: { error: "Malformed auth message or wrong action" } };
+  }
+  if (parsed.mint !== tokenMint) {
+    return { status: 400, body: { error: "Message mint mismatch" } };
+  }
+  if (parsed.type !== type) {
+    return { status: 400, body: { error: "Message type mismatch" } };
+  }
+  // Confirm window is wider — the client may have spent 30-90s waiting for
+  // tx confirmation before posting here. Still cap at AUTH_WINDOW_MS.
+  if (!isTimestampFresh(parsed.timestampMs)) {
+    return { status: 401, body: { error: "Auth message expired" } };
+  }
+  if (!verifyWalletSignature(message, signature, publicKey)) {
+    return { status: 401, body: { error: "Invalid signature" } };
+  }
+
+  let amount: bigint;
+  try {
+    amount = BigInt(amountLamports);
+  } catch {
+    return { status: 400, body: { error: "amountLamports not parseable as BigInt" } };
+  }
+
+  try {
+    const result = await persistProvisionCommit(connection, {
+      creatorWallet: publicKey,
+      tokenMint,
+      type,
+      multisigCreateKey: body.multisigCreateKey ?? null,
+      multisigCreateTxSig: body.multisigCreateTxSig ?? null,
+      vaultIndex,
+      spendingLimitCreateKey,
+      attachTxSig,
+      amountLamports: amount,
+      period,
+      network,
+    });
+    log(
+      `[http] squads-confirm ${tokenMint.slice(0, 8)}/${type} vault[${vaultIndex}] SL ${result.spendingLimitPda.slice(0, 10)}`
+    );
+    return { status: 200, body: { ok: true, ...result } };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    logError("[http] squads-confirm failed:", msg);
+    return { status: 400, body: { error: msg } };
+  }
+}
+
 async function main() {
   const apiKey = process.env.BAGS_API_KEY;
   const rpcUrl = process.env.SOLANA_RPC_URL;
@@ -817,6 +1041,9 @@ async function main() {
     );
     process.exit(1);
   }
+
+  const network: "devnet" | "mainnet-beta" =
+    process.env.TEND_NETWORK === "devnet" ? "devnet" : "mainnet-beta";
 
   // Seed state from snapshot if missing (Render ephemeral disk)
   const stateDir = join(homedir(), TEND_STATE_DIR);
@@ -975,6 +1202,56 @@ async function main() {
         res.end(JSON.stringify(result.body));
       } catch (err) {
         logError("[http] withdraw error:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
+
+    // POST /campaigns/provision-squads/prepare — build the multisigCreate +
+    // attachSpendingLimit txs for the creator's wallet to sign. Agent derives
+    // from the creator pubkey + campaign params, pre-signs multisigCreate's
+    // createKey half, returns base64.
+    if (
+      req.method === "POST" &&
+      url.pathname === "/campaigns/provision-squads/prepare"
+    ) {
+      try {
+        const body = await readJsonBody(req);
+        const agentMember = resolveAgentKey(keypair).publicKey;
+        const result = await handleSquadsProvisionPrepare(
+          bags.connection,
+          agentMember,
+          body
+        );
+        res.writeHead(result.status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
+      } catch (err) {
+        logError("[http] squads prepare error:", err);
+        res.writeHead(500, { "Content-Type": "application/json" });
+        res.end(JSON.stringify({ error: "Internal error" }));
+      }
+      return;
+    }
+
+    // POST /campaigns/provision-squads/confirm — after the creator's wallet
+    // has sent + confirmed the txs, persist squads* columns on the campaign
+    // row and upsert the multisig registry row.
+    if (
+      req.method === "POST" &&
+      url.pathname === "/campaigns/provision-squads/confirm"
+    ) {
+      try {
+        const body = await readJsonBody(req);
+        const result = await handleSquadsProvisionConfirm(
+          bags.connection,
+          network,
+          body
+        );
+        res.writeHead(result.status, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(result.body));
+      } catch (err) {
+        logError("[http] squads confirm error:", err);
         res.writeHead(500, { "Content-Type": "application/json" });
         res.end(JSON.stringify({ error: "Internal error" }));
       }
