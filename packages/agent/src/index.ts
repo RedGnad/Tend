@@ -644,6 +644,14 @@ async function handleCampaignCreate(
     };
   }
 
+  // Best-effort Metaplex metadata fetch so the UI shows $SYMBOL instead of
+  // the mint prefix. Non-fatal: a missing metadata account just falls back
+  // to the truncated-mint display.
+  const tokenMetadata = await bags.getTokenMetadata(tokenMint).catch((err) => {
+    logError("[create] getTokenMetadata failed (non-fatal):", err);
+    return null;
+  });
+
   // Verify on-chain deposit — at least 0.001 SOL so new campaigns can pay
   // at least one reward out of the gate.
   const check = await verifyDepositTx(bags, txSig, publicKey, adminWallet, 1_000_000n);
@@ -689,6 +697,12 @@ async function handleCampaignCreate(
     if ("error" in built) {
       ref.current = { ok: false, httpStatus: 400, error: built.error };
       return;
+    }
+    if (tokenMetadata?.name || tokenMetadata?.symbol) {
+      built.tokenInfo = {
+        name: tokenMetadata.name || tokenMetadata.symbol,
+        symbol: tokenMetadata.symbol || tokenMetadata.name,
+      };
     }
 
     s.campaigns.push(built);

@@ -158,7 +158,19 @@ export default function CampaignDetailPage() {
       if (!mint) return;
       const qs = campaignType ? `?type=${campaignType}` : "";
       try {
-        const r = await fetch(`/api/campaigns/${mint}${qs}`);
+        // Initial fetch right after /creator redirect can race the DB write
+        // on Render (Postgres). Retry a few times before giving up so the
+        // user doesn't see "Campaign not found" for a freshly-created one.
+        const maxAttempts = isInitial ? 6 : 1;
+        let r: Response | null = null;
+        for (let attempt = 0; attempt < maxAttempts; attempt++) {
+          r = await fetch(`/api/campaigns/${mint}${qs}`);
+          if (r.status !== 404) break;
+          if (attempt < maxAttempts - 1) {
+            await new Promise((res) => setTimeout(res, 800));
+          }
+        }
+        if (!r) return;
         if (r.status === 404) {
           if (isInitial) setNotFound(true);
           return;
