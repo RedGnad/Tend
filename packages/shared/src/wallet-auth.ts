@@ -22,6 +22,7 @@ export const SUPPORTED_ACTIONS = [
   "route-fees",
   "withdraw",
   "provision-squads",
+  "squads-sweep",
 ] as const;
 export type AuthAction = (typeof SUPPORTED_ACTIONS)[number];
 

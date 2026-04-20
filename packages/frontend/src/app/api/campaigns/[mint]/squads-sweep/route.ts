@@ -20,7 +20,7 @@ export async function POST(
     );
   }
   try {
-    const res = await fetch(`${AGENT_URL}/campaigns/${mint}/withdraw`, {
+    const res = await fetch(`${AGENT_URL}/campaigns/${mint}/squads-sweep`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

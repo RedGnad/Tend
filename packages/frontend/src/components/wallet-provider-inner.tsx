@@ -1,13 +1,11 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import {
   ConnectionProvider,
   WalletProvider,
 } from "@solana/wallet-adapter-react";
 import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
-import { PhantomWalletAdapter } from "@solana/wallet-adapter-phantom";
-import { SolflareWalletAdapter } from "@solana/wallet-adapter-solflare";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 const RPC_URL =
@@ -15,17 +13,14 @@ const RPC_URL =
   "https://api.mainnet-beta.solana.com";
 
 export function WalletProviderInner({ children }: { children: ReactNode }) {
-  const wallets = useMemo(
-    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    []
-  );
-
+  // Phantom, Solflare and Backpack auto-register via the Wallet Standard
+  // protocol — passing explicit adapters would double-register them and
+  // make autoConnect non-deterministic on page refresh.
   return (
     <ConnectionProvider endpoint={RPC_URL}>
-      <WalletProvider wallets={wallets} autoConnect>
+      <WalletProvider wallets={[]} autoConnect>
         <WalletModalProvider>{children}</WalletModalProvider>
       </WalletProvider>
-
     </ConnectionProvider>
   );
 }

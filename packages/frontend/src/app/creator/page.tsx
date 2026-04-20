@@ -11,6 +11,7 @@ import {
   VersionedTransaction,
 } from "@solana/web3.js";
 import bs58 from "bs58";
+import { provisionSquadsCustody } from "@/lib/provision-squads";
 import {
   ArrowRight,
   Coins,
@@ -26,6 +27,7 @@ import {
   Settings,
   Bot,
 } from "lucide-react";
+import type { Campaign } from "@tend/shared";
 
 function formatSol(lamports: number | string | bigint): string {
   const sol = Number(lamports) / 1_000_000_000;
@@ -52,7 +54,16 @@ type CreateStep =
   | "sending"
   | "confirming"
   | "signing"
-  | "submitting";
+  | "submitting"
+  | "prov-signing"
+  | "prov-preparing"
+  | "prov-sending-multisig"
+  | "prov-confirming-multisig"
+  | "prov-sending-attach"
+  | "prov-confirming-attach"
+  | "prov-submitting"
+  | "prov-signing-sweep"
+  | "prov-sweeping";
 
 type RouteStep =
   | "idle"
@@ -62,6 +73,17 @@ type RouteStep =
   | "confirming";
 
 type CampaignType = "cashback" | "holder" | "sprint";
+
+type MyCampaign = Campaign & {
+  stats: {
+    uniqueTraders: number;
+    totalPayouts: number;
+    totalPaidLamports: string;
+    feesClaimedLamports: string;
+    feeClaimCount: number;
+    lastFeeClaimAt: number | null;
+  };
+};
 
 interface FormState {
   tokenMint: string;
@@ -80,7 +102,7 @@ const DEFAULTS: FormState = {
   tokenMint: "",
   type: "cashback",
   poolCapSol: "0.05",
-  cashbackPct: "5",
+  cashbackPct: "2",
   rewardPct: "1",
   minHoldHours: "1",
   snapshotHours: "2",
@@ -141,6 +163,31 @@ export default function CreatorPage() {
       })
       .catch(() => {});
   }, []);
+
+  // Campaigns owned by the connected wallet — only rendered when length > 0,
+  // so a non-creator (or disconnected) visitor never sees a flicker.
+  const [myCampaigns, setMyCampaigns] = useState<MyCampaign[]>([]);
+
+  useEffect(() => {
+    if (!connected || !publicKey) {
+      setMyCampaigns([]);
+      return;
+    }
+    const wallet = publicKey.toBase58();
+    let cancelled = false;
+    fetch(`/api/me/campaigns?wallet=${wallet}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (cancelled) return;
+        setMyCampaigns(d?.campaigns ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setMyCampaigns([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected, publicKey]);
 
   // Fee-share routing — optional follow-up after campaign create
   const [routeBps, setRouteBps] = useState("10"); // % of fee-share to Tend
@@ -408,7 +455,31 @@ export default function CreatorPage() {
       if (!res.ok) {
         throw new Error(data.error || `Failed to create campaign (${res.status})`);
       }
-      setSuccess(true);
+
+      // 6. Chain Squads custody provision — mandatory for the money path.
+      //    Cap = full pool, period = day.  The sweep inside the helper moves
+      //    the admin-held deposit into the Squads vault PDA.  On failure the
+      //    campaign is created but not payout-capable — user resumes from
+      //    the campaign page modal (helper is idempotent).
+      try {
+        await provisionSquadsCustody({
+          tokenMint,
+          type: form.type,
+          publicKeyB58: publicKey.toBase58(),
+          capLamports: BigInt(lamports),
+          period: "day",
+          connection,
+          signMessage,
+          sendTransaction,
+          onStep: (s) => setStep(`prov-${s}` as CreateStep),
+        });
+        setSuccess(true);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "Vault setup failed";
+        setError(
+          `Campaign created, but vault setup didn't finish (${msg}). Open the campaign and click "Finish vault setup" to resume.`
+        );
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -487,6 +558,103 @@ export default function CreatorPage() {
         </section>
       )}
 
+      {/* Your campaigns — rendered only when the connected wallet owns ≥1 campaign */}
+      {myCampaigns.length > 0 && (
+        <section className="mb-16">
+          <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
+            Your campaigns
+          </p>
+          <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold font-display tracking-tight mb-6">
+            {myCampaigns.length === 1 ? "1 active campaign" : `${myCampaigns.length} active campaigns`}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {myCampaigns.map((c) => {
+              const symbol =
+                c.tokenInfo?.symbol ?? c.tokenMint.slice(0, 4).toUpperCase();
+              const cap = BigInt(c.poolCapLamports);
+              const spent = BigInt(c.poolSpentLamports);
+              const remaining = cap > spent ? cap - spent : 0n;
+              const pctLeft =
+                cap > 0n ? Number((remaining * 10000n) / cap) / 100 : 0;
+              const statusColor =
+                c.status === "live"
+                  ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                  : c.status === "paused"
+                    ? "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                    : "bg-[rgba(239,68,68,0.12)] text-[#ef4444]";
+              return (
+                <Link
+                  key={`${c.tokenMint}:${c.type}`}
+                  href={`/campaigns/${c.tokenMint}?type=${c.type}`}
+                  className="bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)] rounded-2xl p-5 hover:border-[var(--accent)] transition group"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center text-sm font-bold font-display gradient-text flex-shrink-0">
+                        {symbol.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-[14px] truncate">
+                          ${symbol}
+                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${statusColor}`}
+                          >
+                            {c.status}
+                          </span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase bg-[var(--bg)] text-[var(--text-muted)] font-mono">
+                            {c.type}
+                          </span>
+                          {c.squadsSpendingLimitPda && (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase bg-[var(--bg)] text-[var(--text-secondary)] font-mono">
+                              squads
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <ArrowRight
+                      size={14}
+                      className="text-[var(--text-muted)] group-hover:text-[var(--accent)] flex-shrink-0 mt-1"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 pt-3 border-t border-[var(--border)]">
+                    <div>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">
+                        Pool left
+                      </p>
+                      <p className="text-[13px] font-mono font-semibold">
+                        {formatSol(remaining)}{" "}
+                        <span className="text-[var(--text-muted)] font-normal">
+                          / {formatSol(cap.toString())} SOL
+                        </span>
+                      </p>
+                      <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                        {pctLeft.toFixed(0)}% remaining
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-0.5">
+                        Activity
+                      </p>
+                      <p className="text-[13px] font-mono font-semibold">
+                        {c.stats.uniqueTraders} trader
+                        {c.stats.uniqueTraders === 1 ? "" : "s"}
+                      </p>
+                      <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                        {c.stats.totalPayouts} payout
+                        {c.stats.totalPayouts === 1 ? "" : "s"}
+                      </p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {/* How it works — 3-step flow so new creators know what they're signing up for */}
       <section className="mb-16">
         <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
@@ -537,9 +705,17 @@ export default function CreatorPage() {
         </div>
       </section>
 
-      {/* Why */}
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-16">
-        {[
+      {/* Why — different aesthetic treatment from the 3-step flow so visitors
+          parse this as a separate cluster (value props, not ordered steps). */}
+      <section className="mb-16">
+        <p className="text-[11px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold mb-2">
+          Why Tend
+        </p>
+        <h2 className="text-[clamp(1.4rem,3vw,1.9rem)] font-bold font-display tracking-tight mb-6">
+          Real acquisition, not vanity volume
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
           {
             icon: Coins,
             title: "Real on-chain acquisition",
@@ -571,6 +747,7 @@ export default function CreatorPage() {
             </p>
           </div>
         ))}
+        </div>
       </section>
 
       {/* ── Create campaign form ── */}
@@ -696,12 +873,18 @@ export default function CreatorPage() {
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-3 mt-8">
+            <div className="flex flex-wrap items-center justify-center gap-3 mt-8">
               <Link
-                href="/campaigns"
+                href={`/campaigns/${form.tokenMint}?type=${form.type}`}
                 className="gradient-btn px-5 py-2.5 rounded-lg text-sm font-semibold inline-flex items-center gap-2"
               >
-                View campaigns <ArrowRight size={13} />
+                Open my campaign <ArrowRight size={13} />
+              </Link>
+              <Link
+                href="/campaigns"
+                className="btn-secondary px-5 py-2.5 rounded-lg text-sm"
+              >
+                Browse all
               </Link>
               <button
                 onClick={() => {
@@ -974,12 +1157,21 @@ export default function CreatorPage() {
               {submitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  {step === "fetching" && "Fetching agent..."}
-                  {step === "sending" && "Sending deposit..."}
-                  {step === "confirming" && "Confirming on-chain..."}
-                  {step === "signing" && "Sign the auth message..."}
-                  {step === "submitting" && "Registering with agent..."}
-                  {step === "idle" && "Working..."}
+                  {step === "fetching" && "Checking setup…"}
+                  {step === "sending" && "Sending your deposit…"}
+                  {step === "confirming" && "Confirming deposit on-chain…"}
+                  {step === "signing" && "Sign to authorize the campaign…"}
+                  {step === "submitting" && "Registering the campaign…"}
+                  {step === "prov-signing" && "Sign to secure your pool…"}
+                  {step === "prov-preparing" && "Preparing the vault…"}
+                  {step === "prov-sending-multisig" && "Approve vault creation in your wallet…"}
+                  {step === "prov-confirming-multisig" && "Creating vault on-chain…"}
+                  {step === "prov-sending-attach" && "Approve spending rules in your wallet…"}
+                  {step === "prov-confirming-attach" && "Locking in spending rules…"}
+                  {step === "prov-submitting" && "Finalizing custody…"}
+                  {step === "prov-signing-sweep" && "Sign to move the pool into the vault…"}
+                  {step === "prov-sweeping" && "Moving the pool into the vault…"}
+                  {step === "idle" && "Working…"}
                 </>
               ) : !connected ? (
                 <>Connect wallet to launch</>
@@ -992,8 +1184,8 @@ export default function CreatorPage() {
             </button>
             {submitting && (
               <p className="text-[11px] text-[var(--text-muted)] text-center mt-3">
-                You&apos;ll sign twice: a SOL transfer to fund the pool, then a
-                short message to authorize the campaign.
+                A few wallet prompts: fund the pool, authorize the campaign,
+                then approve the on-chain vault that will custody your SOL.
               </p>
             )}
 

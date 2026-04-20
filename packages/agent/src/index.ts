@@ -15,7 +15,7 @@ import {
   isTimestampFresh,
   type SpendingPeriod,
 } from "@tend/shared";
-import type { Campaign, CampaignDeposit, CampaignWithdrawal, CampaignType } from "@tend/shared";
+import type { Campaign, CampaignDeposit, CampaignType } from "@tend/shared";
 import {
   buildProvisionPrepare,
   persistProvisionCommit,
@@ -270,31 +270,108 @@ async function handleCampaignTopup(
   log(
     `[http] topup ${type}:${mint.slice(0, 8)} +${outcome.addedLamports} lamports (tx ${txSig.slice(0, 8)}…) → ${outcome.status}`
   );
+
+  // Squads custody: move the topped-up SOL from admin → vault so payouts
+  // can draw from the SpendingLimit. Without this, the vault stays empty
+  // and payouts silently fail after the next SpendingLimit period.
+  // A failed sweep is non-fatal — the topup itself landed, state reflects
+  // the bump, and the creator can manually run /squads-sweep to recover.
+  let sweepTxSig: string | null = null;
+  const toppedUp = BigInt(outcome.addedLamports);
+  try {
+    const { loadState } = await import("./state-reader.js");
+    const refreshed = await loadState();
+    const c = (refreshed?.campaigns ?? []).find(
+      (x) => x.tokenMint === mint && x.type === type
+    );
+    const vaultB58 = c?.squadsVaultPda;
+    if (vaultB58 && toppedUp > 0n) {
+      const admin = bags.keypair;
+      const adminBalance = BigInt(
+        await bags.connection.getBalance(admin.publicKey)
+      );
+      if (adminBalance < toppedUp + ADMIN_MIN_RESERVE_LAMPORTS) {
+        logError(
+          `[topup][auto-sweep] skipping — admin balance ${adminBalance} below ${toppedUp} + reserve`
+        );
+      } else {
+        const tx = new Transaction();
+        tx.add(
+          ComputeBudgetProgram.setComputeUnitLimit({ units: 20_000 }),
+          ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }),
+          SystemProgram.transfer({
+            fromPubkey: admin.publicKey,
+            toPubkey: new PublicKey(vaultB58),
+            lamports: Number(toppedUp),
+          })
+        );
+        const { blockhash, lastValidBlockHeight } =
+          await bags.connection.getLatestBlockhash("confirmed");
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = admin.publicKey;
+        tx.sign(admin);
+        const serialized = tx.serialize();
+        const sigBytes = tx.signatures[0]?.signature;
+        if (!sigBytes) throw new Error("tx unsigned after sign()");
+        sweepTxSig = bs58.encode(sigBytes);
+        await bags.connection.sendRawTransaction(serialized, {
+          skipPreflight: false,
+          maxRetries: 3,
+        });
+        await bags.connection.confirmTransaction(
+          { signature: sweepTxSig, blockhash, lastValidBlockHeight },
+          "confirmed"
+        );
+        log(
+          `[topup][auto-sweep] ${type}:${mint.slice(0, 8)} → vault ${vaultB58.slice(0, 8)} ${toppedUp} lamports (tx ${sweepTxSig.slice(0, 10)})`
+        );
+      }
+    }
+  } catch (err) {
+    logError("[topup][auto-sweep] failed (topup itself landed):", err);
+    sweepTxSig = null;
+  }
+
   return {
     status: 200,
     body: {
       ok: true,
       status: outcome.status,
       addedLamports: outcome.addedLamports,
+      sweepTxSig,
     },
   };
 }
 
-interface WithdrawBody {
-  type?: string;
+interface SweepBody {
+  type?: "cashback" | "holder" | "sprint";
   message?: string;
   signature?: string;
   publicKey?: string;
 }
 
-const MIN_WITHDRAW_LAMPORTS = 1_000_000n; // 0.001 SOL — below this, tx fees eat it
+const MIN_SWEEP_LAMPORTS = 100_000n; // 0.0001 SOL — dust floor for moving pool to vault
 
-async function handleCampaignWithdraw(
+/**
+ * Move the remaining unspent pool balance from the admin (hot) wallet into the
+ * campaign's Squads vault PDA. Only callable after provision-squads has
+ * attached the multisig + SpendingLimit; without the vault PDA, this is a
+ * no-op / error.
+ *
+ * Purpose: close the custody loop. After provision-squads, the vault exists
+ * but is empty; the pool still sits in admin custody. This endpoint sweeps it
+ * in, so subsequent payouts actually have SOL in the vault to draw against
+ * via SpendingLimit.
+ *
+ * Admin-signed (no user signature on the transfer). Creator auth-signs the
+ * request so we know the caller owns the campaign.
+ */
+async function handleSquadsSweep(
   bags: BagsClient,
   mint: string,
   raw: unknown
 ): Promise<MutationResult> {
-  const body = raw as WithdrawBody;
+  const body = raw as SweepBody;
   const { type, message, signature, publicKey } = body;
 
   if (!type || !message || !signature || !publicKey) {
@@ -305,7 +382,7 @@ async function handleCampaignWithdraw(
   }
 
   const parsed = parseAuthMessage(message);
-  if (!parsed || parsed.action !== "withdraw") {
+  if (!parsed || parsed.action !== "squads-sweep") {
     return { status: 400, body: { error: "Malformed auth message or wrong action" } };
   }
   if (parsed.mint !== mint || parsed.type !== type) {
@@ -318,9 +395,6 @@ async function handleCampaignWithdraw(
     return { status: 401, body: { error: "Invalid signature" } };
   }
 
-  // Load current state to compute refundable and validate ownership+status
-  // under a read-then-lock flow. The actual state mutation happens only after
-  // the on-chain transfer confirms, which is the authoritative step.
   const { loadState } = await import("./state-reader.js");
   const current = await loadState();
   const campaign = (current?.campaigns ?? []).find(
@@ -330,61 +404,65 @@ async function handleCampaignWithdraw(
     return { status: 404, body: { error: "Campaign not found" } };
   }
   if (campaign.creatorWallet !== publicKey) {
-    return {
-      status: 403,
-      body: { error: "Signer is not the campaign creator" },
-    };
+    return { status: 403, body: { error: "Signer is not the campaign creator" } };
   }
-  // Require paused so no new payouts can accrue during withdrawal.
-  if (campaign.status !== "paused") {
+  if (!campaign.squadsVaultPda || !campaign.squadsSpendingLimitPda) {
     return {
       status: 400,
       body: {
-        error: `Campaign must be paused before withdrawal (current: ${campaign.status})`,
+        error:
+          "Campaign has no Squads vault — provision Squads custody before sweep",
       },
     };
   }
 
-  // Refundable: poolCap - poolSpent. poolSpent already includes accrued
-  // payouts (triggers increment it at accrue-time), so this is the honest
-  // amount left unallocated.
-  const refundable =
+  // Amount to sweep: the unspent pool. poolSpent already accounts for accrued
+  // payouts (the accrual trigger bumps it), so this is the honest remainder
+  // that should physically live under custody.
+  const unspent =
     BigInt(campaign.poolCapLamports) - BigInt(campaign.poolSpentLamports);
-  if (refundable < MIN_WITHDRAW_LAMPORTS) {
+  if (unspent < MIN_SWEEP_LAMPORTS) {
     return {
       status: 400,
       body: {
-        error: `Refundable amount ${refundable} lamports below minimum ${MIN_WITHDRAW_LAMPORTS}`,
+        error: `Unspent pool ${unspent} lamports below minimum ${MIN_SWEEP_LAMPORTS}`,
       },
     };
   }
 
-  // Treasury solvency check — admin wallet must still honor all other
-  // campaigns' pending payouts after this withdrawal lands.
-  const adminPub = bags.keypair.publicKey;
+  // Treasury solvency — admin wallet must still cover other pending payouts
+  // after this sweep lands. Prevents accidentally draining into a vault and
+  // leaving legacy campaigns' accrued obligations unpayable.
+  const admin = bags.keypair;
   let balance: bigint;
   try {
-    balance = BigInt(await bags.connection.getBalance(adminPub));
+    balance = BigInt(await bags.connection.getBalance(admin.publicKey));
   } catch (err) {
-    logError("[withdraw] getBalance failed:", err);
+    logError("[squads-sweep] getBalance failed:", err);
     return { status: 502, body: { error: "Could not read admin balance" } };
   }
-  const unpaidObligations = (current?.rewardPayouts ?? [])
-    .filter((p) => p.status === "accrued" || p.status === "submitted")
+  // Sum accrued/submitted payouts NOT tied to this campaign — those are the
+  // other obligations the admin must still honour after sweep. Payouts that
+  // reference this campaign will be paid from the Squads vault going forward.
+  const otherObligations = (current?.rewardPayouts ?? [])
+    .filter(
+      (p) =>
+        (p.status === "accrued" || p.status === "submitted") &&
+        !(p.tokenMint === mint && p.campaignType === type)
+    )
     .reduce((sum, p) => sum + BigInt(p.rewardLamports), 0n);
   const surplusAfter =
-    balance - refundable - unpaidObligations - ADMIN_MIN_RESERVE_LAMPORTS;
+    balance - unspent - otherObligations - ADMIN_MIN_RESERVE_LAMPORTS;
   if (surplusAfter < 0n) {
     return {
       status: 409,
       body: {
-        error: `Treasury would be underfunded after withdrawal (shortfall ${-surplusAfter} lamports)`,
+        error: `Admin wallet would be underfunded after sweep (shortfall ${-surplusAfter} lamports)`,
       },
     };
   }
 
-  // Build + send SystemProgram.transfer admin → creator
-  const admin = bags.keypair;
+  const vaultPda = new PublicKey(campaign.squadsVaultPda);
   let txSig: string;
   try {
     const tx = new Transaction();
@@ -393,8 +471,8 @@ async function handleCampaignWithdraw(
       ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }),
       SystemProgram.transfer({
         fromPubkey: admin.publicKey,
-        toPubkey: new PublicKey(publicKey),
-        lamports: Number(refundable),
+        toPubkey: vaultPda,
+        lamports: Number(unspent),
       })
     );
     const { blockhash, lastValidBlockHeight } =
@@ -417,43 +495,21 @@ async function handleCampaignWithdraw(
       "confirmed"
     );
   } catch (err) {
-    logError("[withdraw] transfer failed:", err);
+    logError("[squads-sweep] transfer failed:", err);
     const msg = err instanceof Error ? err.message : String(err);
-    return { status: 500, body: { error: `Transfer failed: ${msg.slice(0, 200)}` } };
+    return { status: 500, body: { error: `Sweep transfer failed: ${msg.slice(0, 200)}` } };
   }
 
-  // Persist post-transfer — reduce poolCap, record withdrawal, flip to
-  // depleted so the campaign is visibly closed.
-  await withStateLock((s) => {
-    if (!s.campaignWithdrawals) s.campaignWithdrawals = [];
-    const c = (s.campaigns ?? []).find(
-      (x) => x.tokenMint === mint && x.type === type
-    );
-    if (c) {
-      c.poolCapLamports = (
-        BigInt(c.poolCapLamports) - refundable
-      ).toString();
-      c.status = "depleted";
-    }
-    s.campaignWithdrawals.push({
-      txSig,
-      tokenMint: mint,
-      campaignType: type as CampaignWithdrawal["campaignType"],
-      toWallet: publicKey,
-      amountLamports: refundable.toString(),
-      createdAt: Date.now(),
-    });
-  });
-
   log(
-    `[http] withdraw ${type}:${mint.slice(0, 8)} → ${publicKey.slice(0, 8)} ${refundable} lamports (tx ${txSig.slice(0, 10)})`
+    `[http] squads-sweep ${type}:${mint.slice(0, 8)} → vault ${vaultPda.toBase58().slice(0, 8)} ${unspent} lamports (tx ${txSig.slice(0, 10)})`
   );
   return {
     status: 200,
     body: {
       ok: true,
       txSig,
-      amountLamports: refundable.toString(),
+      amountLamports: unspent.toString(),
+      vaultPda: vaultPda.toBase58(),
     },
   };
 }
@@ -1189,25 +1245,6 @@ async function main() {
       return;
     }
 
-    // POST /campaigns/:mint/withdraw — creator refund of unused pool seed
-    const withdrawMatch = url.pathname.match(
-      /^\/campaigns\/([^/]+)\/withdraw$/
-    );
-    if (req.method === "POST" && withdrawMatch) {
-      const [, mintParam] = withdrawMatch;
-      try {
-        const body = await readJsonBody(req);
-        const result = await handleCampaignWithdraw(bags, mintParam, body);
-        res.writeHead(result.status, { "Content-Type": "application/json" });
-        res.end(JSON.stringify(result.body));
-      } catch (err) {
-        logError("[http] withdraw error:", err);
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Internal error" }));
-      }
-      return;
-    }
-
     // POST /campaigns/provision-squads/prepare — build the multisigCreate +
     // attachSpendingLimit txs for the creator's wallet to sign. Agent derives
     // from the creator pubkey + campaign params, pre-signs multisigCreate's
@@ -1232,6 +1269,29 @@ async function main() {
         res.end(JSON.stringify({ error: "Internal error" }));
       }
       return;
+    }
+
+    // POST /campaigns/:mint/squads-sweep — move the unspent pool from admin
+    // (hot wallet) to the campaign's Squads vault so SpendingLimit payouts
+    // can actually draw against SOL. Admin-signed; creator auth-signs request.
+    {
+      const match = url.pathname.match(
+        /^\/campaigns\/([^/]+)\/squads-sweep$/
+      );
+      if (req.method === "POST" && match) {
+        const mintParam = match[1];
+        try {
+          const body = await readJsonBody(req);
+          const result = await handleSquadsSweep(bags, mintParam, body);
+          res.writeHead(result.status, { "Content-Type": "application/json" });
+          res.end(JSON.stringify(result.body));
+        } catch (err) {
+          logError("[http] squads-sweep error:", err);
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "Internal error" }));
+        }
+        return;
+      }
     }
 
     // POST /campaigns/provision-squads/confirm — after the creator's wallet

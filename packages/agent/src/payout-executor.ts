@@ -1,5 +1,4 @@
 import {
-  SystemProgram,
   Transaction,
   PublicKey,
   ComputeBudgetProgram,
@@ -22,10 +21,12 @@ import { log, logError } from "./logger.js";
  *
  * Each campaign trigger (cashback, holder, sprint) accrues RewardPayout rows
  * into state.rewardPayouts. This module owns the on-chain leg: for every row
- * in "accrued" status, send SOL from the admin wallet and flip to "paid".
+ * in "accrued" status, send SOL through the campaign's Squads SpendingLimit
+ * and flip to "paid". Squads custody is mandatory — payouts for campaigns
+ * without a provisioned multisig are hard-failed, never fall back to admin.
  *
- * Bounded by MAX_PAYOUTS_PER_TICK and ADMIN_MIN_RESERVE_LAMPORTS so a surge
- * can't drain the creator wallet in a single tick.
+ * Bounded by MAX_PAYOUTS_PER_TICK and AGENT_MIN_RESERVE_LAMPORTS so a surge
+ * can't drain the agent's fee wallet in a single tick.
  */
 
 export const MAX_PAYOUTS_PER_TICK = 10;
@@ -159,17 +160,33 @@ export async function payoutAccrued(bags: BagsClient): Promise<number> {
     try {
       const amount = BigInt(payout.rewardLamports);
 
-      // Dispatcher: Squads path if the campaign has been provisioned, else
-      // legacy admin transfer. `campaignType` on the payout row narrows the
-      // campaign lookup so multi-type mints (cashback + holder on same mint)
-      // route to the correct SpendingLimit.
+      // Squads custody is mandatory — every campaign must be provisioned
+      // before it can pay out. If a row slips through without a ref the
+      // provision didn't finish; mark failed so the creator resumes it,
+      // rather than silently draining admin SOL on the legacy path.
       const squadsRef = payout.campaignType
         ? squadsRefByKey.get(`${payout.tokenMint}|${payout.campaignType}`)
         : undefined;
 
+      if (!squadsRef) {
+        logError(
+          `[payout] ${payout.id} has no Squads ref for ${payout.tokenMint}|${payout.campaignType ?? "?"} — refusing legacy admin transfer (finish custody setup to unblock)`
+        );
+        await withStateLock(async (s) => {
+          const p = (s.rewardPayouts ?? []).find((x) => x.id === payout.id);
+          if (!p) return;
+          p.failedAttempts = (p.failedAttempts ?? 0) + 1;
+          p.lastError = "Campaign missing Squads custody — finish vault setup";
+          if (p.failedAttempts >= MAX_PAYOUT_ATTEMPTS) {
+            p.status = "failed";
+          }
+        });
+        continue;
+      }
+
       if (DRY_RUN_PAYOUTS) {
         log(
-          `[payout][dry-run] would pay ${payout.rewardLamports} → ${payout.traderWallet.slice(0, 8)} (swap ${payout.swapTxSig.slice(0, 10)}) via ${squadsRef ? "squads" : "admin"}`
+          `[payout][dry-run] would pay ${payout.rewardLamports} → ${payout.traderWallet.slice(0, 8)} (swap ${payout.swapTxSig.slice(0, 10)}) via squads`
         );
         await withStateLock(async (s) => {
           const p = (s.rewardPayouts ?? []).find((x) => x.id === payout.id);
@@ -183,12 +200,10 @@ export async function payoutAccrued(bags: BagsClient): Promise<number> {
         continue;
       }
 
-      // ── Squads path ─────────────────────────────────────────────────────
-      // Vault holds SOL; agent key has SpendingLimit-bounded authority. Agent
-      // only needs SOL for tx fees. On-chain cap enforcement means a
-      // compromised agent key can only drain up to the period cap, not the
-      // whole vault — which is the whole point of this flow.
-      if (squadsRef) {
+      // Squads payout: vault holds SOL; agent key has SpendingLimit-bounded
+      // authority. Agent pays tx fees from its own balance. On-chain cap
+      // means a compromised agent key can only drain up to the period cap.
+      {
         const agentBalance = BigInt(
           await bags.connection.getBalance(agent.publicKey)
         );
@@ -283,78 +298,7 @@ export async function payoutAccrued(bags: BagsClient): Promise<number> {
           `[payout][squads] Paid ${payout.rewardLamports} lamports → ${payout.traderWallet.slice(0, 8)} via vault[${squadsRef.squadsVaultIndex}] (${squadsTxSig.slice(0, 10)})`
         );
         paidCount += 1;
-        continue;
       }
-
-      // ── Legacy admin-transfer path ──────────────────────────────────────
-      const balance = BigInt(
-        await bags.connection.getBalance(admin.publicKey)
-      );
-
-      if (balance < amount + ADMIN_MIN_RESERVE_LAMPORTS) {
-        log(
-          `[payout] Admin balance ${balance} below reserve — stopping payouts`
-        );
-        break;
-      }
-
-      const tx = new Transaction();
-      tx.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 20_000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 1_000 }),
-        SystemProgram.transfer({
-          fromPubkey: admin.publicKey,
-          toPubkey: new PublicKey(payout.traderWallet),
-          lamports: Number(amount),
-        })
-      );
-
-      const { blockhash, lastValidBlockHeight } =
-        await bags.connection.getLatestBlockhash("confirmed");
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = admin.publicKey;
-      tx.sign(admin);
-
-      // Capture the signature BEFORE broadcasting and persist it as
-      // "submitted". If the agent crashes between send and confirm,
-      // reconcileSubmitted() looks up this sig on next tick and either flips
-      // to "paid" (if the tx landed) or back to "accrued" (if it didn't),
-      // preventing double-sends.
-      const serialized = tx.serialize();
-      const sigBytes = tx.signatures[0]?.signature;
-      if (!sigBytes) throw new Error("tx unsigned after sign() — refusing to send");
-      const txSig = bs58.encode(sigBytes);
-
-      await withStateLock(async (s) => {
-        const p = (s.rewardPayouts ?? []).find((x) => x.id === payout.id);
-        if (p) {
-          p.status = "submitted";
-          p.payoutTxSig = txSig;
-          p.submittedAt = Date.now();
-        }
-      });
-
-      await bags.connection.sendRawTransaction(serialized, {
-        skipPreflight: false,
-        maxRetries: 3,
-      });
-      await bags.connection.confirmTransaction(
-        { signature: txSig, blockhash, lastValidBlockHeight },
-        "confirmed"
-      );
-
-      await withStateLock(async (s) => {
-        const p = (s.rewardPayouts ?? []).find((x) => x.id === payout.id);
-        if (p) {
-          p.status = "paid";
-          p.paidAt = Date.now();
-        }
-      });
-
-      log(
-        `[payout] Paid ${payout.rewardLamports} lamports → ${payout.traderWallet.slice(0, 8)} (${txSig.slice(0, 10)})`
-      );
-      paidCount += 1;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       logError(`[payout] ${payout.id} failed:`, err);

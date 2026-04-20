@@ -16,8 +16,11 @@ import {
   Users,
   TrendingUp,
   Shield,
+  ShieldAlert,
   Repeat,
   Lock,
+  Pause as PauseIcon,
+  Play as PlayIcon,
 } from "lucide-react";
 import type { Campaign, RewardPayout, FraudDecision } from "@tend/shared";
 
@@ -37,6 +40,7 @@ function buildAuthMessage(p: {
 import { JupiterSwap } from "@/components/jupiter-swap";
 import { PriceChart } from "@/components/price-chart";
 import { calculateSustainability } from "@/lib/sustainability";
+import { provisionSquadsCustody, type ProvisionStep } from "@/lib/provision-squads";
 
 interface CampaignDeposit {
   txSig: string;
@@ -110,13 +114,6 @@ export default function CampaignDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [mutating, setMutating] = useState(false);
   const [mutationError, setMutationError] = useState<string | null>(null);
-  const [withdrawStep, setWithdrawStep] = useState<
-    "idle" | "signing" | "executing"
-  >("idle");
-  const [withdrawDone, setWithdrawDone] = useState<{
-    amountLamports: string;
-    txSig: string;
-  } | null>(null);
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupSol, setTopupSol] = useState("0.05");
   const [topupStep, setTopupStep] = useState<"idle" | "sending" | "confirming" | "signing" | "submitting">("idle");
@@ -138,16 +135,9 @@ export default function CampaignDetailPage() {
   const [provisionPeriod, setProvisionPeriod] = useState<SpendingPeriod>("day");
   const [provisionFundingSol, setProvisionFundingSol] = useState("0");
   const [provisioning, setProvisioning] = useState(false);
-  const [provisionStep, setProvisionStep] = useState<
-    | "idle"
-    | "signing"
-    | "preparing"
-    | "sending-multisig"
-    | "confirming-multisig"
-    | "sending-attach"
-    | "confirming-attach"
-    | "submitting"
-  >("idle");
+  const [provisionStep, setProvisionStep] = useState<ProvisionStep | "idle">(
+    "idle"
+  );
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const [provisionDone, setProvisionDone] = useState<{
     multisigPda: string;
@@ -390,74 +380,6 @@ export default function CampaignDetailPage() {
     }
   }
 
-  async function handleWithdraw() {
-    if (!detail || !publicKey || !signMessage) return;
-    const remainingLamports =
-      BigInt(detail.campaign.poolCapLamports) -
-      BigInt(detail.campaign.poolSpentLamports);
-    if (remainingLamports <= 0n) {
-      setMutationError("Nothing to withdraw — pool is fully distributed");
-      return;
-    }
-    const confirmMsg = `Withdraw ${formatSol(remainingLamports)} SOL back to your wallet? The campaign will be closed.`;
-    if (!confirm(confirmMsg)) return;
-
-    setMutating(true);
-    setMutationError(null);
-    setWithdrawStep("signing");
-    try {
-      const timestampMs = Date.now();
-      const message = buildAuthMessage({
-        action: "withdraw",
-        mint: detail.campaign.tokenMint,
-        type: detail.campaign.type,
-        timestampMs,
-      });
-      const sigBytes = await signMessage(new TextEncoder().encode(message));
-
-      setWithdrawStep("executing");
-      const res = await fetch(
-        `/api/campaigns/${detail.campaign.tokenMint}/withdraw`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: detail.campaign.type,
-            message,
-            signature: bs58.encode(sigBytes),
-            publicKey: publicKey.toBase58(),
-          }),
-        }
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setMutationError(data.error || `Failed (${res.status})`);
-        return;
-      }
-      setWithdrawDone({
-        amountLamports: data.amountLamports,
-        txSig: data.txSig,
-      });
-      setDetail({
-        ...detail,
-        campaign: {
-          ...detail.campaign,
-          status: "depleted",
-          poolCapLamports: (
-            BigInt(detail.campaign.poolCapLamports) -
-            BigInt(data.amountLamports)
-          ).toString(),
-        } as typeof detail.campaign,
-      });
-    } catch (err) {
-      setMutationError(
-        err instanceof Error ? err.message : "Withdraw failed"
-      );
-    } finally {
-      setWithdrawStep("idle");
-      setMutating(false);
-    }
-  }
 
   async function handleRouteFees() {
     if (!detail || !publicKey || !signMessage || !sendTransaction) return;
@@ -560,133 +482,24 @@ export default function CampaignDetailPage() {
     setProvisionError(null);
     setProvisionSigs([]);
     try {
-      // 1. Sign the auth message — reused for both prepare and confirm.
-      setProvisionStep("signing");
-      const timestampMs = Date.now();
-      const message = buildAuthMessage({
-        action: "provision-squads",
-        mint: detail.campaign.tokenMint,
+      const result = await provisionSquadsCustody({
+        tokenMint: detail.campaign.tokenMint,
         type: detail.campaign.type,
-        timestampMs,
+        publicKeyB58: publicKey.toBase58(),
+        capLamports,
+        period: provisionPeriod,
+        fundLamports,
+        connection,
+        signMessage,
+        sendTransaction,
+        onStep: (s) => setProvisionStep(s),
+        onSig: (s) => setProvisionSigs((prev) => [...prev, s]),
       });
-      const sigBytes = await signMessage(new TextEncoder().encode(message));
-      const signatureB58 = bs58.encode(sigBytes);
-
-      // 2. Ask agent to assemble the tx bundle.
-      setProvisionStep("preparing");
-      const prepRes = await fetch("/api/campaigns/provision-squads/prepare", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tokenMint: detail.campaign.tokenMint,
-          type: detail.campaign.type,
-          message,
-          signature: signatureB58,
-          publicKey: publicKey.toBase58(),
-          amountLamports: capLamports.toString(),
-          period: provisionPeriod,
-          ...(fundLamports
-            ? { initialFundingLamports: fundLamports.toString() }
-            : {}),
-        }),
-      });
-      const prep = await prepRes.json().catch(() => ({}));
-      if (!prepRes.ok) {
-        throw new Error(prep.error || `Prepare failed (${prepRes.status})`);
-      }
-      const {
-        multisigCreateTx,
-        multisigCreateKey,
-        attachTx,
-        vaultIndex,
-        spendingLimitCreateKey,
-      } = prep as {
-        multisigCreateTx: { transaction: string; blockhash: string } | null;
-        multisigCreateKey: string | null;
-        attachTx: { transaction: string; blockhash: string };
-        vaultIndex: number;
-        spendingLimitCreateKey: string;
-      };
-      if (!attachTx?.transaction || vaultIndex == null || !spendingLimitCreateKey) {
-        throw new Error("Agent returned an incomplete prepare payload");
-      }
-
-      const sigs: string[] = [];
-      let multisigCreateTxSig: string | null = null;
-
-      // 3. (optional) Send the multisigCreate tx — already partial-signed by
-      //    the agent's createKey, the wallet just adds the creator signature.
-      if (multisigCreateTx) {
-        setProvisionStep("sending-multisig");
-        const tx1 = VersionedTransaction.deserialize(
-          Buffer.from(multisigCreateTx.transaction, "base64")
-        );
-        const sig1 = await sendTransaction(tx1, connection);
-        setProvisionStep("confirming-multisig");
-        const latest1 = await connection.getLatestBlockhash("confirmed");
-        await connection.confirmTransaction(
-          {
-            signature: sig1,
-            blockhash: latest1.blockhash,
-            lastValidBlockHeight: latest1.lastValidBlockHeight,
-          },
-          "confirmed"
-        );
-        multisigCreateTxSig = sig1;
-        sigs.push(sig1);
-        setProvisionSigs([...sigs]);
-      }
-
-      // 4. Send the attach (+ optional fund) tx.
-      setProvisionStep("sending-attach");
-      const tx2 = VersionedTransaction.deserialize(
-        Buffer.from(attachTx.transaction, "base64")
-      );
-      const sig2 = await sendTransaction(tx2, connection);
-      setProvisionStep("confirming-attach");
-      const latest2 = await connection.getLatestBlockhash("confirmed");
-      await connection.confirmTransaction(
-        {
-          signature: sig2,
-          blockhash: latest2.blockhash,
-          lastValidBlockHeight: latest2.lastValidBlockHeight,
-        },
-        "confirmed"
-      );
-      sigs.push(sig2);
-      setProvisionSigs([...sigs]);
-
-      // 5. Tell the agent to verify on-chain + persist state.
-      setProvisionStep("submitting");
-      const confRes = await fetch("/api/campaigns/provision-squads/confirm", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tokenMint: detail.campaign.tokenMint,
-          type: detail.campaign.type,
-          message,
-          signature: signatureB58,
-          publicKey: publicKey.toBase58(),
-          multisigCreateKey,
-          multisigCreateTxSig,
-          vaultIndex,
-          spendingLimitCreateKey,
-          attachTxSig: sig2,
-          amountLamports: capLamports.toString(),
-          period: provisionPeriod,
-        }),
-      });
-      const conf = await confRes.json().catch(() => ({}));
-      if (!confRes.ok) {
-        throw new Error(conf.error || `Confirm failed (${confRes.status})`);
-      }
-
       setProvisionDone({
-        multisigPda: conf.multisigPda,
-        vaultPda: conf.vaultPda,
-        spendingLimitPda: conf.spendingLimitPda,
+        multisigPda: result.multisigPda,
+        vaultPda: result.vaultPda,
+        spendingLimitPda: result.spendingLimitPda,
       });
-      // Refresh detail so the campaign panel reflects the new Squads PDAs.
       refreshDetail(false);
     } catch (err) {
       setProvisionError(
@@ -852,33 +665,32 @@ export default function CampaignDetailPage() {
         </div>
       </div>
 
-      {/* Creator controls — visible only when connected wallet owns the campaign */}
+      {/* Creator controls — visible only when connected wallet owns the campaign.
+          Layout: left = ownership + custody state chip (static truth),
+                  right = action cluster (what the creator can do).
+          Action hierarchy (right→left by frequency): Pause, Auto-refuel, Top up.
+          Primary CTA (Top up) sits rightmost so it anchors the eye. */}
       {connected &&
         publicKey?.toBase58() === campaign.creatorWallet && (
-          <div className="mb-4 flex items-center justify-between gap-3 px-3 py-2 rounded-xl bg-[var(--bg-card)] border border-[var(--border)]">
-            <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
-              <Shield size={12} className="text-[var(--accent)]" />
-              <span>You own this campaign</span>
-              {mutationError && (
-                <span className="text-[#ef4444] ml-2">{mutationError}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  setRouteError(null);
-                  setRouteDone(false);
-                  setRouteSigs([]);
-                  setShowRouteModal(true);
-                }}
-                disabled={mutating || routing}
-                className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
-                title="Route a slice of your Bags fee-share to keep this pool funded"
-              >
-                <Repeat size={11} />
-                Auto-replenish
-              </button>
-              {!campaign.squadsSpendingLimitPda && (
+          <div className="mb-4 flex items-center justify-between gap-4 pl-3 pr-2 py-2 rounded-xl bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)]">
+            {/* Left: ownership + custody state */}
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] whitespace-nowrap">
+                <Shield size={12} className="text-[var(--accent)]" />
+                <span className="font-semibold text-[var(--text-primary)]">
+                  You own this campaign
+                </span>
+              </span>
+              <span className="hidden sm:block w-px h-4 bg-[var(--border)]" />
+              {campaign.squadsSpendingLimitPda ? (
+                <span
+                  className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
+                  title="Pool custodied in an audited on-chain vault with per-period spend caps"
+                >
+                  <Lock size={10} />
+                  Vault secured
+                </span>
+              ) : (
                 <button
                   onClick={() => {
                     setProvisionError(null);
@@ -887,11 +699,58 @@ export default function CampaignDetailPage() {
                     setShowProvisionModal(true);
                   }}
                   disabled={mutating || routing || provisioning}
-                  className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
-                  title="Move payouts under a Squads multisig with a per-period spending cap"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-md bg-[rgba(234,179,8,0.08)] text-[#eab308] hover:bg-[rgba(234,179,8,0.14)] disabled:opacity-50 transition"
+                  title="Vault setup didn't finish — click to resume (payouts are blocked until this lands)"
                 >
-                  <Lock size={11} />
-                  Squads custody
+                  <ShieldAlert size={10} />
+                  Finish vault setup
+                </button>
+              )}
+              {mutationError && (
+                <span className="text-[11px] text-[#ef4444] truncate">
+                  {mutationError}
+                </span>
+              )}
+            </div>
+
+            {/* Right: actions */}
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => {
+                  setRouteError(null);
+                  setRouteDone(false);
+                  setRouteSigs([]);
+                  setShowRouteModal(true);
+                }}
+                disabled={mutating || routing}
+                className="text-[11px] px-2.5 py-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
+                title="Route a slice of your Bags fee-share to keep this pool funded automatically"
+              >
+                <Repeat size={11} />
+                Auto-refuel
+              </button>
+              {campaign.status !== "paused" ? (
+                <button
+                  onClick={() => flipStatus("pause")}
+                  disabled={mutating}
+                  aria-label="Pause campaign"
+                  className="w-7 h-7 rounded-lg text-[var(--text-muted)] hover:text-[#eab308] hover:bg-[rgba(234,179,8,0.08)] disabled:opacity-50 transition inline-flex items-center justify-center"
+                  title="Pause payouts"
+                >
+                  {mutating ? (
+                    <span className="text-[10px]">…</span>
+                  ) : (
+                    <PauseIcon size={13} />
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={() => flipStatus("resume")}
+                  disabled={mutating}
+                  className="text-[11px] px-3 py-1.5 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold inline-flex items-center gap-1.5"
+                >
+                  <PlayIcon size={11} />
+                  {mutating ? "…" : "Resume"}
                 </button>
               )}
               <button
@@ -900,64 +759,13 @@ export default function CampaignDetailPage() {
                   setShowTopupModal(true);
                 }}
                 disabled={mutating}
-                className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50 transition"
+                className="gradient-btn text-[11px] px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition"
               >
                 Top up
               </button>
-              {campaign.status !== "paused" ? (
-                <button
-                  onClick={() => flipStatus("pause")}
-                  disabled={mutating}
-                  className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[#eab308] hover:text-[#eab308] disabled:opacity-50 transition"
-                >
-                  {mutating ? "…" : "Pause"}
-                </button>
-              ) : (
-                <>
-                  <button
-                    onClick={() => flipStatus("resume")}
-                    disabled={mutating}
-                    className="text-[11px] px-3 py-1 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold"
-                  >
-                    {mutating && withdrawStep === "idle" ? "…" : "Resume"}
-                  </button>
-                  <button
-                    onClick={handleWithdraw}
-                    disabled={mutating}
-                    className="text-[11px] px-3 py-1 rounded-lg bg-[var(--bg)] border border-[var(--border)] hover:border-[#ef4444] hover:text-[#ef4444] disabled:opacity-50 transition"
-                    title="Refund the unused pool back to your wallet (closes the campaign)"
-                  >
-                    {withdrawStep === "signing"
-                      ? "Sign…"
-                      : withdrawStep === "executing"
-                        ? "Sending…"
-                        : "Withdraw"}
-                  </button>
-                </>
-              )}
             </div>
           </div>
         )}
-
-      {withdrawDone && (
-        <div className="mb-4 px-3 py-2 rounded-xl bg-[var(--accent-dim)] border border-[var(--accent)] text-xs text-[var(--accent)] flex items-center justify-between gap-3">
-          <span>
-            Refunded{" "}
-            <span className="font-mono font-semibold">
-              {formatSol(withdrawDone.amountLamports)} SOL
-            </span>{" "}
-            to your wallet.
-          </span>
-          <a
-            href={`https://solscan.io/tx/${withdrawDone.txSig}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 underline hover:no-underline"
-          >
-            View tx <ExternalLink size={10} />
-          </a>
-        </div>
-      )}
 
       {/* Pool progress — thin, full width */}
       <div className="mb-4">
@@ -1486,14 +1294,13 @@ export default function CampaignDetailPage() {
             <div className="flex items-center gap-2 mb-1">
               <Lock size={14} className="text-[var(--accent)]" />
               <h3 className="text-lg font-bold font-display">
-                Move payouts to Squads custody
+                Secure your pool
               </h3>
             </div>
             <p className="text-[12px] text-[var(--text-muted)] mb-4 leading-relaxed">
-              Creates a 1-of-1 Squads multisig you own, attaches a SpendingLimit
-              the agent can use up to the cap each period, and (optionally)
-              seeds the vault with SOL. Existing payouts keep using the legacy
-              admin path until this is done.
+              Moves your pool into an on-chain vault you own. Pick how much
+              Tend can pay out per day — the agent can never exceed it. You
+              keep the keys and can close the vault anytime.
             </p>
 
             {provisionDone ? (
@@ -1503,18 +1310,7 @@ export default function CampaignDetailPage() {
                 </p>
                 <div className="space-y-1 text-[11px] font-mono text-[var(--text-secondary)]">
                   <div>
-                    <span className="text-[var(--text-muted)]">multisig </span>
-                    <a
-                      href={`https://solscan.io/account/${provisionDone.multisigPda}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[var(--accent)] hover:underline"
-                    >
-                      {provisionDone.multisigPda.slice(0, 10)}…
-                    </a>
-                  </div>
-                  <div>
-                    <span className="text-[var(--text-muted)]">vault </span>
+                    <span className="text-[var(--text-muted)]">Vault </span>
                     <a
                       href={`https://solscan.io/account/${provisionDone.vaultPda}`}
                       target="_blank"
@@ -1525,7 +1321,7 @@ export default function CampaignDetailPage() {
                     </a>
                   </div>
                   <div>
-                    <span className="text-[var(--text-muted)]">SL </span>
+                    <span className="text-[var(--text-muted)]">Spend cap </span>
                     <a
                       href={`https://solscan.io/account/${provisionDone.spendingLimitPda}`}
                       target="_blank"
@@ -1555,7 +1351,7 @@ export default function CampaignDetailPage() {
             ) : (
               <>
                 <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1">
-                  Spending cap (SOL per period)
+                  Max Tend can pay out (SOL)
                 </label>
                 <input
                   type="number"
@@ -1570,11 +1366,12 @@ export default function CampaignDetailPage() {
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
                 />
                 <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                  Hard ceiling the agent can spend before the period resets.
+                  Hard ceiling per period. The agent can&apos;t exceed it, even
+                  if the pool has more SOL.
                 </p>
 
                 <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1 mt-3">
-                  Reset period
+                  Per
                 </label>
                 <select
                   value={provisionPeriod}
@@ -1591,7 +1388,7 @@ export default function CampaignDetailPage() {
                 </select>
 
                 <label className="block text-[11px] text-[var(--text-muted)] uppercase tracking-wider mb-1 mt-3">
-                  Initial vault funding (SOL, optional)
+                  Fund vault now (SOL, optional)
                 </label>
                 <input
                   type="number"
@@ -1617,13 +1414,15 @@ export default function CampaignDetailPage() {
                 )}
                 {provisionStep !== "idle" && (
                   <p className="text-[11px] text-[var(--text-muted)] mt-2">
-                    {provisionStep === "signing" && "Sign the authorization message…"}
-                    {provisionStep === "preparing" && "Asking agent to build the txs…"}
-                    {provisionStep === "sending-multisig" && "Sign the multisig-create tx…"}
-                    {provisionStep === "confirming-multisig" && "Confirming multisig on-chain…"}
-                    {provisionStep === "sending-attach" && "Sign the attach + fund tx…"}
-                    {provisionStep === "confirming-attach" && "Confirming attach on-chain…"}
-                    {provisionStep === "submitting" && "Persisting state on the agent…"}
+                    {provisionStep === "signing" && "Sign to authorize…"}
+                    {provisionStep === "preparing" && "Preparing transactions…"}
+                    {provisionStep === "sending-multisig" && "Approve vault creation in your wallet…"}
+                    {provisionStep === "confirming-multisig" && "Creating vault on-chain…"}
+                    {provisionStep === "sending-attach" && "Approve spending cap in your wallet…"}
+                    {provisionStep === "confirming-attach" && "Attaching spending cap…"}
+                    {provisionStep === "submitting" && "Finalizing…"}
+                    {provisionStep === "signing-sweep" && "Sign to move the pool…"}
+                    {provisionStep === "sweeping" && "Transferring pool into the vault…"}
                   </p>
                 )}
               </>
@@ -1643,7 +1442,7 @@ export default function CampaignDetailPage() {
                   disabled={provisioning}
                   className="flex-1 py-2 rounded-lg text-[12px] bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 font-semibold disabled:opacity-50"
                 >
-                  {provisioning ? "Processing…" : "Attach custody"}
+                  {provisioning ? "Processing…" : "Secure pool"}
                 </button>
               )}
             </div>
