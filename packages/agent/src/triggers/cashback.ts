@@ -9,6 +9,7 @@ import { detectNewBuys } from "../swap-detector.js";
 import { checkFraud } from "../fraud-detector.js";
 import { log } from "../logger.js";
 import { canAccrue } from "../treasury-health.js";
+import { getSquadsRef } from "../squads-orchestrator.js";
 import { emptyTriggerResult, type TriggerResult } from "./types.js";
 
 // Cashback-specific guardrails
@@ -147,13 +148,16 @@ export async function runCashbackTrigger(
 
     if (decision.decision === "allow") {
       result.fraudAllowed += 1;
-      // Treasury solvency gate — skip accrual if the admin wallet can't
-      // cover this payout on top of existing obligations. Better to skip
-      // one cashback than queue a debt the executor can never drain.
+      // Treasury solvency gate — only relevant for legacy admin-transfer
+      // campaigns (no Squads ref). Squads-custody payouts draw from the
+      // per-campaign vault, not the admin wallet, and the SpendingLimit +
+      // vault balance are enforced at payout-send time. Skipping this for
+      // Squads campaigns avoids a dead gate that blocks accruals based on
+      // an unrelated wallet's balance.
       const reward =
         (buy.solSpentLamports * BigInt(campaign.config.cashbackBps)) /
         10_000n;
-      if (reward > 0n && !(await canAccrue(bags, reward))) {
+      if (!getSquadsRef(campaign) && reward > 0n && !(await canAccrue(bags, reward))) {
         log(
           `[rewards:cashback] treasury underfunded — skipping accrual (${reward} lamports)`
         );
