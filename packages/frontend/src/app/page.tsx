@@ -582,8 +582,7 @@ export default function HomePage() {
             Pick the growth loop that fits your token
           </h2>
           <p className="text-[13px] text-[var(--text-muted)] max-w-[540px] mx-auto">
-            Every type shares the same fraud gate, the same on-chain payout
-            rail, and the same creator console. Mix and match as you grow.
+            Every reward ships in SOL, straight to your wallet.
           </p>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -636,13 +635,6 @@ export default function HomePage() {
               </p>
             </div>
           ))}
-        </div>
-        <div className="mt-6 flex items-center justify-center gap-2 text-[12px] text-[var(--text-muted)]">
-          <ShieldCheck size={13} className="text-[var(--accent)]" />
-          <span>
-            Every payout — across all types — passes through the same Claude
-            fraud gate before it ships on-chain.
-          </span>
         </div>
       </section>
 

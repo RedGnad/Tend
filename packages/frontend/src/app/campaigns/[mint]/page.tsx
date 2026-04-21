@@ -40,7 +40,10 @@ function buildAuthMessage(p: {
 import { JupiterSwap } from "@/components/jupiter-swap";
 import { PriceChart } from "@/components/price-chart";
 import { calculateSustainability } from "@/lib/sustainability";
-import { provisionSquadsCustody, type ProvisionStep } from "@/lib/provision-squads";
+import {
+  provisionSquadsCustody,
+  type ProvisionStep,
+} from "@/lib/provision-squads";
 
 interface CampaignDeposit {
   txSig: string;
@@ -116,7 +119,9 @@ export default function CampaignDetailPage() {
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupSol, setTopupSol] = useState("0.05");
-  const [topupStep, setTopupStep] = useState<"idle" | "sending" | "confirming" | "signing" | "submitting">("idle");
+  const [topupStep, setTopupStep] = useState<
+    "idle" | "sending" | "confirming" | "signing" | "submitting"
+  >("idle");
 
   // Fee-share auto-replenish — owner-only, opens its own modal
   const [showRouteModal, setShowRouteModal] = useState(false);
@@ -136,7 +141,7 @@ export default function CampaignDetailPage() {
   const [provisionFundingSol, setProvisionFundingSol] = useState("0");
   const [provisioning, setProvisioning] = useState(false);
   const [provisionStep, setProvisionStep] = useState<ProvisionStep | "idle">(
-    "idle"
+    "idle",
   );
   const [provisionError, setProvisionError] = useState<string | null>(null);
   const [provisionDone, setProvisionDone] = useState<{
@@ -179,8 +184,12 @@ export default function CampaignDetailPage() {
         const d = (await r.json()) as CampaignDetail;
 
         if (isInitial) {
-          seenDecisionIds.current = new Set((d.fraudDecisions ?? []).map((x) => x.id));
-          seenPayoutIds.current = new Set((d.recentPayouts ?? []).map((x) => x.id));
+          seenDecisionIds.current = new Set(
+            (d.fraudDecisions ?? []).map((x) => x.id),
+          );
+          seenPayoutIds.current = new Set(
+            (d.recentPayouts ?? []).map((x) => x.id),
+          );
         } else {
           const newDecisions = (d.fraudDecisions ?? [])
             .filter((x) => !seenDecisionIds.current.has(x.id))
@@ -207,7 +216,7 @@ export default function CampaignDetailPage() {
         if (isInitial) setNotFound(true);
       }
     },
-    [mint, campaignType]
+    [mint, campaignType],
   );
 
   useEffect(() => {
@@ -277,7 +286,7 @@ export default function CampaignDetailPage() {
           fromPubkey: publicKey,
           toPubkey: new PublicKey(adminWallet),
           lamports,
-        })
+        }),
       );
       tx.recentBlockhash = blockhash;
       tx.feePayer = publicKey;
@@ -287,7 +296,7 @@ export default function CampaignDetailPage() {
       setTopupStep("confirming");
       await connection.confirmTransaction(
         { signature: txSig, blockhash, lastValidBlockHeight },
-        "confirmed"
+        "confirmed",
       );
 
       // 3. Sign auth message
@@ -315,7 +324,7 @@ export default function CampaignDetailPage() {
             publicKey: publicKey.toBase58(),
             txSig,
           }),
-        }
+        },
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -336,9 +345,7 @@ export default function CampaignDetailPage() {
       });
       setShowTopupModal(false);
     } catch (err) {
-      setMutationError(
-        err instanceof Error ? err.message : "Topup failed"
-      );
+      setMutationError(err instanceof Error ? err.message : "Topup failed");
     } finally {
       setTopupStep("idle");
       setMutating(false);
@@ -369,7 +376,7 @@ export default function CampaignDetailPage() {
             signature: bs58.encode(sigBytes),
             publicKey: publicKey.toBase58(),
           }),
-        }
+        },
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -385,13 +392,12 @@ export default function CampaignDetailPage() {
       });
     } catch (err) {
       setMutationError(
-        err instanceof Error ? err.message : "Signature or network error"
+        err instanceof Error ? err.message : "Signature or network error",
       );
     } finally {
       setMutating(false);
     }
   }
-
 
   async function handleRouteFees() {
     if (!detail || !publicKey || !signMessage || !sendTransaction) return;
@@ -432,14 +438,11 @@ export default function CampaignDetailPage() {
       const prepData = await prepRes.json().catch(() => ({}));
       if (!prepRes.ok) {
         throw new Error(
-          prepData.error || `Failed to prepare (${prepRes.status})`
+          prepData.error || `Failed to prepare (${prepRes.status})`,
         );
       }
-      const txs: Array<{ transaction: string; blockhash: string }> = Array.isArray(
-        prepData.transactions
-      )
-        ? prepData.transactions
-        : [];
+      const txs: Array<{ transaction: string; blockhash: string }> =
+        Array.isArray(prepData.transactions) ? prepData.transactions : [];
       if (txs.length === 0) {
         throw new Error("Agent returned no transactions");
       }
@@ -449,7 +452,7 @@ export default function CampaignDetailPage() {
       for (const { transaction } of txs) {
         setRouteStep("sending");
         const tx = VersionedTransaction.deserialize(
-          Buffer.from(transaction, "base64")
+          Buffer.from(transaction, "base64"),
         );
         const sig = await sendTransaction(tx, connection);
         setRouteStep("confirming");
@@ -460,7 +463,7 @@ export default function CampaignDetailPage() {
             blockhash: latest.blockhash,
             lastValidBlockHeight: latest.lastValidBlockHeight,
           },
-          "confirmed"
+          "confirmed",
         );
         sigs.push(sig);
       }
@@ -468,7 +471,7 @@ export default function CampaignDetailPage() {
       setRouteDone(true);
     } catch (err) {
       setRouteError(
-        err instanceof Error ? err.message : "Something went wrong"
+        err instanceof Error ? err.message : "Something went wrong",
       );
     } finally {
       setRouteStep("idle");
@@ -516,7 +519,7 @@ export default function CampaignDetailPage() {
       refreshDetail(false);
     } catch (err) {
       setProvisionError(
-        err instanceof Error ? err.message : "Provision failed"
+        err instanceof Error ? err.message : "Provision failed",
       );
     } finally {
       setProvisionStep("idle");
@@ -559,8 +562,7 @@ export default function CampaignDetailPage() {
     withdrawals = [],
     feeClaims = [],
   } = detail;
-  const isOwner =
-    connected && publicKey?.toBase58() === campaign.creatorWallet;
+  const isOwner = connected && publicKey?.toBase58() === campaign.creatorWallet;
   const symbol =
     campaign.tokenInfo?.symbol ?? campaign.tokenMint.slice(0, 4).toUpperCase();
   const name = campaign.tokenInfo?.name ?? symbol;
@@ -569,12 +571,12 @@ export default function CampaignDetailPage() {
   const forecast = calculateSustainability(
     remaining,
     detail.recentPayouts ?? [],
-    detail.feeClaims ?? []
+    detail.feeClaims ?? [],
   );
   const progress = Math.min(
     100,
     (Number(campaign.poolSpentLamports) / Number(campaign.poolCapLamports)) *
-      100
+      100,
   );
   const isLive = campaign.status === "live";
 
@@ -583,7 +585,7 @@ export default function CampaignDetailPage() {
     : [];
   const myEarnedLamports = myPayouts.reduce(
     (sum, p) => sum + BigInt(p.rewardLamports),
-    0n
+    0n,
   );
 
   return (
@@ -697,117 +699,112 @@ export default function CampaignDetailPage() {
                   right = action cluster (what the creator can do).
           Action hierarchy (right→left by frequency): Pause, Auto-refuel, Top up.
           Primary CTA (Top up) sits rightmost so it anchors the eye. */}
-      {connected &&
-        publicKey?.toBase58() === campaign.creatorWallet && (
-          <div className="mb-4 flex items-center justify-between gap-4 pl-3 pr-2 py-2 rounded-xl bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)]">
-            {/* Left: ownership + custody state — one punchy line. The vault
+      {connected && publicKey?.toBase58() === campaign.creatorWallet && (
+        <div className="mb-4 flex items-center justify-between gap-4 pl-3 pr-2 py-2 rounded-xl bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)]">
+          {/* Left: ownership + custody state — one punchy line. The vault
                 chip *is* the trust anchor, so it gets the visual weight; the
                 ownership tag is reduced to a terse pill on its left. */}
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[rgba(0,255,178,0.08)] text-[var(--text-secondary)] whitespace-nowrap">
-                Your campaign
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[rgba(0,255,178,0.08)] text-[var(--text-secondary)] whitespace-nowrap">
+              Your campaign
+            </span>
+            {campaign.squadsSpendingLimitPda ? (
+              <span
+                className="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
+                title="Spend limits are enforced on-chain by the Squads program — the agent cannot withdraw beyond this cap even if its key is compromised."
+              >
+                <Lock size={11} />
+                <span>
+                  Max{" "}
+                  <span className="font-mono font-semibold">
+                    {campaign.squadsSpendingLimitAmountLamports
+                      ? formatSol(campaign.squadsSpendingLimitAmountLamports)
+                      : "—"}{" "}
+                    SOL
+                  </span>{" "}
+                  /{" "}
+                  {campaign.squadsSpendingLimitPeriod === "oneTime"
+                    ? "total"
+                    : (campaign.squadsSpendingLimitPeriod ?? "period")}{" "}
+                  payouts
+                </span>
               </span>
-              {campaign.squadsSpendingLimitPda ? (
-                <span
-                  className="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
-                  title="Spend limits are enforced on-chain by the Squads program — the agent cannot withdraw beyond this cap even if its key is compromised."
-                >
-                  <Lock size={11} />
-                  <span>
-                    Max{" "}
-                    <span className="font-mono font-semibold">
-                      {campaign.squadsSpendingLimitAmountLamports
-                        ? formatSol(campaign.squadsSpendingLimitAmountLamports)
-                        : "—"}{" "}
-                      SOL
-                    </span>{" "}
-                    /{" "}
-                    {campaign.squadsSpendingLimitPeriod === "oneTime"
-                      ? "total"
-                      : campaign.squadsSpendingLimitPeriod ?? "period"}{" "}
-                    payouts
-                    <span className="text-[var(--text-muted)]">
-                      {" "}
-                      · enforced by Squads vault
-                    </span>
-                  </span>
-                </span>
-              ) : (
-                <button
-                  onClick={() => {
-                    setProvisionError(null);
-                    setProvisionDone(null);
-                    setProvisionSigs([]);
-                    setShowProvisionModal(true);
-                  }}
-                  disabled={mutating || routing || provisioning}
-                  className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-md bg-[rgba(234,179,8,0.08)] text-[#eab308] hover:bg-[rgba(234,179,8,0.14)] disabled:opacity-50 transition"
-                  title="Vault setup didn't finish — click to resume (payouts are blocked until this lands)"
-                >
-                  <ShieldAlert size={10} />
-                  Finish vault setup
-                </button>
-              )}
-              {mutationError && (
-                <span className="text-[11px] text-[#ef4444] truncate">
-                  {mutationError}
-                </span>
-              )}
-            </div>
-
-            {/* Right: actions */}
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            ) : (
               <button
                 onClick={() => {
-                  setRouteError(null);
-                  setRouteDone(false);
-                  setRouteSigs([]);
-                  setShowRouteModal(true);
+                  setProvisionError(null);
+                  setProvisionDone(null);
+                  setProvisionSigs([]);
+                  setShowProvisionModal(true);
                 }}
-                disabled={mutating || routing}
-                className="text-[11px] px-2.5 py-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
-                title="Route a slice of your Bags fee-share to keep this pool funded automatically"
+                disabled={mutating || routing || provisioning}
+                className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-md bg-[rgba(234,179,8,0.08)] text-[#eab308] hover:bg-[rgba(234,179,8,0.14)] disabled:opacity-50 transition"
+                title="Vault setup didn't finish — click to resume (payouts are blocked until this lands)"
               >
-                <Repeat size={11} />
-                Auto-refuel
+                <ShieldAlert size={10} />
+                Finish vault setup
               </button>
-              {campaign.status !== "paused" ? (
-                <button
-                  onClick={() => flipStatus("pause")}
-                  disabled={mutating}
-                  aria-label="Pause campaign"
-                  className="w-7 h-7 rounded-lg text-[var(--text-muted)] hover:text-[#eab308] hover:bg-[rgba(234,179,8,0.08)] disabled:opacity-50 transition inline-flex items-center justify-center"
-                  title="Pause payouts"
-                >
-                  {mutating ? (
-                    <span className="text-[10px]">…</span>
-                  ) : (
-                    <PauseIcon size={13} />
-                  )}
-                </button>
-              ) : (
-                <button
-                  onClick={() => flipStatus("resume")}
-                  disabled={mutating}
-                  className="text-[11px] px-3 py-1.5 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold inline-flex items-center gap-1.5"
-                >
-                  <PlayIcon size={11} />
-                  {mutating ? "…" : "Resume"}
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  setMutationError(null);
-                  setShowTopupModal(true);
-                }}
-                disabled={mutating}
-                className="gradient-btn text-[11px] px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition"
-              >
-                Top up
-              </button>
-            </div>
+            )}
+            {mutationError && (
+              <span className="text-[11px] text-[#ef4444] truncate">
+                {mutationError}
+              </span>
+            )}
           </div>
-        )}
+
+          {/* Right: actions */}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button
+              onClick={() => {
+                setRouteError(null);
+                setRouteDone(false);
+                setRouteSigs([]);
+                setShowRouteModal(true);
+              }}
+              disabled={mutating || routing}
+              className="text-[11px] px-2.5 py-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--accent)] hover:bg-[var(--bg)] disabled:opacity-50 transition inline-flex items-center gap-1.5"
+              title="Route a slice of your Bags fee-share to keep this pool funded automatically"
+            >
+              <Repeat size={11} />
+              Auto-refuel
+            </button>
+            {campaign.status !== "paused" ? (
+              <button
+                onClick={() => flipStatus("pause")}
+                disabled={mutating}
+                aria-label="Pause campaign"
+                className="w-7 h-7 rounded-lg text-[var(--text-muted)] hover:text-[#eab308] hover:bg-[rgba(234,179,8,0.08)] disabled:opacity-50 transition inline-flex items-center justify-center"
+                title="Pause payouts"
+              >
+                {mutating ? (
+                  <span className="text-[10px]">…</span>
+                ) : (
+                  <PauseIcon size={13} />
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={() => flipStatus("resume")}
+                disabled={mutating}
+                className="text-[11px] px-3 py-1.5 rounded-lg bg-[var(--accent-dim)] text-[var(--accent)] hover:brightness-110 disabled:opacity-50 transition font-semibold inline-flex items-center gap-1.5"
+              >
+                <PlayIcon size={11} />
+                {mutating ? "…" : "Resume"}
+              </button>
+            )}
+            <button
+              onClick={() => {
+                setMutationError(null);
+                setShowTopupModal(true);
+              }}
+              disabled={mutating}
+              className="gradient-btn text-[11px] px-3 py-1.5 rounded-lg font-semibold disabled:opacity-50 transition"
+            >
+              Top up
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pool progress — thin, full width */}
       <div className="mb-4">
@@ -825,7 +822,7 @@ export default function CampaignDetailPage() {
             <span className="font-mono font-semibold text-[var(--text-primary)]">
               {progress.toFixed(1)}%
             </span>{" "}
-            distributed to traders
+            distributed
           </span>
         </div>
 
@@ -835,15 +832,20 @@ export default function CampaignDetailPage() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-[var(--text-secondary)]">
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-sm bg-[var(--text-secondary)]" />
-              <span className="font-mono font-semibold">{formatSol(stats.seededLamports ?? "0")} SOL</span>
-              <span className="text-[var(--text-muted)]">seeded by creator</span>
+              <span className="font-mono font-semibold">
+                {formatSol(stats.seededLamports ?? "0")} SOL
+              </span>
+              <span className="text-[var(--text-muted)]">
+                seeded by creator
+              </span>
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-sm bg-[var(--accent)]" />
-              <span className="font-mono font-semibold text-[var(--accent)]">+{formatSol(stats.feesClaimedLamports ?? "0")} SOL</span>
+              <span className="font-mono font-semibold text-[var(--accent)]">
+                +{formatSol(stats.feesClaimedLamports ?? "0")} SOL
+              </span>
               <span className="text-[var(--text-muted)]">
                 auto-claimed from trading fees
-                {(stats.feeClaimCount ?? 0) > 0 && ` (${stats.feeClaimCount} claim${stats.feeClaimCount === 1 ? "" : "s"})`}
               </span>
             </span>
             {forecast.kind === "self-sustaining" && (
@@ -853,7 +855,8 @@ export default function CampaignDetailPage() {
                   Self-sustaining
                 </span>
                 <span className="text-[var(--text-muted)]">
-                  fees cover payouts (+{formatSol(forecast.netLamportsPerDay)} SOL/day)
+                  fees cover payouts (+{formatSol(forecast.netLamportsPerDay)}{" "}
+                  SOL/day)
                 </span>
               </span>
             )}
@@ -865,7 +868,8 @@ export default function CampaignDetailPage() {
               <span className="inline-flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-sm bg-[#eab308]" />
                 <span className="font-mono font-semibold text-[#eab308]">
-                  ~{forecast.daysRemaining < 1
+                  ~
+                  {forecast.daysRemaining < 1
                     ? `${(forecast.daysRemaining * 24).toFixed(1)}h`
                     : `${forecast.daysRemaining.toFixed(1)}d`}
                 </span>
@@ -923,7 +927,9 @@ export default function CampaignDetailPage() {
               </span>
               <span className="text-[var(--text-muted)]">traders</span>
               <span className="text-[var(--border)]">·</span>
-              <span className="text-[var(--text-muted)]">processed every ~2 min</span>
+              <span className="text-[var(--text-muted)]">
+                processed every ~2 min
+              </span>
             </div>
           </div>
 
@@ -954,109 +960,114 @@ export default function CampaignDetailPage() {
             see that the protection is live even before the first payout. Kept
             hidden from the public empty-state to avoid showing a promise with
             no proof behind it — non-owners only see it once decisions exist. */}
-        {(isOwner || fraudDecisions.length > 0) && (() => {
-          const blocked = fraudDecisions.filter((d) => d.decision !== "allow");
-          const allowed = fraudDecisions.filter((d) => d.decision === "allow");
-          const hasData = fraudDecisions.length > 0;
-          const blockRate = hasData
-            ? (blocked.length / fraudDecisions.length) * 100
-            : 0;
-          const blockedVolume = blocked.reduce(
-            (sum, d) => sum + BigInt(d.swapVolumeLamports),
-            0n
-          );
-          return (
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Shield size={12} className="text-[var(--accent)]" />
-                <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
-                  AI fraud gate
-                </p>
-                <span className="flex items-center gap-1 text-[9px] text-[var(--text-muted)] font-mono uppercase">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
-                  live
-                </span>
-              </div>
-              {hasData && (
-                <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                  {allowed.length} allowed · {blocked.length} blocked
-                </p>
-              )}
-            </div>
-
-            {blocked.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 mb-3">
-                <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] px-3 py-2">
-                  <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-mono mb-0.5">
-                    Block rate
-                  </p>
-                  <p className="font-mono text-[15px] font-semibold text-[var(--text-primary)]">
-                    {blockRate.toFixed(blockRate < 10 ? 1 : 0)}%
-                  </p>
+        {(isOwner || fraudDecisions.length > 0) &&
+          (() => {
+            const blocked = fraudDecisions.filter(
+              (d) => d.decision !== "allow",
+            );
+            const allowed = fraudDecisions.filter(
+              (d) => d.decision === "allow",
+            );
+            const hasData = fraudDecisions.length > 0;
+            const blockRate = hasData
+              ? (blocked.length / fraudDecisions.length) * 100
+              : 0;
+            const blockedVolume = blocked.reduce(
+              (sum, d) => sum + BigInt(d.swapVolumeLamports),
+              0n,
+            );
+            return (
+              <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Shield size={12} className="text-[var(--accent)]" />
+                    <p className="text-[10px] text-[var(--accent)] uppercase tracking-[0.15em] font-mono font-semibold">
+                      AI fraud gate
+                    </p>
+                    <span className="flex items-center gap-1 text-[9px] text-[var(--text-muted)] font-mono uppercase">
+                      <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
+                      live
+                    </span>
+                  </div>
+                  {hasData && (
+                    <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                      {allowed.length} allowed · {blocked.length} blocked
+                    </p>
+                  )}
                 </div>
-                <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] px-3 py-2">
-                  <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-mono mb-0.5">
-                    Volume filtered
-                  </p>
-                  <p className="font-mono text-[15px] font-semibold text-[var(--accent)]">
-                    {formatSol(blockedVolume)} SOL
-                  </p>
-                </div>
-              </div>
-            )}
 
-            {hasData ? (
-              <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
-                {fraudDecisions.map((d) => (
-                  <div
-                    key={d.id}
-                    className={`py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
-                      freshIds.has(d.id)
-                        ? "ring-1 ring-[var(--accent)]"
-                        : ""
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
-                          d.decision === "allow"
-                            ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                            : d.decision === "reject"
-                              ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
-                              : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                {blocked.length > 0 && (
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] px-3 py-2">
+                      <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-mono mb-0.5">
+                        Block rate
+                      </p>
+                      <p className="font-mono text-[15px] font-semibold text-[var(--text-primary)]">
+                        {blockRate.toFixed(blockRate < 10 ? 1 : 0)}%
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-[var(--bg)] border border-[var(--border)] px-3 py-2">
+                      <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-mono mb-0.5">
+                        Volume filtered
+                      </p>
+                      <p className="font-mono text-[15px] font-semibold text-[var(--accent)]">
+                        {formatSol(blockedVolume)} SOL
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {hasData ? (
+                  <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                    {fraudDecisions.map((d) => (
+                      <div
+                        key={d.id}
+                        className={`py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
+                          freshIds.has(d.id)
+                            ? "ring-1 ring-[var(--accent)]"
+                            : ""
                         }`}
                       >
-                        {d.decision}
-                      </span>
-                      <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
-                        {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
-                      </span>
-                      <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0 ml-auto">
-                        {timeAgo(d.checkedAt)}
-                      </span>
-                    </div>
-                    <p className="text-[var(--text-muted)] text-[11px] italic mt-1 break-words leading-snug">
-                      {d.reasoning}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
+                              d.decision === "allow"
+                                ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                                : d.decision === "reject"
+                                  ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
+                                  : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                            }`}
+                          >
+                            {d.decision}
+                          </span>
+                          <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
+                            {d.traderWallet.slice(0, 4)}...
+                            {d.traderWallet.slice(-4)}
+                          </span>
+                          <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0 ml-auto">
+                            {timeAgo(d.checkedAt)}
+                          </span>
+                        </div>
+                        <p className="text-[var(--text-muted)] text-[11px] italic mt-1 break-words leading-snug">
+                          {d.reasoning}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-[var(--bg)] border border-dashed border-[var(--border)] px-3 py-6 text-center">
+                    <p className="text-[12px] text-[var(--text-secondary)] mb-1">
+                      No payout requests yet.
+                    </p>
+                    <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                      The agent will evaluate every claim before releasing SOL —
+                      decisions and reasoning will appear here.
                     </p>
                   </div>
-                ))}
+                )}
               </div>
-            ) : (
-              <div className="rounded-lg bg-[var(--bg)] border border-dashed border-[var(--border)] px-3 py-6 text-center">
-                <p className="text-[12px] text-[var(--text-secondary)] mb-1">
-                  No payout requests yet.
-                </p>
-                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                  The agent will evaluate every claim before releasing SOL —
-                  decisions and reasoning will appear here.
-                </p>
-              </div>
-            )}
-
-          </div>
-          );
-        })()}
+            );
+          })()}
 
         {/* Recent payouts — compact */}
         <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-4">
@@ -1090,9 +1101,7 @@ export default function CampaignDetailPage() {
                 <div
                   key={p.id}
                   className={`flex items-center gap-2 py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
-                    freshIds.has(p.id)
-                      ? "ring-1 ring-[var(--accent)]"
-                      : ""
+                    freshIds.has(p.id) ? "ring-1 ring-[var(--accent)]" : ""
                   }`}
                 >
                   <span
@@ -1260,8 +1269,8 @@ export default function CampaignDetailPage() {
             <p className="text-[12px] text-[var(--text-muted)] mb-4 leading-relaxed">
               Route a slice of your Bags fee-share to the Tend admin wallet.
               Existing claimers stay — their share is reduced prorata so the
-              total still equals 100%. Each fee claim auto-grows the pool.
-              Safe to re-open later to change the percentage.
+              total still equals 100%. Each fee claim auto-grows the pool. Safe
+              to re-open later to change the percentage.
             </p>
 
             {routeDone ? (
@@ -1270,8 +1279,8 @@ export default function CampaignDetailPage() {
                   Fee-share routed
                 </p>
                 <p className="text-[11px] text-[var(--text-muted)] mb-2">
-                  {routeBps}% of future Bags fees will flow into this pool.
-                  Bags will reflect the change after the next claim.
+                  {routeBps}% of future Bags fees will flow into this pool. Bags
+                  will reflect the change after the next claim.
                 </p>
                 {routeSigs.length > 0 && (
                   <div className="space-y-1">
@@ -1312,12 +1321,16 @@ export default function CampaignDetailPage() {
                   admin can run this.
                 </p>
                 {routeError && (
-                  <p className="text-[11px] text-[#ef4444] mt-2">{routeError}</p>
+                  <p className="text-[11px] text-[#ef4444] mt-2">
+                    {routeError}
+                  </p>
                 )}
                 {routeStep !== "idle" && (
                   <p className="text-[11px] text-[var(--text-muted)] mt-2">
-                    {routeStep === "signing" && "Sign the authorization message…"}
-                    {routeStep === "preparing" && "Asking agent to prepare the update…"}
+                    {routeStep === "signing" &&
+                      "Sign the authorization message…"}
+                    {routeStep === "preparing" &&
+                      "Asking agent to prepare the update…"}
                     {routeStep === "sending" && "Sign the on-chain update…"}
                     {routeStep === "confirming" && "Confirming on-chain…"}
                   </p>
@@ -1364,9 +1377,9 @@ export default function CampaignDetailPage() {
               </h3>
             </div>
             <p className="text-[12px] text-[var(--text-muted)] mb-4 leading-relaxed">
-              Moves your pool into an on-chain vault you own. Pick how much
-              Tend can pay out per day — the agent can never exceed it. You
-              keep the keys and can close the vault anytime.
+              Moves your pool into an on-chain vault you own. Pick how much Tend
+              can pay out per day — the agent can never exceed it. You keep the
+              keys and can close the vault anytime.
             </p>
 
             {provisionDone ? (
@@ -1469,8 +1482,8 @@ export default function CampaignDetailPage() {
                   className="w-full px-3 py-2 rounded-lg bg-[var(--bg)] border border-[var(--border)] font-mono text-[14px] focus:outline-none focus:border-[var(--accent)] disabled:opacity-50"
                 />
                 <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                  Sent from your wallet to the vault in the same tx. Leave 0
-                  to fund later.
+                  Sent from your wallet to the vault in the same tx. Leave 0 to
+                  fund later.
                 </p>
 
                 {provisionError && (
@@ -1544,8 +1557,10 @@ export default function CampaignDetailPage() {
             )}
             {topupStep !== "idle" && (
               <p className="text-[11px] text-[var(--text-muted)] mt-2">
-                {topupStep === "sending" && "Awaiting wallet signature for transfer…"}
-                {topupStep === "confirming" && "Confirming transaction on-chain…"}
+                {topupStep === "sending" &&
+                  "Awaiting wallet signature for transfer…"}
+                {topupStep === "confirming" &&
+                  "Confirming transaction on-chain…"}
                 {topupStep === "signing" && "Sign the authorization message…"}
                 {topupStep === "submitting" && "Submitting to agent…"}
               </p>
