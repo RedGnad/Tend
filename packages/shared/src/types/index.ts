@@ -58,6 +58,10 @@ export interface CashbackCampaign extends BaseCampaign {
   type: "cashback";
   config: {
     cashbackBps: number;
+    /** Minimum swap volume (lamports) for a buy to qualify for cashback. Below
+     *  this, the swap is ignored. Optional for backwards compat — legacy rows
+     *  without the field fall back to the reward floor as the only gate. */
+    minSwapLamports?: string;
   };
 }
 

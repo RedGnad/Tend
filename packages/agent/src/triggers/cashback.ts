@@ -137,7 +137,19 @@ export async function runCashbackTrigger(
     );
   }
 
+  const minSwapLamports = BigInt(campaign.config.minSwapLamports ?? "0");
+
   for (const buy of buys) {
+    // Creator-configured volume floor — rejects sub-threshold buys before the
+    // fraud gate fires, so dust-spam can't exhaust Claude calls or drain the
+    // pool via the MIN_REWARD floor alone.
+    if (minSwapLamports > 0n && buy.solSpentLamports < minSwapLamports) {
+      log(
+        `[rewards:cashback] ${campaign.tokenMint.slice(0, 8)} — swap ${buy.signature.slice(0, 8)} below min (${buy.solSpentLamports} < ${minSwapLamports}), skip`
+      );
+      continue;
+    }
+
     const decision = await checkFraud(bags, campaign, {
       kind: "swap",
       signature: buy.signature,

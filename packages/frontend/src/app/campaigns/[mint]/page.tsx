@@ -501,6 +501,7 @@ export default function CampaignDetailPage() {
         capLamports,
         period: provisionPeriod,
         fundLamports,
+        campaignConfig: detail.campaign.config as Record<string, unknown>,
         connection,
         signMessage,
         sendTransaction,
@@ -1427,14 +1428,10 @@ export default function CampaignDetailPage() {
                 {provisionStep !== "idle" && (
                   <p className="text-[11px] text-[var(--text-muted)] mt-2">
                     {provisionStep === "signing" && "Sign to authorize…"}
-                    {provisionStep === "preparing" && "Preparing transactions…"}
-                    {provisionStep === "sending-multisig" && "Approve vault creation in your wallet…"}
-                    {provisionStep === "confirming-multisig" && "Creating vault on-chain…"}
-                    {provisionStep === "sending-attach" && "Approve spending cap in your wallet…"}
-                    {provisionStep === "confirming-attach" && "Attaching spending cap…"}
+                    {provisionStep === "preparing" && "Preparing the vault…"}
+                    {provisionStep === "sending" && "Approve in your wallet…"}
+                    {provisionStep === "confirming" && "Confirming on-chain…"}
                     {provisionStep === "submitting" && "Finalizing…"}
-                    {provisionStep === "signing-sweep" && "Sign to move the pool…"}
-                    {provisionStep === "sweeping" && "Transferring pool into the vault…"}
                   </p>
                 )}
               </>

@@ -545,7 +545,27 @@ function buildCampaignFromBody(
       if (!Number.isFinite(cashbackBps) || cashbackBps < 1 || cashbackBps > 2000) {
         return { error: "cashbackBps must be between 1 and 2000 (0.01%–20%)" };
       }
-      return { ...base, type: "cashback", config: { cashbackBps } };
+      const rawMin = config.minSwapLamports;
+      let minSwapLamports: string | undefined;
+      if (rawMin !== undefined && rawMin !== null && rawMin !== "") {
+        try {
+          const n = BigInt(String(rawMin));
+          if (n < 0n) {
+            return { error: "minSwapLamports must be ≥ 0" };
+          }
+          minSwapLamports = n.toString();
+        } catch {
+          return { error: "minSwapLamports must be a valid integer string" };
+        }
+      }
+      return {
+        ...base,
+        type: "cashback",
+        config: {
+          cashbackBps,
+          ...(minSwapLamports ? { minSwapLamports } : {}),
+        },
+      };
     }
     case "holder": {
       const rewardBps = Number(config.rewardBps);
@@ -893,6 +913,10 @@ interface SquadsPrepareBody {
   amountLamports?: string;
   period?: SpendingPeriod;
   initialFundingLamports?: string;
+  /** Type-specific campaign config (cashbackBps, rewardBps, etc.). Validated
+   *  here via buildCampaignFromBody so the client can't sneak invalid values
+   *  past the prepare step and into confirm. */
+  campaignConfig?: Record<string, unknown>;
 }
 
 async function handleSquadsProvisionPrepare(
@@ -909,6 +933,7 @@ async function handleSquadsProvisionPrepare(
     publicKey,
     amountLamports,
     period,
+    campaignConfig,
   } = body;
 
   if (
@@ -971,6 +996,16 @@ async function handleSquadsProvisionPrepare(
     }
   }
 
+  // Validate campaign config shape now so the client doesn't discover the
+  // error after paying rent for the Squads tx.
+  const validation = buildCampaignFromBody(
+    { tokenMint, type, publicKey, config: campaignConfig ?? {} },
+    amount.toString()
+  );
+  if ("error" in validation) {
+    return { status: 400, body: { error: validation.error } };
+  }
+
   try {
     const payload = await buildProvisionPrepare(connection, {
       creator: new PublicKey(publicKey),
@@ -982,7 +1017,7 @@ async function handleSquadsProvisionPrepare(
       initialFundingLamports: funding,
     });
     log(
-      `[http] squads-prepare ${tokenMint.slice(0, 8)}/${type} amount=${amount} period=${period} fund=${funding ?? 0} newMs=${payload.multisigCreateTx ? "yes" : "no"}`
+      `[http] squads-prepare ${tokenMint.slice(0, 8)}/${type} amount=${amount} period=${period} fund=${funding ?? 0} newMs=${payload.multisigCreateKey ? "yes" : "no"}`
     );
     return { status: 200, body: { ok: true, ...payload } };
   } catch (err) {
@@ -999,16 +1034,20 @@ interface SquadsConfirmBody {
   signature?: string;
   publicKey?: string;
   multisigCreateKey?: string | null;
-  multisigCreateTxSig?: string | null;
   vaultIndex?: number;
   spendingLimitCreateKey?: string;
-  attachTxSig?: string;
+  /** Signature of the single merged tx (createMs? + attachSL + fundVault?). */
+  mergedTxSig?: string;
   amountLamports?: string;
   period?: SpendingPeriod;
+  /** Full type-specific campaign config — re-validated here before persist so
+   *  the client can't mutate between prepare and confirm. */
+  campaignConfig?: Record<string, unknown>;
 }
 
 async function handleSquadsProvisionConfirm(
   connection: Connection,
+  bags: BagsClient,
   network: "devnet" | "mainnet-beta",
   raw: unknown
 ): Promise<MutationResult> {
@@ -1021,9 +1060,10 @@ async function handleSquadsProvisionConfirm(
     publicKey,
     vaultIndex,
     spendingLimitCreateKey,
-    attachTxSig,
+    mergedTxSig,
     amountLamports,
     period,
+    campaignConfig,
   } = body;
 
   if (
@@ -1034,7 +1074,7 @@ async function handleSquadsProvisionConfirm(
     !publicKey ||
     vaultIndex == null ||
     !spendingLimitCreateKey ||
-    !attachTxSig ||
+    !mergedTxSig ||
     !amountLamports ||
     !period
   ) {
@@ -1042,7 +1082,7 @@ async function handleSquadsProvisionConfirm(
       status: 400,
       body: {
         error:
-          "Missing fields: tokenMint, type, message, signature, publicKey, vaultIndex, spendingLimitCreateKey, attachTxSig, amountLamports, period",
+          "Missing fields: tokenMint, type, message, signature, publicKey, vaultIndex, spendingLimitCreateKey, mergedTxSig, amountLamports, period",
       },
     };
   }
@@ -1073,16 +1113,43 @@ async function handleSquadsProvisionConfirm(
     return { status: 400, body: { error: "amountLamports not parseable as BigInt" } };
   }
 
+  // Re-validate campaign config — the orchestrator stores whatever we give it,
+  // so we must not trust the prepare→confirm round-trip.
+  const validated = buildCampaignFromBody(
+    { tokenMint, type, publicKey, config: campaignConfig ?? {} },
+    amount.toString()
+  );
+  if ("error" in validated) {
+    return { status: 400, body: { error: validated.error } };
+  }
+
+  // Best-effort Metaplex metadata fetch so the UI shows $SYMBOL instead of
+  // the mint prefix. Non-fatal: missing metadata account just means the
+  // frontend falls back to the truncated-mint display.
+  const tokenMetadata = await bags.getTokenMetadata(tokenMint).catch((err) => {
+    logError("[squads-confirm] getTokenMetadata failed (non-fatal):", err);
+    return null;
+  });
+  const tokenInfo =
+    tokenMetadata?.name || tokenMetadata?.symbol
+      ? {
+          name: tokenMetadata.name || tokenMetadata.symbol || "",
+          symbol: tokenMetadata.symbol || tokenMetadata.name || "",
+        }
+      : undefined;
+
   try {
     const result = await persistProvisionCommit(connection, {
       creatorWallet: publicKey,
       tokenMint,
       type,
+      poolCapLamports: amount.toString(),
+      campaignConfig: validated.config as Record<string, unknown>,
+      tokenInfo,
       multisigCreateKey: body.multisigCreateKey ?? null,
-      multisigCreateTxSig: body.multisigCreateTxSig ?? null,
       vaultIndex,
       spendingLimitCreateKey,
-      attachTxSig,
+      mergedTxSig,
       amountLamports: amount,
       period,
       network,
@@ -1319,6 +1386,7 @@ async function main() {
         const body = await readJsonBody(req);
         const result = await handleSquadsProvisionConfirm(
           bags.connection,
+          bags,
           network,
           body
         );

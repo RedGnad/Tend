@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useWallet, useConnection } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import {
-  PublicKey,
-  SystemProgram,
-  Transaction,
-  VersionedTransaction,
-} from "@solana/web3.js";
+import { PublicKey, VersionedTransaction } from "@solana/web3.js";
 import bs58 from "bs58";
 import { provisionSquadsCustody } from "@/lib/provision-squads";
 import {
@@ -51,19 +46,11 @@ function buildAuthMessage(p: {
 type CreateStep =
   | "idle"
   | "fetching"
-  | "sending"
-  | "confirming"
-  | "signing"
-  | "submitting"
   | "prov-signing"
   | "prov-preparing"
-  | "prov-sending-multisig"
-  | "prov-confirming-multisig"
-  | "prov-sending-attach"
-  | "prov-confirming-attach"
-  | "prov-submitting"
-  | "prov-signing-sweep"
-  | "prov-sweeping";
+  | "prov-sending"
+  | "prov-confirming"
+  | "prov-submitting";
 
 type RouteStep =
   | "idle"
@@ -90,6 +77,7 @@ interface FormState {
   type: CampaignType;
   poolCapSol: string;
   cashbackPct: string;
+  cashbackMinSwapSol: string;
   rewardPct: string;
   minHoldHours: string;
   snapshotHours: string;
@@ -103,6 +91,7 @@ const DEFAULTS: FormState = {
   type: "cashback",
   poolCapSol: "0.05",
   cashbackPct: "2",
+  cashbackMinSwapSol: "0.01",
   rewardPct: "1",
   minHoldHours: "1",
   snapshotHours: "2",
@@ -324,6 +313,16 @@ export default function CreatorPage() {
         return;
       }
       config.cashbackBps = bps;
+      const minSwapSol = parseFloat(form.cashbackMinSwapSol);
+      if (!Number.isFinite(minSwapSol) || minSwapSol < 0) {
+        setError("Min swap volume must be ≥ 0 SOL");
+        return;
+      }
+      if (minSwapSol > 0) {
+        config.minSwapLamports = Math.round(
+          minSwapSol * 1_000_000_000
+        ).toString();
+      }
     } else if (form.type === "holder") {
       const bps = Math.round(parseFloat(form.rewardPct) * 100);
       const minHold = parseFloat(form.minHoldHours);
@@ -368,19 +367,13 @@ export default function CreatorPage() {
     setError(null);
 
     try {
-      // 1. Fetch admin wallet (funding destination) and existing campaigns
+      // Pre-flight: refuse before the user signs when a live or paused
+      // campaign of the same (mint, type) already exists. The agent re-checks
+      // this server-side, but surfacing it here avoids a wallet popup only
+      // to see it fail.
       setStep("fetching");
       const listRes = await fetch("/api/campaigns");
       const listData = await listRes.json().catch(() => ({}));
-      const adminWallet: string | null = listData.adminWallet ?? null;
-      if (!adminWallet) {
-        throw new Error("Admin wallet unavailable — agent not configured");
-      }
-
-      // Pre-flight: refuse before the user signs a SOL transfer when a live
-      // or paused campaign of the same (mint, type) already exists.
-      // Without this, the SOL would be transferred to the admin wallet and
-      // the agent would reject the create — leaving the user's SOL trapped.
       const existing: Array<{
         tokenMint: string;
         type: string;
@@ -403,83 +396,24 @@ export default function CreatorPage() {
         );
       }
 
-      // 2. Build + send SOL transfer to fund the pool
-      setStep("sending");
-      const { blockhash, lastValidBlockHeight } =
-        await connection.getLatestBlockhash("confirmed");
-      const tx = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new PublicKey(adminWallet),
-          lamports,
-        })
-      );
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = publicKey;
-      const txSig = await sendTransaction(tx, connection);
-
-      // 3. Wait for confirmation
-      setStep("confirming");
-      await connection.confirmTransaction(
-        { signature: txSig, blockhash, lastValidBlockHeight },
-        "confirmed"
-      );
-
-      // 4. Sign auth message
-      setStep("signing");
-      const timestampMs = Date.now();
-      const message = buildAuthMessage({
-        action: "create",
-        mint: tokenMint,
+      // Single provision flow: one signMessage + one merged tx that creates
+      // the Squads multisig, attaches the SpendingLimit, and funds the vault.
+      // The agent persists the campaign row only after the tx confirms, so a
+      // cancelled signature leaves no orphan state.
+      await provisionSquadsCustody({
+        tokenMint,
         type: form.type,
-        timestampMs,
+        publicKeyB58: publicKey.toBase58(),
+        capLamports: BigInt(lamports),
+        period: "day",
+        fundLamports: BigInt(lamports),
+        campaignConfig: config,
+        connection,
+        signMessage,
+        sendTransaction,
+        onStep: (s) => setStep(`prov-${s}` as CreateStep),
       });
-      const sigBytes = await signMessage(new TextEncoder().encode(message));
-
-      // 5. POST to agent
-      setStep("submitting");
-      const res = await fetch("/api/campaigns/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tokenMint,
-          type: form.type,
-          message,
-          signature: bs58.encode(sigBytes),
-          publicKey: publicKey.toBase58(),
-          txSig,
-          config,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || `Failed to create campaign (${res.status})`);
-      }
-
-      // 6. Chain Squads custody provision — mandatory for the money path.
-      //    Cap = full pool, period = day.  The sweep inside the helper moves
-      //    the admin-held deposit into the Squads vault PDA.  On failure the
-      //    campaign is created but not payout-capable — user resumes from
-      //    the campaign page modal (helper is idempotent).
-      try {
-        await provisionSquadsCustody({
-          tokenMint,
-          type: form.type,
-          publicKeyB58: publicKey.toBase58(),
-          capLamports: BigInt(lamports),
-          period: "day",
-          connection,
-          signMessage,
-          sendTransaction,
-          onStep: (s) => setStep(`prov-${s}` as CreateStep),
-        });
-        setSuccess(true);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Vault setup failed";
-        setError(
-          `Campaign created, but vault setup didn't finish (${msg}). Open the campaign and click "Finish vault setup" to resume.`
-        );
-      }
+      setSuccess(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -982,24 +916,44 @@ export default function CreatorPage() {
 
             {/* Type-specific params */}
             {form.type === "cashback" && (
-              <div className="mb-5">
-                <label className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-semibold mb-2 block">
-                  Cashback rate (%)
-                </label>
-                <input
-                  type="number"
-                  value={form.cashbackPct}
-                  onChange={(e) => set("cashbackPct", e.target.value)}
-                  step="0.5"
-                  min="0.1"
-                  max="50"
-                  className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3 text-[13px] font-mono focus:outline-none focus:border-[var(--accent)] transition-colors"
-                />
-                <p className="text-[10px] text-[var(--text-muted)] mt-1">
-                  % of each qualifying buy returned as SOL cashback
-                </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                <div>
+                  <label className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-semibold mb-2 block">
+                    Cashback rate (%)
+                  </label>
+                  <input
+                    type="number"
+                    value={form.cashbackPct}
+                    onChange={(e) => set("cashbackPct", e.target.value)}
+                    step="0.5"
+                    min="0.1"
+                    max="50"
+                    className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3 text-[13px] font-mono focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  />
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                    % of each qualifying buy returned as SOL cashback
+                  </p>
+                </div>
+                <div>
+                  <label className="text-[11px] text-[var(--text-muted)] uppercase tracking-wider font-semibold mb-2 block">
+                    Min swap volume (SOL)
+                  </label>
+                  <input
+                    type="number"
+                    value={form.cashbackMinSwapSol}
+                    onChange={(e) =>
+                      set("cashbackMinSwapSol", e.target.value)
+                    }
+                    step="0.005"
+                    min="0"
+                    className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3 text-[13px] font-mono focus:outline-none focus:border-[var(--accent)] transition-colors"
+                  />
+                  <p className="text-[10px] text-[var(--text-muted)] mt-1">
+                    Buys below this size are ignored (anti-spam floor). 0 = no floor.
+                  </p>
+                </div>
                 {parseFloat(form.cashbackPct) > 3 && (
-                  <div className="mt-2 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-[11px] text-amber-200/90 leading-relaxed">
+                  <div className="sm:col-span-2 mt-1 rounded-lg border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 text-[11px] text-amber-200/90 leading-relaxed">
                     <span className="font-semibold">High burn rate.</span>{" "}
                     Bags creator fees are ~1–2% of volume. Above 3% cashback, the pool
                     depletes faster than fees can refill it — you&apos;ll need to top up
@@ -1157,20 +1111,12 @@ export default function CreatorPage() {
               {submitting ? (
                 <>
                   <Loader2 size={16} className="animate-spin" />
-                  {step === "fetching" && "Checking setup…"}
-                  {step === "sending" && "Sending your deposit…"}
-                  {step === "confirming" && "Confirming deposit on-chain…"}
-                  {step === "signing" && "Sign to authorize the campaign…"}
-                  {step === "submitting" && "Registering the campaign…"}
-                  {step === "prov-signing" && "Sign to secure your pool…"}
+                  {step === "fetching" && "Checking for conflicts…"}
+                  {step === "prov-signing" && "Sign to authorize the campaign…"}
                   {step === "prov-preparing" && "Preparing the vault…"}
-                  {step === "prov-sending-multisig" && "Approve vault creation in your wallet…"}
-                  {step === "prov-confirming-multisig" && "Creating vault on-chain…"}
-                  {step === "prov-sending-attach" && "Approve spending rules in your wallet…"}
-                  {step === "prov-confirming-attach" && "Locking in spending rules…"}
-                  {step === "prov-submitting" && "Finalizing custody…"}
-                  {step === "prov-signing-sweep" && "Sign to move the pool into the vault…"}
-                  {step === "prov-sweeping" && "Moving the pool into the vault…"}
+                  {step === "prov-sending" && "Approve in your wallet…"}
+                  {step === "prov-confirming" && "Confirming on-chain…"}
+                  {step === "prov-submitting" && "Registering the campaign…"}
                   {step === "idle" && "Working…"}
                 </>
               ) : !connected ? (
@@ -1184,8 +1130,8 @@ export default function CreatorPage() {
             </button>
             {submitting && (
               <p className="text-[11px] text-[var(--text-muted)] text-center mt-3">
-                A few wallet prompts: fund the pool, authorize the campaign,
-                then approve the on-chain vault that will custody your SOL.
+                Two wallet prompts: one to authorize the campaign, one to
+                approve the on-chain vault that will custody and pay out your SOL.
               </p>
             )}
 
