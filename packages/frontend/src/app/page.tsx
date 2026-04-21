@@ -132,10 +132,21 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
       <div className="relative bg-[var(--bg-card)] rounded-[23px] p-8 md:p-10">
         <div className="absolute -top-20 -right-20 w-[320px] h-[320px] rounded-full blur-[100px] bg-[var(--accent)] opacity-[0.08] pointer-events-none" />
         <div className="relative">
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2 mb-6 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider bg-[var(--accent-dim)] text-[var(--accent)]">
               <Sparkles size={10} />
               Featured
+            </span>
+            <span
+              className={`inline-flex items-center text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
+                c.type === "holder"
+                  ? "bg-[rgba(168,85,247,0.14)] text-[#c084fc]"
+                  : c.type === "cashback"
+                    ? "bg-[rgba(6,182,212,0.14)] text-[#22d3ee]"
+                    : "bg-[rgba(249,115,22,0.14)] text-[#fb923c]"
+              }`}
+            >
+              {c.type}
             </span>
             <span
               className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
@@ -244,7 +255,7 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
       href={`/campaigns/${c.tokenMint}?type=${c.type}`}
       className="block bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 hover:border-[var(--border-hover)] transition-colors group"
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center font-bold font-display gradient-text flex-shrink-0">
             {symbol.charAt(0)}
@@ -256,22 +267,35 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
             </p>
           </div>
         </div>
-        <span
-          className={`inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-            c.status === "live"
-              ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-              : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
-          }`}
-        >
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           <span
-            className={`w-1.5 h-1.5 rounded-full ${
-              c.status === "live"
-                ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]"
-                : "bg-[#eab308]"
+            className={`inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+              c.type === "holder"
+                ? "bg-[rgba(168,85,247,0.14)] text-[#c084fc]"
+                : c.type === "cashback"
+                  ? "bg-[rgba(6,182,212,0.14)] text-[#22d3ee]"
+                  : "bg-[rgba(249,115,22,0.14)] text-[#fb923c]"
             }`}
-          />
-          {c.status}
-        </span>
+          >
+            {c.type}
+          </span>
+          <span
+            className={`inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+              c.status === "live"
+                ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                c.status === "live"
+                  ? "bg-[var(--accent)] shadow-[0_0_4px_var(--accent)]"
+                  : "bg-[#eab308]"
+              }`}
+            />
+            {c.status}
+          </span>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-4">

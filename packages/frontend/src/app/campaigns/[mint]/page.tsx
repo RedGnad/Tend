@@ -712,19 +712,18 @@ export default function CampaignDetailPage() {
               {campaign.squadsSpendingLimitPda ? (
                 <span
                   className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono tracking-wider px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
-                  title="Funds held in an audited Squads vault. The agent can only spend up to this cap per period — no unbounded withdrawals."
+                  title="Funds sit in an audited Squads vault. The agent can spend at most this amount per period — it cannot drain the pool beyond the cap."
                 >
                   <Lock size={10} />
                   <span>
-                    Vault ·{" "}
+                    Agent capped ·{" "}
                     {campaign.squadsSpendingLimitAmountLamports
                       ? formatSol(campaign.squadsSpendingLimitAmountLamports)
                       : "—"}{" "}
                     SOL /{" "}
                     {campaign.squadsSpendingLimitPeriod === "oneTime"
                       ? "total"
-                      : campaign.squadsSpendingLimitPeriod ?? "period"}{" "}
-                    cap
+                      : campaign.squadsSpendingLimitPeriod ?? "period"}
                   </span>
                 </span>
               ) : (
@@ -812,18 +811,15 @@ export default function CampaignDetailPage() {
             style={{ width: `${progress}%` }}
           />
         </div>
-        <div className="flex items-center justify-between text-[11px] mt-1.5">
+        <div className="flex items-center text-[11px] mt-1.5">
+          {/* "SOL remaining" is already the primary stat in the header —
+              showing it twice clutters the progress row. Keep just the
+              distribution progress here. */}
           <span className="text-[var(--text-secondary)]">
             <span className="font-mono font-semibold text-[var(--text-primary)]">
               {progress.toFixed(1)}%
             </span>{" "}
-            distributed
-          </span>
-          <span className="text-[var(--text-secondary)]">
-            <span className="font-mono font-semibold text-[var(--accent)]">
-              {formatSol(remaining)} SOL
-            </span>{" "}
-            remaining
+            distributed to traders
           </span>
         </div>
 
@@ -855,16 +851,20 @@ export default function CampaignDetailPage() {
                 </span>
               </span>
             )}
-            {forecast.kind === "depleting" && (
+            {/* Runway is noise when the pool has months of life left. Only
+                surface it as a warning when depletion is imminent (<30 days),
+                where the creator actually needs to act (top up / raise the
+                auto-refuel %). */}
+            {forecast.kind === "depleting" && forecast.daysRemaining < 30 && (
               <span className="inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-sm bg-[var(--text-secondary)]" />
-                <span className="font-mono font-semibold text-[var(--text-primary)]">
+                <span className="w-2 h-2 rounded-sm bg-[#eab308]" />
+                <span className="font-mono font-semibold text-[#eab308]">
                   ~{forecast.daysRemaining < 1
                     ? `${(forecast.daysRemaining * 24).toFixed(1)}h`
                     : `${forecast.daysRemaining.toFixed(1)}d`}
                 </span>
                 <span className="text-[var(--text-muted)]">
-                  pool runway at current rate
+                  of runway left — consider topping up
                 </span>
               </span>
             )}
@@ -944,11 +944,17 @@ export default function CampaignDetailPage() {
 
       {/* Bottom row: fraud gate + recent payouts side by side */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* AI Fraud Gate — compact table */}
-        {fraudDecisions.length > 0 && (() => {
+        {/* AI Fraud Gate — always rendered for the campaign owner so they can
+            see that the protection is live even before the first payout. Kept
+            hidden from the public empty-state to avoid showing a promise with
+            no proof behind it — non-owners only see it once decisions exist. */}
+        {(isOwner || fraudDecisions.length > 0) && (() => {
           const blocked = fraudDecisions.filter((d) => d.decision !== "allow");
           const allowed = fraudDecisions.filter((d) => d.decision === "allow");
-          const blockRate = (blocked.length / fraudDecisions.length) * 100;
+          const hasData = fraudDecisions.length > 0;
+          const blockRate = hasData
+            ? (blocked.length / fraudDecisions.length) * 100
+            : 0;
           const blockedVolume = blocked.reduce(
             (sum, d) => sum + BigInt(d.swapVolumeLamports),
             0n
@@ -966,9 +972,11 @@ export default function CampaignDetailPage() {
                   live
                 </span>
               </div>
-              <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                {allowed.length} allowed · {blocked.length} blocked
-              </p>
+              {hasData && (
+                <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                  {allowed.length} allowed · {blocked.length} blocked
+                </p>
+              )}
             </div>
 
             {blocked.length > 0 && (
@@ -992,41 +1000,53 @@ export default function CampaignDetailPage() {
               </div>
             )}
 
-            <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
-              {fraudDecisions.map((d) => (
-                <div
-                  key={d.id}
-                  className={`py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
-                    freshIds.has(d.id)
-                      ? "ring-1 ring-[var(--accent)]"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
-                        d.decision === "allow"
-                          ? "bg-[var(--accent-dim)] text-[var(--accent)]"
-                          : d.decision === "reject"
-                            ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
-                            : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
-                      }`}
-                    >
-                      {d.decision}
-                    </span>
-                    <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
-                      {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
-                    </span>
-                    <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0 ml-auto">
-                      {timeAgo(d.checkedAt)}
-                    </span>
+            {hasData ? (
+              <div className="space-y-1.5 max-h-[320px] overflow-y-auto pr-1">
+                {fraudDecisions.map((d) => (
+                  <div
+                    key={d.id}
+                    className={`py-1.5 px-2 rounded-lg bg-[var(--bg)] text-[12px] transition-all ${
+                      freshIds.has(d.id)
+                        ? "ring-1 ring-[var(--accent)]"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase flex-shrink-0 ${
+                          d.decision === "allow"
+                            ? "bg-[var(--accent-dim)] text-[var(--accent)]"
+                            : d.decision === "reject"
+                              ? "bg-[rgba(239,68,68,0.12)] text-[#ef4444]"
+                              : "bg-[rgba(234,179,8,0.12)] text-[#eab308]"
+                        }`}
+                      >
+                        {d.decision}
+                      </span>
+                      <span className="font-mono text-[var(--text-secondary)] flex-shrink-0">
+                        {d.traderWallet.slice(0, 4)}...{d.traderWallet.slice(-4)}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-muted)] font-mono flex-shrink-0 ml-auto">
+                        {timeAgo(d.checkedAt)}
+                      </span>
+                    </div>
+                    <p className="text-[var(--text-muted)] text-[11px] italic mt-1 break-words leading-snug">
+                      {d.reasoning}
+                    </p>
                   </div>
-                  <p className="text-[var(--text-muted)] text-[11px] italic mt-1 break-words leading-snug">
-                    {d.reasoning}
-                  </p>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg bg-[var(--bg)] border border-dashed border-[var(--border)] px-3 py-6 text-center">
+                <p className="text-[12px] text-[var(--text-secondary)] mb-1">
+                  No payout requests yet.
+                </p>
+                <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
+                  The agent will evaluate every claim before releasing SOL —
+                  decisions and reasoning will appear here.
+                </p>
+              </div>
+            )}
 
           </div>
           );
@@ -1235,6 +1255,7 @@ export default function CampaignDetailPage() {
               Route a slice of your Bags fee-share to the Tend admin wallet.
               Existing claimers stay — their share is reduced prorata so the
               total still equals 100%. Each fee claim auto-grows the pool.
+              Safe to re-open later to change the percentage.
             </p>
 
             {routeDone ? (
