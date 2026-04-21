@@ -753,20 +753,15 @@ export default function CampaignDetailPage() {
                       / {periodLabel}
                     </span>
                     {stats.spendingLimit && capLamports > 0n && (
-                      <>
+                      <span
+                        className="inline-block w-12 h-1 rounded-full overflow-hidden bg-[rgba(0,255,178,0.18)]"
+                        aria-hidden="true"
+                      >
                         <span
-                          className="inline-block w-12 h-1 rounded-full overflow-hidden bg-[rgba(0,255,178,0.18)]"
-                          aria-hidden="true"
-                        >
-                          <span
-                            className="block h-full bg-[var(--accent)] transition-all"
-                            style={{ width: `${usedPct}%` }}
-                          />
-                        </span>
-                        <span className="font-mono text-[10px] text-[var(--text-secondary)] whitespace-nowrap">
-                          {formatSol(usedLamports)} used
-                        </span>
-                      </>
+                          className="block h-full bg-[var(--accent)] transition-all"
+                          style={{ width: `${usedPct}%` }}
+                        />
+                      </span>
                     )}
                   </span>
                 );
