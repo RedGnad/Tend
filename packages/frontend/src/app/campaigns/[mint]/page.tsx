@@ -602,13 +602,27 @@ export default function CampaignDetailPage() {
             {symbol.charAt(0)}
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-lg font-bold font-display">${symbol}</h1>
               {name !== symbol && (
                 <span className="text-[13px] text-[var(--text-muted)] truncate">
                   {name}
                 </span>
               )}
+              {/* Type badge — colour-coded so creators & traders instantly see
+                  whether this is a trader-facing cashback pool, a holder
+                  snapshot airdrop, or a time-boxed sprint. */}
+              <span
+                className={`inline-flex items-center text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                  campaign.type === "holder"
+                    ? "bg-[rgba(168,85,247,0.14)] text-[#c084fc]"
+                    : campaign.type === "cashback"
+                      ? "bg-[rgba(6,182,212,0.14)] text-[#22d3ee]"
+                      : "bg-[rgba(249,115,22,0.14)] text-[#fb923c]"
+                }`}
+              >
+                {campaign.type}
+              </span>
               <span
                 className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
                   isLive
@@ -697,11 +711,21 @@ export default function CampaignDetailPage() {
               <span className="hidden sm:block w-px h-4 bg-[var(--border)]" />
               {campaign.squadsSpendingLimitPda ? (
                 <span
-                  className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
-                  title="Pool custodied in an audited on-chain vault with per-period spend caps"
+                  className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono tracking-wider px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
+                  title="Funds held in an audited Squads vault. The agent can only spend up to this cap per period — no unbounded withdrawals."
                 >
                   <Lock size={10} />
-                  Vault secured
+                  <span>
+                    Vault ·{" "}
+                    {campaign.squadsSpendingLimitAmountLamports
+                      ? formatSol(campaign.squadsSpendingLimitAmountLamports)
+                      : "—"}{" "}
+                    SOL /{" "}
+                    {campaign.squadsSpendingLimitPeriod === "oneTime"
+                      ? "total"
+                      : campaign.squadsSpendingLimitPeriod ?? "period"}{" "}
+                    cap
+                  </span>
                 </span>
               ) : (
                 <button
@@ -1092,7 +1116,9 @@ export default function CampaignDetailPage() {
                 Fee-claim events
               </p>
             </div>
-            <div className="space-y-1.5">
+            {/* Capped server-side at 20, but a busy pool still stacks ~640px.
+                Keep the section height stable so siblings don't shift. */}
+            <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
               {feeClaims.map((e) => (
                 <div
                   key={e.createdAt + (e.signatures[0] ?? "")}
@@ -1133,7 +1159,7 @@ export default function CampaignDetailPage() {
                 Funding history
               </p>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 max-h-[280px] overflow-y-auto pr-1">
               {deposits.map((d) => (
                 <div
                   key={d.txSig}

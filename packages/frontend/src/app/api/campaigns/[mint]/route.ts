@@ -48,8 +48,16 @@ export async function GET(
     0n
   );
 
+  // Legacy decisions (pre-multi-campaign schema) lack `campaignType` — we used
+  // to accept them as a fallback, but that leaks a sprint's fraud entry onto a
+  // same-mint holder page. Require an exact type match; orphan legacy rows age
+  // out via the 20-slice cap within days.
   const fraudDecisions = (state.fraudDecisions ?? [])
-    .filter((d) => d.tokenMint === mint && (!(d as any).campaignType || (d as any).campaignType === campaign.type))
+    .filter(
+      (d) =>
+        d.tokenMint === mint &&
+        (d as { campaignType?: string }).campaignType === campaign.type
+    )
     .sort((a, b) => b.checkedAt - a.checkedAt)
     .slice(0, 20);
 
