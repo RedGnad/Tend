@@ -811,7 +811,7 @@ export default function CampaignDetailPage() {
 
       {/* Pool progress — thin, full width */}
       <div className="mb-4">
-        <div className="h-1 w-full bg-[var(--bg-card)] rounded-full overflow-hidden">
+        <div className="h-1.5 w-full bg-[var(--border)] rounded-full overflow-hidden">
           <div
             className="h-full bg-[var(--accent)] transition-all"
             style={{ width: `${progress}%` }}

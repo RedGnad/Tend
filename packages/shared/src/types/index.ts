@@ -159,6 +159,12 @@ export interface FraudDecision {
   flags: string[];
   model: string;
   checkedAt: number;
+  /** Required since 2026-04-21 — dashboard scopes decisions to the exact
+   * campaign they protected, so the same mint running both a sprint and a
+   * holder campaign doesn't cross-surface entries. Optional on the type to
+   * stay backward-compatible with rows written before this field existed;
+   * those legacy rows are filtered out of the UI on purpose. */
+  campaignType?: "cashback" | "holder" | "sprint";
   /** snapshot of what the model saw, useful for audit + dashboard */
   walletContext: {
     walletAgeHours: number | null;

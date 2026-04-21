@@ -137,6 +137,9 @@ function rowToFraudDecision(r: FraudDecisionRow): FraudDecision {
     model: r.model,
     checkedAt: r.checkedAt,
     walletContext: r.walletContext as FraudDecision["walletContext"],
+    ...(r.campaignType
+      ? { campaignType: r.campaignType as FraudDecision["campaignType"] }
+      : {}),
   };
 }
 
@@ -366,6 +369,7 @@ async function diffAndPersist(
       newFrauds.map((f) => ({
         id: f.id,
         tokenMint: f.tokenMint,
+        campaignType: f.campaignType ?? null,
         traderWallet: f.traderWallet,
         swapTxSig: f.swapTxSig,
         swapVolumeLamports: f.swapVolumeLamports,

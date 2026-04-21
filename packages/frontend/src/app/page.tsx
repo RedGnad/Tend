@@ -114,39 +114,57 @@ function CyclingWord({
   );
 }
 
+function typeRibbonColors(type: Campaign["type"]): {
+  bg: string;
+  text: string;
+  ring: string;
+} {
+  switch (type) {
+    case "holder":
+      return {
+        bg: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)",
+        text: "#fff",
+        ring: "rgba(168,85,247,0.35)",
+      };
+    case "cashback":
+      return {
+        bg: "linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%)",
+        text: "#06242a",
+        ring: "rgba(6,182,212,0.35)",
+      };
+    case "sprint":
+      return {
+        bg: "linear-gradient(135deg, #fb923c 0%, #ea580c 100%)",
+        text: "#2a1206",
+        ring: "rgba(249,115,22,0.35)",
+      };
+  }
+}
+
 function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
   const progress = poolProgress(c);
   const remaining = BigInt(c.poolCapLamports) - BigInt(c.poolSpentLamports);
   const symbol = c.tokenInfo?.symbol ?? c.tokenMint.slice(0, 4).toUpperCase();
   const name = c.tokenInfo?.name ?? symbol;
+  const ribbon = typeRibbonColors(c.type);
 
   return (
-    <Link
-      href={`/campaigns/${c.tokenMint}?type=${c.type}`}
-      className="block relative overflow-hidden rounded-3xl p-px group"
-      style={{
-        background:
-          "linear-gradient(135deg, rgba(0,255,178,0.35), rgba(0,255,178,0.02) 45%, rgba(0,255,178,0.25))",
-      }}
-    >
-      <div className="relative bg-[var(--bg-card)] rounded-[23px] p-8 md:p-10">
-        <div className="absolute -top-20 -right-20 w-[320px] h-[320px] rounded-full blur-[100px] bg-[var(--accent)] opacity-[0.08] pointer-events-none" />
+    <div className="relative">
+      <Link
+        href={`/campaigns/${c.tokenMint}?type=${c.type}`}
+        className="block relative overflow-hidden rounded-3xl p-px group"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(0,255,178,0.35), rgba(0,255,178,0.02) 45%, rgba(0,255,178,0.25))",
+        }}
+      >
+        <div className="relative bg-[var(--bg-card)] rounded-[23px] p-8 md:p-10">
+          <div className="absolute -top-20 -right-20 w-[320px] h-[320px] rounded-full blur-[100px] bg-[var(--accent)] opacity-[0.08] pointer-events-none" />
         <div className="relative">
           <div className="flex items-center gap-2 mb-6 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider bg-[var(--accent-dim)] text-[var(--accent)]">
               <Sparkles size={10} />
               Featured
-            </span>
-            <span
-              className={`inline-flex items-center text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
-                c.type === "holder"
-                  ? "bg-[rgba(168,85,247,0.14)] text-[#c084fc]"
-                  : c.type === "cashback"
-                    ? "bg-[rgba(6,182,212,0.14)] text-[#22d3ee]"
-                    : "bg-[rgba(249,115,22,0.14)] text-[#fb923c]"
-              }`}
-            >
-              {c.type}
             </span>
             <span
               className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-1 rounded-full font-semibold uppercase tracking-wider ${
@@ -224,7 +242,7 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
             </div>
           </div>
 
-          <div className="h-1.5 w-full bg-[var(--bg)] rounded-full overflow-hidden mb-5">
+          <div className="h-2 w-full bg-[var(--border)] rounded-full overflow-hidden mb-5">
             <div
               className="h-full bg-[var(--accent)] transition-all"
               style={{ width: `${progress}%` }}
@@ -241,7 +259,18 @@ function FeaturedCampaign({ c }: { c: CampaignWithStats }) {
           </div>
         </div>
       </div>
-    </Link>
+      </Link>
+      <span
+        className="pointer-events-none absolute top-0 right-6 md:right-10 -translate-y-1/2 rotate-[4deg] px-4 py-1.5 text-[12px] md:text-[13px] font-bold uppercase tracking-[0.18em] rounded-md font-display select-none"
+        style={{
+          background: ribbon.bg,
+          color: ribbon.text,
+          boxShadow: `0 10px 24px -8px ${ribbon.ring}, 0 2px 6px -2px rgba(0,0,0,0.35)`,
+        }}
+      >
+        {c.type}
+      </span>
+    </div>
   );
 }
 
@@ -249,12 +278,14 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
   const progress = poolProgress(c);
   const remaining = BigInt(c.poolCapLamports) - BigInt(c.poolSpentLamports);
   const symbol = c.tokenInfo?.symbol ?? c.tokenMint.slice(0, 4).toUpperCase();
+  const ribbon = typeRibbonColors(c.type);
 
   return (
-    <Link
-      href={`/campaigns/${c.tokenMint}?type=${c.type}`}
-      className="block bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 hover:border-[var(--border-hover)] transition-colors group"
-    >
+    <div className="relative">
+      <Link
+        href={`/campaigns/${c.tokenMint}?type=${c.type}`}
+        className="block bg-[var(--bg-card)] border border-[var(--border)] rounded-2xl p-5 hover:border-[var(--border-hover)] transition-colors group"
+      >
       <div className="flex items-center justify-between mb-4 gap-2">
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center font-bold font-display gradient-text flex-shrink-0">
@@ -268,17 +299,6 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
           </div>
         </div>
         <div className="flex items-center gap-1.5 flex-shrink-0">
-          <span
-            className={`inline-flex items-center text-[9px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-              c.type === "holder"
-                ? "bg-[rgba(168,85,247,0.14)] text-[#c084fc]"
-                : c.type === "cashback"
-                  ? "bg-[rgba(6,182,212,0.14)] text-[#22d3ee]"
-                  : "bg-[rgba(249,115,22,0.14)] text-[#fb923c]"
-            }`}
-          >
-            {c.type}
-          </span>
           <span
             className={`inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
               c.status === "live"
@@ -323,7 +343,7 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
         </div>
       </div>
 
-      <div className="h-1 w-full bg-[var(--bg)] rounded-full overflow-hidden mb-3">
+      <div className="h-1.5 w-full bg-[var(--border)] rounded-full overflow-hidden mb-3">
         <div
           className="h-full bg-[var(--accent)] transition-all"
           style={{ width: `${progress}%` }}
@@ -339,7 +359,18 @@ function CampaignCard({ c }: { c: CampaignWithStats }) {
           Join <ArrowRight size={11} />
         </span>
       </div>
-    </Link>
+      </Link>
+      <span
+        className="pointer-events-none absolute top-0 right-4 -translate-y-1/2 rotate-[4deg] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.16em] rounded-md font-display select-none"
+        style={{
+          background: ribbon.bg,
+          color: ribbon.text,
+          boxShadow: `0 6px 16px -6px ${ribbon.ring}, 0 1px 3px -1px rgba(0,0,0,0.3)`,
+        }}
+      >
+        {c.type}
+      </span>
+    </div>
   );
 }
 

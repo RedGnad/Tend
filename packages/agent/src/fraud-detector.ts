@@ -235,6 +235,7 @@ export async function checkFraud(
     return {
       id,
       tokenMint: campaign.tokenMint,
+      campaignType: campaign.type,
       traderWallet: event.traderWallet,
       swapTxSig: event.signature,
       swapVolumeLamports: volumeLamports,
@@ -278,6 +279,7 @@ export async function checkFraud(
     const decision: FraudDecision = {
       id,
       tokenMint: campaign.tokenMint,
+      campaignType: campaign.type,
       traderWallet: event.traderWallet,
       swapTxSig: event.signature,
       swapVolumeLamports: volumeLamports,
@@ -299,6 +301,7 @@ export async function checkFraud(
     return {
       id,
       tokenMint: campaign.tokenMint,
+      campaignType: campaign.type,
       traderWallet: event.traderWallet,
       swapTxSig: event.signature,
       swapVolumeLamports: volumeLamports,

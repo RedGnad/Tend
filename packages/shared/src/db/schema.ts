@@ -94,6 +94,7 @@ export const fraudDecisions = pgTable(
   {
     id: text("id").primaryKey(),
     tokenMint: text("token_mint").notNull(),
+    campaignType: text("campaign_type"), // "cashback"|"holder"|"sprint" — null for rows written before 2026-04-21
     traderWallet: text("trader_wallet").notNull(),
     swapTxSig: text("swap_tx_sig").notNull(),
     swapVolumeLamports: text("swap_volume_lamports").notNull(),

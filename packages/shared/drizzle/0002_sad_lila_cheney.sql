@@ -1,0 +1,1 @@
+ALTER TABLE "fraud_decisions" ADD COLUMN "campaign_type" text;
