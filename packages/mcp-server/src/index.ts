@@ -5,7 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { BagsClient, loadKeypair } from "@tend/shared";
 import { registerCampaignTools } from "./tools/campaigns.js";
-import { listCampaigns, getCampaignStats } from "./state/campaign-store.js";
+import { AgentClient } from "./agent-client.js";
 
 // All debug output to stderr (STDIO transport requirement)
 const log = (...args: unknown[]) => console.error("[tend]", ...args);
@@ -14,6 +14,8 @@ async function main() {
   const apiKey = process.env.BAGS_API_KEY;
   const rpcUrl = process.env.SOLANA_RPC_URL;
   const privateKey = process.env.TEND_PRIVATE_KEY;
+  const agentUrl =
+    process.env.TEND_AGENT_URL ?? "https://tend-agent.onrender.com";
 
   if (!apiKey || !rpcUrl || !privateKey) {
     log(
@@ -24,6 +26,7 @@ async function main() {
 
   const keypair = loadKeypair(privateKey);
   log(`Creator wallet: ${keypair.publicKey.toBase58()}`);
+  log(`Agent URL: ${agentUrl}`);
 
   const bags = new BagsClient({
     apiKey,
@@ -31,27 +34,29 @@ async function main() {
     privateKey: keypair,
   });
 
+  const agent = new AgentClient(bags, agentUrl);
+
   const server = new McpServer({
     name: "tend",
     version: "2.0.0",
   });
 
-  registerCampaignTools(server, bags, keypair.publicKey.toBase58());
+  registerCampaignTools(server, bags, keypair.publicKey.toBase58(), agent);
 
-  // ── Resource: current creator status ──
+  // ── Resource: current creator status (reads from the agent) ──
   server.resource("status", "tend://status", async (uri) => {
-    const campaigns = await listCampaigns();
+    const state = await agent.fetchState();
+    const campaigns = state.campaigns;
     const live = campaigns.filter((c) => c.status === "live").length;
     const paused = campaigns.filter((c) => c.status === "paused").length;
     const depleted = campaigns.filter((c) => c.status === "depleted").length;
 
-    let totalPaid = 0n;
-    let totalEarners = 0;
-    for (const c of campaigns) {
-      const s = await getCampaignStats(c.tokenMint);
-      totalPaid += BigInt(s.totalPaidLamports);
-      totalEarners += s.uniqueEarners;
-    }
+    const paid = state.rewardPayouts.filter((p) => p.status === "paid");
+    const totalPaid = paid.reduce(
+      (sum, p) => sum + BigInt(p.rewardLamports),
+      0n
+    );
+    const totalEarners = new Set(paid.map((p) => p.traderWallet)).size;
 
     return {
       contents: [
@@ -61,6 +66,7 @@ async function main() {
           text: [
             `Tend — Creator Console`,
             `Creator wallet: ${keypair.publicKey.toBase58()}`,
+            `Agent: ${agent.agentUrl}`,
             ``,
             `Campaigns: ${campaigns.length} total — ${live} live, ${paused} paused, ${depleted} depleted`,
             `Total paid out: ${(Number(totalPaid) / 1_000_000_000).toFixed(6)} SOL`,

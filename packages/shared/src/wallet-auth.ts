@@ -1,5 +1,6 @@
 import nacl from "tweetnacl";
 import bs58 from "bs58";
+import type { Keypair } from "@solana/web3.js";
 
 /**
  * Wallet-signed message protocol for creator-authenticated mutations.
@@ -50,6 +51,21 @@ export function parseAuthMessage(msg: string): AuthPayload | null {
 export function isTimestampFresh(ts: number, windowMs = AUTH_WINDOW_MS): boolean {
   const now = Date.now();
   return Math.abs(now - ts) <= windowMs;
+}
+
+/**
+ * Sign an auth message with a local Keypair. Mirrors the browser wallet-adapter
+ * `signMessage` path but server-side — used by self-hosted callers (MCP server,
+ * scripts) that hold the creator's secret key directly.
+ *
+ * Returns the base58-encoded ed25519 signature, ready to drop into the
+ * `{ message, signature, publicKey }` envelope that the agent HTTP handlers
+ * verify via `verifyWalletSignature`.
+ */
+export function signWalletMessage(message: string, keypair: Keypair): string {
+  const msgBytes = new TextEncoder().encode(message);
+  const sigBytes = nacl.sign.detached(msgBytes, keypair.secretKey);
+  return bs58.encode(sigBytes);
 }
 
 export function verifyWalletSignature(
