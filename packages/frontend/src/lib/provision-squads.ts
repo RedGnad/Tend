@@ -132,27 +132,56 @@ export async function provisionSquadsCustody(args: {
   onSig?.(sig);
 
   onStep?.("submitting");
-  const confRes = await fetch("/api/campaigns/provision-squads/confirm", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tokenMint,
-      type,
-      message,
-      signature: signatureB58,
-      publicKey: publicKeyB58,
-      multisigCreateKey,
-      vaultIndex,
-      spendingLimitCreateKey,
-      mergedTxSig: sig,
-      amountLamports: capLamports.toString(),
-      period,
-      campaignConfig,
-    }),
+  const confirmBody = JSON.stringify({
+    tokenMint,
+    type,
+    message,
+    signature: signatureB58,
+    publicKey: publicKeyB58,
+    multisigCreateKey,
+    vaultIndex,
+    spendingLimitCreateKey,
+    mergedTxSig: sig,
+    amountLamports: capLamports.toString(),
+    period,
+    campaignConfig,
   });
-  const conf = await confRes.json().catch(() => ({}));
-  if (!confRes.ok) {
-    throw new Error(conf.error || `Confirm failed (${confRes.status})`);
+
+  // The tx is already confirmed on-chain at this point. The backend /confirm
+  // call only persists the DB row — it's idempotent and safe to lose the
+  // response. Chrome surfaces transient fetch failures as ERR_NETWORK_CHANGED
+  // / "Failed to fetch" even when the proxy → agent hop succeeded; we've seen
+  // this in prod on fresh-launch tokens where /confirm took long enough to
+  // get its response truncated. Recovery: poll the canonical campaigns
+  // endpoint and match on `squadsAttachTxSig === sig` (unique per attempt).
+  let conf: {
+    multisigPda?: string;
+    vaultPda?: string;
+    spendingLimitPda?: string;
+  } = {};
+  try {
+    const confRes = await fetch("/api/campaigns/provision-squads/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: confirmBody,
+    });
+    const body = await confRes.json().catch(() => ({}));
+    if (!confRes.ok) {
+      throw new Error(body.error || `Confirm failed (${confRes.status})`);
+    }
+    conf = body;
+  } catch (confirmErr) {
+    const recovered = await pollForProvisionedCampaign({
+      wallet: publicKeyB58,
+      txSig: sig,
+      timeoutMs: 30_000,
+    });
+    if (!recovered) throw confirmErr;
+    conf = recovered;
+  }
+
+  if (!conf.multisigPda || !conf.vaultPda || !conf.spendingLimitPda) {
+    throw new Error("Confirm returned incomplete payload");
   }
 
   return {
@@ -161,4 +190,54 @@ export async function provisionSquadsCustody(args: {
     spendingLimitPda: conf.spendingLimitPda,
     signatures: [sig],
   };
+}
+
+async function pollForProvisionedCampaign(args: {
+  wallet: string;
+  txSig: string;
+  timeoutMs: number;
+}): Promise<{
+  multisigPda: string;
+  vaultPda: string;
+  spendingLimitPda: string;
+} | null> {
+  const deadline = Date.now() + args.timeoutMs;
+  let delay = 1000;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(
+        `/api/me/campaigns?wallet=${encodeURIComponent(args.wallet)}`,
+        { cache: "no-store" }
+      );
+      if (res.ok) {
+        const data = (await res.json()) as {
+          campaigns?: Array<{
+            squadsAttachTxSig?: string;
+            squadsMultisigPda?: string;
+            squadsVaultPda?: string;
+            squadsSpendingLimitPda?: string;
+          }>;
+        };
+        const hit = (data.campaigns ?? []).find(
+          (c) => c.squadsAttachTxSig === args.txSig
+        );
+        if (
+          hit?.squadsMultisigPda &&
+          hit.squadsVaultPda &&
+          hit.squadsSpendingLimitPda
+        ) {
+          return {
+            multisigPda: hit.squadsMultisigPda,
+            vaultPda: hit.squadsVaultPda,
+            spendingLimitPda: hit.squadsSpendingLimitPda,
+          };
+        }
+      }
+    } catch {
+      // swallow and retry until deadline
+    }
+    await new Promise((r) => setTimeout(r, delay));
+    delay = Math.min(Math.floor(delay * 1.5), 3000);
+  }
+  return null;
 }

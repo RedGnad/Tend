@@ -1123,21 +1123,6 @@ async function handleSquadsProvisionConfirm(
     return { status: 400, body: { error: validated.error } };
   }
 
-  // Best-effort Metaplex metadata fetch so the UI shows $SYMBOL instead of
-  // the mint prefix. Non-fatal: missing metadata account just means the
-  // frontend falls back to the truncated-mint display.
-  const tokenMetadata = await bags.getTokenMetadata(tokenMint).catch((err) => {
-    logError("[squads-confirm] getTokenMetadata failed (non-fatal):", err);
-    return null;
-  });
-  const tokenInfo =
-    tokenMetadata?.name || tokenMetadata?.symbol
-      ? {
-          name: tokenMetadata.name || tokenMetadata.symbol || "",
-          symbol: tokenMetadata.symbol || tokenMetadata.name || "",
-        }
-      : undefined;
-
   try {
     const result = await persistProvisionCommit(connection, {
       creatorWallet: publicKey,
@@ -1145,7 +1130,7 @@ async function handleSquadsProvisionConfirm(
       type,
       poolCapLamports: amount.toString(),
       campaignConfig: validated.config as Record<string, unknown>,
-      tokenInfo,
+      tokenInfo: undefined,
       multisigCreateKey: body.multisigCreateKey ?? null,
       vaultIndex,
       spendingLimitCreateKey,
@@ -1157,6 +1142,34 @@ async function handleSquadsProvisionConfirm(
     log(
       `[http] squads-confirm ${tokenMint.slice(0, 8)}/${type} vault[${vaultIndex}] SL ${result.spendingLimitPda.slice(0, 10)}`
     );
+
+    // Fire-and-forget Metaplex enrichment — kept off the critical path because
+    // a slow RPC hop on a freshly-launched token can blow the client fetch
+    // timeout (prod repro: ERR_NETWORK_CHANGED even though the DB write
+    // succeeded). Missing tokenInfo is non-fatal; the UI falls back to the
+    // truncated-mint display until the next poll.
+    void (async () => {
+      try {
+        const md = await bags.getTokenMetadata(tokenMint);
+        if (!md?.name && !md?.symbol) return;
+        await withStateLock(async (state) => {
+          const camp = state.campaigns?.find(
+            (c) => c.tokenMint === tokenMint && c.type === type
+          );
+          if (!camp || camp.tokenInfo) return;
+          camp.tokenInfo = {
+            name: md.name || md.symbol || "",
+            symbol: md.symbol || md.name || "",
+          };
+        });
+      } catch (err) {
+        logError(
+          `[squads-confirm] async metadata enrichment failed for ${tokenMint.slice(0, 8)}:`,
+          err
+        );
+      }
+    })();
+
     return { status: 200, body: { ok: true, ...result } };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
