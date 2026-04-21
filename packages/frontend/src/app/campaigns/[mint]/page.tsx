@@ -700,30 +700,36 @@ export default function CampaignDetailPage() {
       {connected &&
         publicKey?.toBase58() === campaign.creatorWallet && (
           <div className="mb-4 flex items-center justify-between gap-4 pl-3 pr-2 py-2 rounded-xl bg-[var(--bg-card)] border border-[rgba(0,255,178,0.15)]">
-            {/* Left: ownership + custody state */}
-            <div className="flex items-center gap-3 min-w-0">
-              <span className="flex items-center gap-1.5 text-[11px] text-[var(--text-secondary)] whitespace-nowrap">
-                <Shield size={12} className="text-[var(--accent)]" />
-                <span className="font-semibold text-[var(--text-primary)]">
-                  You own this campaign
-                </span>
+            {/* Left: ownership + custody state — one punchy line. The vault
+                chip *is* the trust anchor, so it gets the visual weight; the
+                ownership tag is reduced to a terse pill on its left. */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[rgba(0,255,178,0.08)] text-[var(--text-secondary)] whitespace-nowrap">
+                Your campaign
               </span>
-              <span className="hidden sm:block w-px h-4 bg-[var(--border)]" />
               {campaign.squadsSpendingLimitPda ? (
                 <span
-                  className="hidden sm:inline-flex items-center gap-1.5 text-[10px] font-mono tracking-wider px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
-                  title="Funds sit in an audited Squads vault. The agent can spend at most this amount per period — it cannot drain the pool beyond the cap."
+                  className="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
+                  title="Spend limits are enforced on-chain by the Squads program — the agent cannot withdraw beyond this cap even if its key is compromised."
                 >
-                  <Lock size={10} />
+                  <Lock size={11} />
                   <span>
-                    Agent capped ·{" "}
-                    {campaign.squadsSpendingLimitAmountLamports
-                      ? formatSol(campaign.squadsSpendingLimitAmountLamports)
-                      : "—"}{" "}
-                    SOL /{" "}
+                    Max{" "}
+                    <span className="font-mono font-semibold">
+                      {campaign.squadsSpendingLimitAmountLamports
+                        ? formatSol(campaign.squadsSpendingLimitAmountLamports)
+                        : "—"}{" "}
+                      SOL
+                    </span>{" "}
+                    /{" "}
                     {campaign.squadsSpendingLimitPeriod === "oneTime"
                       ? "total"
-                      : campaign.squadsSpendingLimitPeriod ?? "period"}
+                      : campaign.squadsSpendingLimitPeriod ?? "period"}{" "}
+                    payouts
+                    <span className="text-[var(--text-muted)]">
+                      {" "}
+                      · enforced by Squads vault
+                    </span>
                   </span>
                 </span>
               ) : (
