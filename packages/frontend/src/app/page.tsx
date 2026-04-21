@@ -440,7 +440,18 @@ export default function HomePage() {
 
   const all = campaigns ?? [];
   const live = all.filter((c) => c.status === "live");
-  const featured = live[0] ?? all[0];
+  // Curated featured slot: pin a specific (mint, type) via env. Defaults to
+  // $TEND cashback. Falls back to the first live campaign only if the pinned
+  // one is missing or not live, and to the first campaign overall as a last
+  // resort so the slot is never empty when any campaign exists.
+  const pinnedMint =
+    process.env.NEXT_PUBLIC_FEATURED_MINT ??
+    "6qa9oCypYpnWZyZNQ8v36eLbmWmcgHRv4MuU7BXQBAGS";
+  const pinnedType = process.env.NEXT_PUBLIC_FEATURED_TYPE ?? "cashback";
+  const pinned = live.find(
+    (c) => c.tokenMint === pinnedMint && c.type === pinnedType
+  );
+  const featured = pinned ?? live[0] ?? all[0];
   const others = all.filter((c) => c !== featured).slice(0, 3);
 
   return (
