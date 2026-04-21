@@ -38,7 +38,10 @@ npm run dev:agent       # Agent runtime
 - `packages/shared/src/db/` — Drizzle schema + Neon Postgres client (opt-in via `DATABASE_URL`; state.json remains default until migration lands)
 - `packages/mcp-server/src/services/orchestrator.ts` — Fee-share config management (on-chain first, state second)
 - `packages/mcp-server/src/state/` — StateManager (persists to `~/.tend/state.json`, unified wallet pool)
-- `packages/mcp-server/src/tools/` — MCP tools across 7 groups (21 tools, 2 prompts, 1 resource)
+- `packages/mcp-server/src/tools/` — 7 MCP tools (1 prompt, 1 resource) covering the creator workflow
+- `packages/shared/src/squads-client.ts` — Squads v4 PDA derivation, ix builders, SpendingLimit state reader (mandatory custody on the payout path)
+- `packages/agent/src/payout-executor.ts` — refuses any payout without a Squads ref (no legacy admin-transfer fallback)
+- `packages/agent/src/treasury-health.ts` — surplus check across all campaigns; scheduler gates accrual + withdrawals when the shared admin wallet runs low
 - `packages/agent/src/` — Buyback agent + fee claimer + scheduler
 
 ## Conventions

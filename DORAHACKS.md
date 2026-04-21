@@ -92,13 +92,22 @@ Tend is built entirely on the Bags platform:
 
 ---
 
+## Custody: Squads v4 SpendingLimit per campaign
+
+Pool funds don't sit in an agent-controlled hot wallet. Every campaign gets its own **Squads v4 vault** with a **SpendingLimit** attached, provisioned by the creator in-browser (1-of-1 multisig, creator is `configAuthority`). The agent is a vault member whose only authority is `spending_limit_use` — the per-period cap (`day` / `week` / `month` / `oneTime`) is enforced **on-chain by the Squads program**, not by Tend code.
+
+If the agent key leaks, blast radius is bounded to the cap. Payout executor **refuses** any campaign without a Squads ref — no legacy admin-transfer fallback. A half-provisioned campaign fails closed until setup is finished. The owner dashboard reads the SpendingLimit PDA live and shows `remaining` vs `cap` in real time.
+
+---
+
 ## Architecture
 
+- **Custody :** Squads v4 vault + SpendingLimit per campaign — agent authority capped by the program, revocable by the creator
 - **Agent :** Node.js scheduler with 2 core loops: fee claiming (every 30 min) and rewards distribution (every 2 min). Claude Haiku 4.5 fraud gate with Zod v4 structured outputs
 - **Frontend :** Next.js 15, Tailwind v4, embedded Birdeye charts + Jupiter swap, wallet-adapter (Phantom/Solflare)
 - **MCP Server :** 7 creator tools + 1 resource + 1 prompt, STDIO transport, callable from Claude Desktop (self-hosted)
 - **Multi-creator treasury :** one admin wallet shared across all campaigns, with a live solvency check (`/health`) that gates new accruals and refunds when the wallet runs low — creators can always withdraw their unused seed at any time
-- **Security :** AES-256-GCM encrypted wallet keys, file-level locking, bounded agent authority, fail-closed fraud gate
+- **Security :** Squads on-chain cap enforcement, fail-closed fraud gate, treasury solvency gate, AES-256-GCM encrypted wallet keys, file-level locking
 - **Infra :** Vercel (dashboard), Render (agent), live state bridge between the two
 
 **Try it now:** [https://tend-frontend.vercel.app](https://tend-frontend.vercel.app)

@@ -116,8 +116,8 @@ The MCP server is an optional shortcut for Claude Desktop users and exposes 7 op
 
 ```
 packages/
-  shared/       Types, Bags SDK wrapper, Solana utils, AES-256-GCM crypto
-  agent/        Fee claimer, rewards dispatcher, per-type triggers, fraud gate, payout executor
+  shared/       Types, Bags SDK wrapper, Solana utils, Squads v4 client, AES-256-GCM crypto
+  agent/        Fee claimer, rewards dispatcher, per-type triggers, fraud gate, payout executor, treasury-health
   mcp-server/   7 MCP tools (STDIO) — creator console (optional, self-hosted)
   frontend/     Next.js 15 dashboard + read-only API routes
 ```
@@ -125,6 +125,21 @@ packages/
 **Agent loop (2 ticks):**
 - `tickCampaignFeeClaims` (30 min) — claim Bags trading fees → grow campaign pools
 - `tickRewards` (2 min) — detect trades → fraud gate → accrue payouts → send SOL
+
+## Custody — Squads v4 SpendingLimit per campaign
+
+Every campaign's pool lives in its own **Squads v4 vault** with a **SpendingLimit** attached — not in an agent-controlled hot wallet. The agent is a vault member whose only authority is `spending_limit_use`, enforced **on-chain** by the Squads program:
+
+- Creator signs the vault + SpendingLimit provisioning in-browser (1-of-1 multisig, creator is `configAuthority`).
+- The SpendingLimit caps `amount` per `period` (`day` / `week` / `month` / `oneTime`).
+- Payout executor **refuses** any campaign without a Squads ref — no legacy admin-transfer fallback. A half-provisioned campaign fails closed until the creator finishes setup.
+- Even if the agent key leaks, blast radius is bounded to the per-period cap. Creator can revoke or remove the SpendingLimit directly via the Squads program.
+
+The owner dashboard reads the SpendingLimit PDA live and shows `remaining` vs `cap` in real time.
+
+## Treasury health — fail-closed solvency gate
+
+The shared Tend admin wallet is audited every 5 minutes: `balance − (pending payouts + refund obligations across all creators)`. If the surplus drops into the `low` or `critical` band, alerts fire and the scheduler blocks new accruals and withdrawals until the wallet is topped up. Treasury state is exposed publicly at `/health`.
 
 ## Quick start
 
@@ -138,11 +153,11 @@ npm run dev:agent        # Rewards agent
 
 ## Security
 
-- **AES-256-GCM** — service wallet keys encrypted at rest
-- **File-level locking** — mutex on state prevents concurrent corruption
-- **Intent chain** — prepare/submit flow with `prepareId` prevents replay
-- **Bounded agent** — payout-only authority within campaign budgets
-- **Fail-closed fraud gate** — every payout vetted before the on-chain leg
+- **Squads v4 custody** — campaign pools held in on-chain vaults with per-period SpendingLimits. Agent authority is capped by the program, not by Tend code. Mandatory on the payout path
+- **Treasury solvency gate** — `/health` audits surplus every 5 min across all creators' obligations; accruals and withdrawals stop fail-closed when the shared admin wallet goes into `low` / `critical`
+- **Fail-closed fraud gate** — every payout vetted by Claude Haiku before the on-chain leg; if the gate is down, payouts stop
+- **Intent chain** — prepare/submit flow with `prepareId` prevents replay; mutations are wallet-signed ed25519 messages with a ±5 min window
+- **AES-256-GCM** — service wallet keys encrypted at rest; concurrent-write contention retries up to 3× on SQLSTATE 40001
 
 ## Hackathon tracks
 
