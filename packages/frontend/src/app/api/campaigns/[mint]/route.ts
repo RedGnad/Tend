@@ -1,7 +1,19 @@
 import { NextResponse } from "next/server";
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getSpendingLimitState } from "@tend/shared";
 import { loadTendState } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
+
+// Cached across warm invocations on the same Vercel instance — cheap.
+let _conn: Connection | null = null;
+function getRpc(): Connection {
+  if (_conn) return _conn;
+  const url =
+    process.env.SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+  _conn = new Connection(url, "confirmed");
+  return _conn;
+}
 
 export async function GET(
   request: Request,
@@ -77,6 +89,31 @@ export async function GET(
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, 20);
 
+  // SpendingLimit live state (owner progress bar). Fail-silent: RPC hiccup
+  // shouldn't take down the whole campaign page — UI just hides the bar.
+  let spendingLimit: {
+    amountLamports: string;
+    remainingLamports: string;
+    lastResetSec: number;
+    period: string;
+  } | null = null;
+  if (campaign.squadsSpendingLimitPda) {
+    try {
+      const st = await getSpendingLimitState(
+        getRpc(),
+        new PublicKey(campaign.squadsSpendingLimitPda)
+      );
+      spendingLimit = {
+        amountLamports: st.amountLamports.toString(),
+        remainingLamports: st.remainingLamports.toString(),
+        lastResetSec: st.lastResetSec,
+        period: st.period,
+      };
+    } catch {
+      // Silent — campaign endpoint must stay resilient to Solana RPC flakiness.
+    }
+  }
+
   return NextResponse.json({
     campaign,
     adminWallet,
@@ -89,6 +126,7 @@ export async function GET(
       feesClaimedLamports: feesClaimedLamports.toString(),
       feeClaimCount: campaign.feeClaimCount ?? 0,
       lastFeeClaimAt: campaign.lastFeeClaimAt ?? null,
+      spendingLimit,
     },
     recentPayouts: payouts.slice(0, 20),
     fraudDecisions,

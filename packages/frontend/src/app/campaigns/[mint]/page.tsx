@@ -79,6 +79,12 @@ interface CampaignDetail {
     feesClaimedLamports?: string;
     feeClaimCount?: number;
     lastFeeClaimAt?: number | null;
+    spendingLimit?: {
+      amountLamports: string;
+      remainingLamports: string;
+      lastResetSec: number;
+      period: string;
+    } | null;
   };
   recentPayouts: RewardPayout[];
   fraudDecisions?: FraudDecision[];
@@ -709,26 +715,62 @@ export default function CampaignDetailPage() {
               Your campaign
             </span>
             {campaign.squadsSpendingLimitPda ? (
-              <span
-                className="hidden sm:inline-flex items-center gap-1.5 text-[11px] px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
-                title="Spend limits are enforced on-chain by the Squads program — the agent cannot withdraw beyond this cap even if its key is compromised."
-              >
-                <Lock size={11} />
-                <span>
-                  Max{" "}
-                  <span className="font-mono font-semibold">
-                    {campaign.squadsSpendingLimitAmountLamports
-                      ? formatSol(campaign.squadsSpendingLimitAmountLamports)
-                      : "—"}{" "}
-                    SOL
-                  </span>{" "}
-                  /{" "}
-                  {campaign.squadsSpendingLimitPeriod === "oneTime"
+              (() => {
+                const capLamports = stats.spendingLimit
+                  ? BigInt(stats.spendingLimit.amountLamports)
+                  : campaign.squadsSpendingLimitAmountLamports
+                    ? BigInt(campaign.squadsSpendingLimitAmountLamports)
+                    : 0n;
+                const remainingLamports = stats.spendingLimit
+                  ? BigInt(stats.spendingLimit.remainingLamports)
+                  : capLamports;
+                const usedLamports =
+                  capLamports > remainingLamports
+                    ? capLamports - remainingLamports
+                    : 0n;
+                const usedPct =
+                  capLamports > 0n
+                    ? Math.min(
+                        100,
+                        Number((usedLamports * 10000n) / capLamports) / 100,
+                      )
+                    : 0;
+                const periodLabel =
+                  campaign.squadsSpendingLimitPeriod === "oneTime"
                     ? "total"
-                    : (campaign.squadsSpendingLimitPeriod ?? "period")}{" "}
-                  payouts
-                </span>
-              </span>
+                    : (campaign.squadsSpendingLimitPeriod ?? "period");
+                return (
+                  <span
+                    className="hidden sm:inline-flex items-center gap-2 text-[11px] px-2 py-1 rounded-md bg-[var(--accent-dim)] text-[var(--accent)]"
+                    title="Spend limits are enforced on-chain by the Squads program — the agent cannot withdraw beyond this cap even if its key is compromised."
+                  >
+                    <Lock size={11} />
+                    <span>
+                      Max{" "}
+                      <span className="font-mono font-semibold">
+                        {formatSol(capLamports)} SOL
+                      </span>{" "}
+                      / {periodLabel}
+                    </span>
+                    {stats.spendingLimit && capLamports > 0n && (
+                      <>
+                        <span
+                          className="inline-block w-12 h-1 rounded-full overflow-hidden bg-[rgba(0,255,178,0.18)]"
+                          aria-hidden="true"
+                        >
+                          <span
+                            className="block h-full bg-[var(--accent)] transition-all"
+                            style={{ width: `${usedPct}%` }}
+                          />
+                        </span>
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)] whitespace-nowrap">
+                          {formatSol(usedLamports)} used
+                        </span>
+                      </>
+                    )}
+                  </span>
+                );
+              })()
             ) : (
               <button
                 onClick={() => {

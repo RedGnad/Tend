@@ -289,3 +289,74 @@ export function parseSquadsError(err: unknown): ParsedSquadsError {
 export function isSpendingLimitExceeded(err: unknown): boolean {
   return parseSquadsError(err).code === SQUADS_ERRORS.SpendingLimitExceeded;
 }
+
+// ──── SpendingLimit state reader ───────────────────────────────────────────
+
+const PERIOD_SECONDS: Record<SpendingPeriod, number> = {
+  oneTime: 0,
+  day: 86_400,
+  week: 604_800,
+  // Squads Month = 30 days (matches the program's constant).
+  month: 2_592_000,
+};
+
+function periodFromSquads(p: multisig.generated.Period): SpendingPeriod {
+  switch (p) {
+    case multisig.generated.Period.OneTime:
+      return "oneTime";
+    case multisig.generated.Period.Day:
+      return "day";
+    case multisig.generated.Period.Week:
+      return "week";
+    case multisig.generated.Period.Month:
+      return "month";
+  }
+}
+
+export interface SpendingLimitState {
+  amountLamports: bigint;
+  remainingLamports: bigint;
+  lastResetSec: number;
+  period: SpendingPeriod;
+}
+
+/**
+ * Reads a SpendingLimit PDA and applies the program's lazy-reset logic client-side:
+ * on-chain the counter only resets when `spending_limit_use` is invoked past the
+ * period boundary. Without replaying that, `remainingAmount` looks stale to a
+ * frontend after a reset has elapsed with no activity.
+ *
+ * Mirrors spending_limit_use.rs: if (now - lastReset) > periodSec, the window
+ * has rolled over and `remaining` is logically back to `amount`.
+ */
+export async function getSpendingLimitState(
+  connection: Connection,
+  spendingLimitPda: PublicKey
+): Promise<SpendingLimitState> {
+  const acct = await multisig.accounts.SpendingLimit.fromAccountAddress(
+    connection,
+    spendingLimitPda
+  );
+  const period = periodFromSquads(acct.period);
+  const amountLamports = BigInt(acct.amount.toString());
+  const rawRemaining = BigInt(acct.remainingAmount.toString());
+  const lastResetSec = Number(acct.lastReset.toString());
+
+  if (period === "oneTime") {
+    return { amountLamports, remainingLamports: rawRemaining, lastResetSec, period };
+  }
+
+  const periodSec = PERIOD_SECONDS[period];
+  const nowSec = Math.floor(Date.now() / 1000);
+  const passed = nowSec - lastResetSec;
+  if (passed > periodSec) {
+    const periodsPassed = Math.floor(passed / periodSec);
+    return {
+      amountLamports,
+      remainingLamports: amountLamports,
+      lastResetSec: lastResetSec + periodsPassed * periodSec,
+      period,
+    };
+  }
+  return { amountLamports, remainingLamports: rawRemaining, lastResetSec, period };
+}
