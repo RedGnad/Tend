@@ -103,13 +103,20 @@ export async function runRewardsDistributor(
   log(`[rewards] Dispatching ${payableCampaigns.length} live campaign(s)`);
 
   const poolWallets = (state.walletPool ?? []).map((w) => w.publicKey);
-  const excludeWallets = new Set<string>([
-    bags.keypair.publicKey.toBase58(),
-    ...liveCampaigns.map((c) => c.creatorWallet),
-    ...poolWallets,
-  ]);
+  const adminWallet = bags.keypair.publicKey.toBase58();
 
   for (const campaign of payableCampaigns) {
+    // Per-campaign exclusion set: only the CURRENT campaign's creator is
+    // anti-self-excluded. Excluding other creators globally would block a
+    // legitimate trader on campaign A just because they run campaign B on a
+    // different mint — which is how cashback stopped paying once a second
+    // campaign landed with the same creator wallet as the trader.
+    const excludeWallets = new Set<string>([
+      adminWallet,
+      campaign.creatorWallet,
+      ...poolWallets,
+    ]);
+
     try {
       if (campaign.type === "cashback") {
         const sinceTimestamp =
