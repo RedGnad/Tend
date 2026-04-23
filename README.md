@@ -23,7 +23,7 @@ Bags.fm collects trading fees  -->  Agent claims fees (every 30 min)
             Agent tick (every ~2 min)  -->  per-type trigger
             |-- cashback: scan new swaps on the mint
             |-- sprint: first N buyers get flat bonus
-            |-- holder: snapshot holders (hourly)
+            |-- holder: snapshot holders (cron, per-campaign)
                                            |
                                            v
                   Claude Haiku fraud gate  -->  allow / reject / hold
@@ -36,17 +36,16 @@ The creator seeds the pool at launch. Trading activity generates fees that the a
 
 ## On-chain proof
 
-24 real SOL payouts shipped across 3 campaign types on Solana mainnet. Every tx verifiable on Solscan:
+Real SOL payouts shipped across all 3 campaign types on Solana mainnet. Every tx verifiable on Solscan:
 
 | Campaign | Wallet | SOL | Tx |
 |---|---|---|---|
-| Cashback | `2ZEgCyxU...` | 0.000206 | [`uJXZXahd...`](https://solscan.io/tx/uJXZXahd2hXJSGg6LYoBKFMDXkrMbBdN221ojo1R8Przm2tShPZwLXSXzKY6YzrQfUYzFA58MU5q4ovFyoyiqf3) |
-| Cashback | `M5q9egYv...` | 0.060876 | [`3xJdN7th...`](https://solscan.io/tx/3xJdN7thAvRUYrsbb3kEJL9PNM32tKRZrrE1v7LCHAfs6PAaxwFPQKEMB2gupBLdZKDmqzvW3uc4bUuKuf2C8qni) |
-| Sprint | `8y2Eo1dk...` | 0.005 | [`4kdjsRMZ...`](https://solscan.io/tx/4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb) |
-| Holder | `zCu1hXVf...` | 0.00125 | [`2XBJQwE6...`](https://solscan.io/tx/2XBJQwE6hojePbBZ7fM4RpzitEAX9AsF4jUiw1Se311xysSoU5rQq63oMUGd57h2Pw95FbdWJJEWHh7NMvP6Ma56) |
-| Holder | `8y2Eo1dk...` | 0.00125 | [`5CZMNr3a...`](https://solscan.io/tx/5CZMNr3aRwifR17fx8EMRgiCQkv21AUxgGqcERfdTuExtuG923UadpkuXrPm5nkVgkadcLh6hHj7bFnBppoQAgMr) |
+| Cashback | `8y2Eo1dk...` | 0.000253 | [`2BNSRBvt...`](https://solscan.io/tx/2BNSRBvtoeWzQiBx3uss9sqG7o6WybZ3kejfB8WWZsZzqkatMDrRiVneuPZYjxSPupmP5SQ2LBKq9kgSbSyuWEvm) |
+| Cashback | `8y2Eo1dk...` | 0.000251 | [`3y8AQmqX...`](https://solscan.io/tx/3y8AQmqXByQqTPMUFuQCVfx6zxa1XFZhjFpqo2mowgQFVVuo8kkvDUEk9LnKVK1JuZTKcKYdLwiU2Z1hUpBFHhsv) |
+| Sprint | `zCu1hXVf...` | 0.002000 | [`4d2VUkvb...`](https://solscan.io/tx/4d2VUkvbKVW42X3bggDVAyiAMCZUCQiibY2gxzrewmvBpJNxR7KGgs8RRhxkrY6ZfPR1n4iubUkcQVyf4sU8wjsE) |
+| Holder | `zCu1hXVf...` | 0.000125 | [`5rBgfA1s...`](https://solscan.io/tx/5rBgfA1s7ddex96pbZ7Qfyio6VuVAvi9MX681AivLhG6LMri7NSJFBz4bSspT3KYYPWQigZVeELAGewVwY9mgqfM) |
 
-8 AI fraud decisions logged (6 allowed, 1 rejected, 1 held).
+AI fraud decisions logged with structured reasoning — every payout passes the gate before SOL moves.
 
 ## Campaign types
 
@@ -62,17 +61,17 @@ All three share the same infrastructure: Bags fee claiming, Claude fraud gate, S
 
 Every payout passes through Claude Haiku 4.5 before SOL moves on-chain. The gate returns `allow / reject / hold` with structured reasoning. If the gate says no, no SOL moves. If the gate is down, payouts stop.
 
-**Same campaign, same gate, opposite verdicts:**
+**Example verdict pattern — same campaign, opposite reasoning:**
 
-A 6-day-old wallet with 6 transactions bought $TEND during the launch sprint. Claude blocked it:
+A fresh wallet (days-old, handful of transactions) trying to claim a sprint bonus:
 
-> *"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping."*
+> *"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping."*  → **blocked**
 
-A 1090-day-old wallet with 1000+ transactions made the same trade. Claude allowed it:
+A long-established wallet claiming the same bonus:
 
-> *"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign."*
+> *"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign."*  → **allowed**
 
-Result: 0.005 SOL bonus shipped. Bot got nothing.
+Every verdict is persisted with its inputs and reasoning, and drives whether SOL moves.
 
 ## Bags API integration
 
@@ -89,7 +88,7 @@ Tend is built entirely on the Bags.fm platform:
 |---|---|---|---|
 | **Fraud gate** | Claude Haiku 4.5 | Every payout | Structured `allow/reject/hold` with reasoning. Blocks sybils, snipe bots, wash traders |
 
-Uses Zod v4 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
+Uses Zod v3 structured outputs. Decision logs persisted with full inputs, reasoning, and outcome. Fail-closed: if the AI is unreachable, payouts stop.
 
 **Creator controls** — creators sign campaign lifecycle events (create, pause, resume, topup, route-fees, withdraw) directly from the web app at `/creator` and `/campaigns/[mint]`. Each mutation is a wallet ed25519 signature over `tend:<action>:<mint>:<type>:<ts>` (±5 min window, anti-replay via txSig), funded by an on-chain SOL transfer the agent verifies before applying state. Token ownership is checked against `getTokenCreators` before any campaign create succeeds, so a wallet can only operate on mints it owns or admins on Bags. Unused pool seed is refundable at any time via a creator-signed withdraw action — the agent verifies treasury solvency across all creators before releasing funds.
 
@@ -106,7 +105,7 @@ The MCP server is an optional shortcut for Claude Desktop users and exposes 7 op
 ## Stack
 
 - **Monorepo**: npm workspaces (`shared`, `agent`, `mcp-server`, `frontend`)
-- **AI**: Claude Haiku 4.5 + `@anthropic-ai/sdk` + Zod v4 structured outputs
+- **AI**: Claude Haiku 4.5 + `@anthropic-ai/sdk` + Zod v3 structured outputs
 - **Solana**: `@solana/web3.js` + `@bagsfm/bags-sdk`
 - **MCP**: `@modelcontextprotocol/sdk` (STDIO transport)
 - **Frontend**: Next.js 15, Tailwind CSS v4, wallet-adapter

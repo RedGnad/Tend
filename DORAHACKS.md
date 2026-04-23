@@ -42,15 +42,15 @@ Most "AI" crypto projects use AI for chatbots or analytics dashboards. In Tend, 
 
 Every single payout passes through a **AI fraud gate** before any SOL leaves the pool. **The gate analyzes** wallet age, transaction history, and payout patterns, then returns allow / reject / hold with written reasoning.
 
-**Real example, same launch campaign, opposite verdicts:**
+**Example verdict pattern — same campaign, opposite reasoning:**
 
-A 6-day-old wallet with 6 transactions tried to claim a sprint bonus. Claude blocked it:
+A fresh wallet (days-old, handful of transactions) trying to claim a sprint bonus gets blocked:
 ***"Wallet is 6 days old with only 6 total transactions, just below the 7-day organic threshold. Launch sprint campaigns are high-risk for sniping."***
 
-A 3-year-old wallet with 1000+ transactions claimed the same bonus. Claude approved it:
+A long-established wallet with real history claims the same bonus and gets through:
 ***"Wallet shows strong legitimacy signals: well-established on-chain history, active transaction count, no previous payouts on this campaign."***
 
-Result: Legitimate trader got 0.005 SOL. Bot got nothing. **Pool protected.**
+Same gate, same campaign, deterministic reasoning — every verdict is persisted with its inputs.
 
 ---
 
@@ -58,11 +58,11 @@ Result: Legitimate trader got 0.005 SOL. Bot got nothing. **Pool protected.**
 
 Every payout is verifiable on Solscan:
 
-- **Cashback:** 0.060876 SOL to M5q9egYv... — [https://solscan.io/tx/3xJdN7thAvRUYrsbb3kEJL9PNM32tKRZrrE1v7LCHAfs6PAaxwFPQKEMB2gupBLdZKDmqzvW3uc4bUuKuf2C8qni](https://solscan.io/tx/3xJdN7thAvRUYrsbb3kEJL9PNM32tKRZrrE1v7LCHAfs6PAaxwFPQKEMB2gupBLdZKDmqzvW3uc4bUuKuf2C8qni)
-- **Sprint:** 0.005 SOL to 8y2Eo1dk... — [https://solscan.io/tx/4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb](https://solscan.io/tx/4kdjsRMZParkWSLKdthLqu3VVfJEL4pXC9evs7WXshcPR8pZ2TmjMpGqqvvBkGiWQYMk17W2qxWVdDREc3guaFFb)
-- **Holder:** 0.00125 SOL to zCu1hXVf... — [https://solscan.io/tx/2XBJQwE6hojePbBZ7fM4RpzitEAX9AsF4jUiw1Se311xysSoU5rQq63oMUGd57h2Pw95FbdWJJEWHh7NMvP6Ma56](https://solscan.io/tx/2XBJQwE6hojePbBZ7fM4RpzitEAX9AsF4jUiw1Se311xysSoU5rQq63oMUGd57h2Pw95FbdWJJEWHh7NMvP6Ma56)
+- **Cashback:** 0.000253 SOL to 8y2Eo1dk... — [https://solscan.io/tx/2BNSRBvtoeWzQiBx3uss9sqG7o6WybZ3kejfB8WWZsZzqkatMDrRiVneuPZYjxSPupmP5SQ2LBKq9kgSbSyuWEvm](https://solscan.io/tx/2BNSRBvtoeWzQiBx3uss9sqG7o6WybZ3kejfB8WWZsZzqkatMDrRiVneuPZYjxSPupmP5SQ2LBKq9kgSbSyuWEvm)
+- **Sprint:** 0.002 SOL to zCu1hXVf... — [https://solscan.io/tx/4d2VUkvbKVW42X3bggDVAyiAMCZUCQiibY2gxzrewmvBpJNxR7KGgs8RRhxkrY6ZfPR1n4iubUkcQVyf4sU8wjsE](https://solscan.io/tx/4d2VUkvbKVW42X3bggDVAyiAMCZUCQiibY2gxzrewmvBpJNxR7KGgs8RRhxkrY6ZfPR1n4iubUkcQVyf4sU8wjsE)
+- **Holder:** 0.000125 SOL to zCu1hXVf... — [https://solscan.io/tx/5rBgfA1s7ddex96pbZ7Qfyio6VuVAvi9MX681AivLhG6LMri7NSJFBz4bSspT3KYYPWQigZVeELAGewVwY9mgqfM](https://solscan.io/tx/5rBgfA1s7ddex96pbZ7Qfyio6VuVAvi9MX681AivLhG6LMri7NSJFBz4bSspT3KYYPWQigZVeELAGewVwY9mgqfM)
 
-24 payouts total across 3 campaign types. 8 AI fraud decisions logged.
+Payouts flowing live across all 3 campaign types. Every one pre-cleared by the AI fraud gate with structured reasoning.
 
 ---
 
@@ -103,7 +103,7 @@ If the agent key leaks, blast radius is bounded to the cap. Payout executor **re
 ## Architecture
 
 - **Custody :** Squads v4 vault + SpendingLimit per campaign — agent authority capped by the program, revocable by the creator
-- **Agent :** Node.js scheduler with 2 core loops: fee claiming (every 30 min) and rewards distribution (every 2 min). Claude Haiku 4.5 fraud gate with Zod v4 structured outputs
+- **Agent :** Node.js scheduler with 2 core loops: fee claiming (every 30 min) and rewards distribution (every 2 min). Claude Haiku 4.5 fraud gate with Zod v3 structured outputs
 - **Frontend :** Next.js 15, Tailwind v4, embedded Birdeye charts + Jupiter swap, wallet-adapter (Phantom/Solflare)
 - **MCP Server :** 7 creator tools + 1 resource + 1 prompt, STDIO transport, callable from Claude Desktop (self-hosted)
 - **Multi-creator treasury :** one admin wallet shared across all campaigns, with a live solvency check (`/health`) that gates new accruals and refunds when the wallet runs low — creators can always withdraw their unused seed at any time
