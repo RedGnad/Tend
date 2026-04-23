@@ -424,6 +424,44 @@ export default function CreatorPage() {
 
   const TypeIcon = TYPE_INFO[form.type].icon;
 
+  // Payability check — MIN_REWARD_LAMPORTS is 100_000 (0.0001 SOL) in every
+  // agent trigger. If the config can't guarantee a per-payout share above that
+  // floor, payouts silently skip. We surface the condition here so the creator
+  // knows before they sign.
+  const MIN_PAYOUT_SOL = 0.0001;
+  const payabilityWarning = ((): string | null => {
+    const pool = parseFloat(form.poolCapSol);
+    if (form.type === "cashback") {
+      const pct = parseFloat(form.cashbackPct);
+      if (!Number.isFinite(pct) || pct <= 0) return null;
+      const minPayableSwap = MIN_PAYOUT_SOL / (pct / 100);
+      const floor = parseFloat(form.cashbackMinSwapSol) || 0;
+      if (minPayableSwap > floor + 1e-9) {
+        return `Buys under ${minPayableSwap.toFixed(4)} SOL skip payout. Raise the floor or the %.`;
+      }
+      return null;
+    }
+    if (form.type === "holder") {
+      const pct = parseFloat(form.rewardPct);
+      if (!Number.isFinite(pool) || !Number.isFinite(pct) || pool <= 0 || pct <= 0) return null;
+      const budget = pool * (pct / 100);
+      const maxPayees = Math.floor(budget / MIN_PAYOUT_SOL);
+      if (maxPayees < 2) {
+        return `Budget ${budget.toFixed(6)} SOL/snap pays ${maxPayees} holder max. Beyond that, shares fall below the 0.0001 SOL floor and skip.`;
+      }
+      return null;
+    }
+    if (form.type === "sprint") {
+      const bonus = parseFloat(form.bonusSol);
+      if (!Number.isFinite(bonus)) return null;
+      if (bonus < MIN_PAYOUT_SOL) {
+        return `Bonus is below the 0.0001 SOL payout floor. Winners won’t be paid.`;
+      }
+      return null;
+    }
+    return null;
+  })();
+
   return (
     <div className="max-w-[960px] mx-auto px-6 py-16">
       {/* Hero */}
@@ -1057,6 +1095,16 @@ export default function CreatorPage() {
                     className="w-full bg-[var(--bg)] border border-[var(--border)] rounded-lg px-4 py-3 text-[13px] font-mono focus:outline-none focus:border-[var(--accent)] transition-colors"
                   />
                 </div>
+              </div>
+            )}
+
+            {/* Payability warning — silent-skip prevention */}
+            {payabilityWarning && (
+              <div className="mb-4 rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                <span className="font-semibold text-[var(--text-primary)]">
+                  Min payout.
+                </span>{" "}
+                {payabilityWarning}
               </div>
             )}
 
