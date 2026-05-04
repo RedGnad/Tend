@@ -9,11 +9,11 @@ import {
   TrendingUp,
   Gift,
   Sparkles,
-  ShieldCheck,
   Coins,
   Trophy,
 } from "lucide-react";
 import type { Campaign } from "@tend/shared";
+import { HeroScene } from "@/components/hero-scene";
 
 type CampaignWithStats = Campaign & {
   stats: {
@@ -406,12 +406,12 @@ function StatsBar({ stats }: { stats: GlobalStats | null }) {
           <div className="w-10 h-10 rounded-xl bg-[var(--accent-dim)] flex items-center justify-center flex-shrink-0">
             <it.icon size={16} className="text-[var(--accent)]" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider">
               {it.label}
             </p>
-            <p className="text-xl font-bold font-mono truncate">
-              {it.value}{" "}
+            <p className="mt-1 flex items-baseline gap-2 text-xl font-bold font-mono tabular-nums leading-none">
+              <span>{it.value}</span>
               <span className="text-[11px] font-normal text-[var(--text-muted)] font-sans">
                 {it.suffix}
               </span>
@@ -457,36 +457,31 @@ export default function HomePage() {
   return (
     <div className="max-w-[1080px] mx-auto px-6">
       {/* Hero */}
-      <section className="pt-20 pb-10 text-center relative">
+      <section className="pb-10 text-center relative overflow-visible">
         <div className="absolute top-10 left-1/2 -translate-x-1/2 w-[700px] h-[500px] rounded-full blur-[160px] bg-[var(--accent)] opacity-[0.06] pointer-events-none" />
 
-        <div className="relative">
-          <div className="inline-flex items-center gap-2 flex-wrap justify-center mb-7">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-[var(--border)] text-[11px] text-[var(--text-muted)] font-mono uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shadow-[0_0_6px_var(--accent)]" />
-              Live on Solana Mainnet
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-[rgba(0,255,178,0.2)] bg-[var(--accent-dim)] text-[11px] text-[var(--accent)] font-mono uppercase tracking-wider">
-              <ShieldCheck size={11} />
-              AI-protected payouts
-            </span>
+        <div className="relative z-10">
+          <div className="min-h-[calc(100svh-82px)] pt-[4svh] flex flex-col items-center">
+            <div className="mx-auto mb-10 h-[310px] w-full max-w-[900px] md:h-[min(430px,42svh)]">
+              <HeroScene />
+            </div>
+
+            <h1 className="text-[clamp(2.4rem,5.4vw,4rem)] font-bold font-display tracking-tight leading-[1.05] mb-9 max-w-[820px] mx-auto">
+              <CyclingWord words={["Trade", "Hold", "Sprint"]} /> Bags tokens.
+              <br />
+              Earn <span className="gradient-text">real SOL</span>.
+            </h1>
+
+            <div className="text-[17px] text-[var(--text-secondary)] leading-[1.65] max-w-[640px] mx-auto space-y-2">
+              <p>Creators fund the rewards from their Bags fees.</p>
+              <p>
+                Three ways to earn: Trade, Hold, Sprint and participate
+                campaigns. All paid in SOL, straight to your wallet.
+              </p>
+            </div>
           </div>
 
-          <h1 className="text-[clamp(2.4rem,5.4vw,4rem)] font-bold font-display tracking-tight leading-[1.05] mb-6 max-w-[820px] mx-auto">
-            <CyclingWord words={["Trade", "Hold", "Sprint"]} /> Bags tokens.
-            <br />
-            Earn <span className="gradient-text">real SOL</span>.
-          </h1>
-
-          <div className="text-[17px] text-[var(--text-secondary)] leading-[1.65] max-w-[640px] mx-auto mb-9 space-y-2">
-            <p>Creators fund the rewards from their Bags fees.</p>
-            <p>
-              Three ways to earn: Trade, Hold, Sprint and participate campains.
-              All paid in SOL, straight to your wallet.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-center gap-3 flex-wrap mb-12">
+          <div className="mt-8 flex items-center justify-center gap-3 flex-wrap mb-12">
             <Link
               href="/campaigns"
               className="gradient-btn px-7 py-3.5 rounded-xl text-[15px] font-semibold inline-flex items-center gap-2"

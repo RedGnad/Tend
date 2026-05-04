@@ -61,10 +61,11 @@ function NavLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className={`text-[13px] transition-colors ${
+      aria-current={active ? "page" : undefined}
+      className={`relative rounded-md px-3.5 py-2 text-[13px] font-medium transition-all duration-200 ${
         active
-          ? "text-[var(--text)] font-medium"
-          : "text-[var(--text-muted)] hover:text-[var(--text)]"
+          ? "bg-white/[0.065] text-[var(--text)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.07)]"
+          : "text-[var(--text-secondary)] hover:bg-white/[0.045] hover:text-[var(--text)]"
       }`}
     >
       {label}
@@ -76,7 +77,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
       <nav className="sticky top-0 z-50 bg-[#060606]/80 backdrop-blur-xl border-b border-[var(--border)]">
-        <div className="max-w-[1080px] mx-auto px-6 h-14 flex items-center justify-between">
+        <div className="max-w-[1080px] mx-auto px-6 py-2 md:py-0 md:h-14 relative flex flex-wrap items-center justify-between gap-y-2">
           <Link
             href="/"
             className="flex items-center gap-2 flex-shrink-0"
@@ -86,7 +87,7 @@ export function LayoutShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
 
-          <div className="hidden md:flex items-center gap-6">
+          <div className="order-3 flex w-full items-center justify-center gap-1 rounded-lg border border-white/[0.075] bg-white/[0.035] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)] md:order-none md:absolute md:left-1/2 md:top-1/2 md:w-auto md:-translate-x-1/2 md:-translate-y-1/2">
             <NavLink href="/campaigns" label="Campaigns" />
             <NavLink href="/me" label="Rewards" />
             <NavLink href="/creator" label="For creators" />
